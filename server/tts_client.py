@@ -1,0 +1,205 @@
+"""TTS client for KCD2 AI NPC server."""
+
+import asyncio
+import logging
+import os
+import tempfile
+import threading
+import time
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+_pygame_ready = False
+_pygame_lock = threading.Lock()
+
+
+def _init_pygame(volume: float = 1.0):
+    global _pygame_ready
+    try:
+        import pygame
+        with _pygame_lock:
+            if not _pygame_ready:
+                pygame.mixer.init(frequency=22050, size=-16, channels=1, buffer=512)
+                _pygame_ready = True
+            pygame.mixer.music.set_volume(max(0.0, min(1.0, volume)))
+    except Exception as e:
+        logger.warning(f"pygame init failed: {e}")
+
+
+def _play_file(path: str, volume: float = 1.0):
+    try:
+        import pygame
+        _init_pygame(volume)
+        # Hold the lock only for the load/play handoff; release before the
+        # busy-wait so a second TTS thread is not serialized on top of an
+        # already-finished playback. pygame.mixer.music itself is a singleton
+        # channel, so concurrent plays would still preempt each other, but
+        # in practice replies arrive sequentially with gaps and the lock was
+        # the dominant cause of perceived voice queueing.
+        t_play_start = time.perf_counter()
+        with _pygame_lock:
+            pygame.mixer.music.load(path)
+            pygame.mixer.music.set_volume(volume)
+            pygame.mixer.music.play()
+        logger.info(f"TTS play started in {(time.perf_counter()-t_play_start)*1000:.0f} ms")
+        while True:
+            try:
+                if not pygame.mixer.music.get_busy():
+                    break
+            except Exception:
+                break
+            time.sleep(0.05)
+    except Exception as e:
+        logger.error(f"Audio playback failed: {e}")
+    finally:
+        try:
+            os.unlink(path)
+        except Exception:
+            pass
+
+
+def warmup(volume: float = 1.0) -> None:
+    """Initialize pygame mixer eagerly to remove cold-start delay on first reply."""
+    _init_pygame(volume)
+
+
+class TTSClient:
+    def __init__(self, config):
+        self.config = config
+        self._output_dir = Path(config.output_dir)
+        self._output_dir.mkdir(parents=True, exist_ok=True)
+
+    def _is_female(self, gender: int | None) -> bool:
+        return gender == 2
+
+    async def speak(self, text: str, gender: int | None = None) -> None:
+        """Fire-and-forget speak: swallows engine errors after logging
+        so a failing TTS does not crash chat handling."""
+        try:
+            await self._synth_and_play(text, gender)
+        except Exception as e:
+            logger.error(f"TTS speak failed [{self.config.engine}]: {e}")
+
+    async def _synth_and_play(self, text: str, gender: int | None = None) -> None:
+        """Engine dispatch that propagates errors to the caller."""
+        if not self.config.enabled or not text.strip():
+            return
+        if self.config.engine == "edge":
+            await self._speak_edge(text, gender)
+        elif self.config.engine == "elevenlabs":
+            await self._speak_elevenlabs(text, gender)
+        elif self.config.engine == "openai":
+            await self._speak_openai(text, gender)
+        else:
+            raise RuntimeError(f"Unknown TTS engine: {self.config.engine}")
+
+    async def _speak_edge(self, text: str, gender: int | None = None) -> None:
+        try:
+            import edge_tts
+        except ImportError as e:
+            raise RuntimeError("edge-tts not installed. Run: pip install edge-tts") from e
+        is_female = self._is_female(gender)
+        voice = (self.config.voice_female if is_female and self.config.voice_female else self.config.voice)
+        if not (voice or "").strip():
+            raise RuntimeError("Edge TTS voice is empty")
+        tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+        tmp.close()
+        t0 = time.perf_counter()
+        communicate = edge_tts.Communicate(text, voice)
+        await communicate.save(tmp.name)
+        logger.info(f"edge-tts synth in {(time.perf_counter()-t0)*1000:.0f} ms, chars={len(text)}, gender={gender}, voice={voice}")
+        thread = threading.Thread(
+            target=_play_file, args=(tmp.name, self.config.volume), daemon=True
+        )
+        thread.start()
+
+    async def _speak_elevenlabs(self, text: str, gender: int | None = None) -> None:
+        api_key = self.config.elevenlabs_api_key
+        if not api_key:
+            raise RuntimeError("ElevenLabs API key not set")
+        is_female = self._is_female(gender)
+        voice_id = (self.config.elevenlabs_voice_female if is_female and self.config.elevenlabs_voice_female else self.config.elevenlabs_voice) or "21m00Tcm4TlvDq8ikWAM"
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+        payload = {
+            "text": text,
+            "model_id": "eleven_multilingual_v2",
+            "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
+        }
+        headers = {
+            "xi-api-key": api_key,
+            "Content-Type": "application/json",
+            "Accept": "audio/mpeg",
+        }
+        import aiohttp
+        t0 = time.perf_counter()
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, headers=headers) as resp:
+                if resp.status != 200:
+                    body = await resp.text()
+                    raise RuntimeError(f"ElevenLabs HTTP {resp.status}: {body[:200]}")
+                audio_bytes = await resp.read()
+        logger.info(f"elevenlabs synth in {(time.perf_counter()-t0)*1000:.0f} ms, chars={len(text)}, gender={gender}, voice={voice_id}")
+        tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+        tmp.write(audio_bytes)
+        tmp.close()
+        thread = threading.Thread(
+            target=_play_file, args=(tmp.name, self.config.volume), daemon=True
+        )
+        thread.start()
+
+    async def _speak_openai(self, text: str, gender: int | None = None) -> None:
+        api_key = self.config.openai_api_key
+        if not api_key:
+            raise RuntimeError("OpenAI TTS API key not set")
+        url = "https://api.openai.com/v1/audio/speech"
+        is_female = self._is_female(gender)
+        voice = (self.config.openai_voice_female if is_female and self.config.openai_voice_female else self.config.openai_voice) or "onyx"
+        payload = {
+            "model": "tts-1",
+            "input": text,
+            "voice": voice,
+        }
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        import aiohttp
+        t0 = time.perf_counter()
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, headers=headers) as resp:
+                if resp.status != 200:
+                    body = await resp.text()
+                    raise RuntimeError(f"OpenAI TTS HTTP {resp.status}: {body[:200]}")
+                audio_bytes = await resp.read()
+        logger.info(f"openai-tts synth in {(time.perf_counter()-t0)*1000:.0f} ms, chars={len(text)}, gender={gender}, voice={voice}")
+        tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+        tmp.write(audio_bytes)
+        tmp.close()
+        thread = threading.Thread(
+            target=_play_file, args=(tmp.name, self.config.volume), daemon=True
+        )
+        thread.start()
+
+    _TEST_PHRASES = {
+        "ru": "Здравствуй, путник. Чем могу помочь?",
+        "en": "Hello, traveller. How can I help you?",
+        "cs": "Dobrý den, poutníče. Jak vám mohu pomoci?",
+        "de": "Guten Tag, Reisender. Wie kann ich Euch helfen?",
+        "fr": "Bonjour, voyageur. Comment puis-je vous aider?",
+        "es": "Hola, viajero. ¿En qué puedo ayudarle?",
+        "pl": "Witaj, wędrowcze. Jak mogę ci pomóc?",
+        "zh": "你好，旅行者。我能帮你什么？",
+        "ja": "こんにちは、旅人よ。何かお役に立てますか？",
+    }
+
+    async def test(self, text: str = "") -> str:
+        if not text:
+            lang = getattr(self.config, '_server_language', 'en')
+            text = self._TEST_PHRASES.get(lang, self._TEST_PHRASES["en"])
+        if not self.config.enabled:
+            raise RuntimeError("TTS disabled")
+        # Use the raising path so the UI surfaces real engine failures
+        # (missing API key, HTTP error, voice not installed, etc.).
+        await self._synth_and_play(text)
+        return "ok"

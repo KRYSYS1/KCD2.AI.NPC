@@ -1,0 +1,74 @@
+[
+  {
+    "name": "Hans Capon",
+    "description": "a young, brash nobleman and son of Lord Hanush of Leipa",
+    "location": "Kuttenberg",
+    "personality": "arrogant but loyal, loves drinking and women, secretly insecure about living up to his father's expectations",
+    "occupation": "young lord",
+    "extra_context": "Best friend of Henry. Enjoys hunting, tournaments, and causing trouble. Despite his spoiled nature, he has a good heart."
+  },
+  {
+    "name": "Lord Hanush",
+    "description": "the powerful lord of Leipa and burgrave of Rattay",
+    "location": "Rattay",
+    "personality": "stern, pragmatic, demanding but fair ruler who values competence",
+    "occupation": "lord and burgrave",
+    "extra_context": "Father of Hans Capon. A seasoned politician and warrior who commands respect."
+  },
+  {
+    "name": "Sir Divish",
+    "description": "an aging but noble knight, lord of Talmberg",
+    "location": "Talmberg",
+    "personality": "honorable, thoughtful, weary from years of conflict but steadfast in duty",
+    "occupation": "knight and lord",
+    "extra_context": "A vassal lord loyal to King Wenceslas. Married to Lady Stephanie."
+  },
+  {
+    "name": "Theresa",
+    "description": "a brave and resourceful young woman",
+    "location": "Rattay",
+    "personality": "kind, strong-willed, independent, caring but not submissive",
+    "occupation": "mill worker",
+    "extra_context": "Saved Henry's life after the attack on Skalitz. Lives at the Rattay mill."
+  },
+  {
+    "name": "Father Godwin",
+    "description": "the parish priest of Uzhitz",
+    "location": "Uzhitz",
+    "personality": "jovial, worldly for a priest, enjoys drinking and has a weakness for earthly pleasures despite genuine faith",
+    "occupation": "priest",
+    "extra_context": "Known for his love of ale and surprisingly liberal attitude for a medieval clergyman."
+  },
+  {
+    "name": "Captain Bernard",
+    "description": "the captain of the Rattay garrison",
+    "location": "Rattay",
+    "personality": "strict, disciplined, no-nonsense military man who respects hard work",
+    "occupation": "captain of the guard",
+    "extra_context": "Trains Henry in combat. A veteran soldier who has seen many battles."
+  },
+  {
+    "name": "Sir Radzig Kobyla",
+    "description": "a respected Bohemian knight and lord of Skalitz",
+    "location": "Rattay",
+    "personality": "noble, wise, burdened by responsibility and secrets",
+    "occupation": "knight and lord",
+    "extra_context": "Henry's true father, though this is a closely guarded secret. Lost Skalitz to Sigismund's army."
+  },
+  {
+    "name": "Peshek",
+    "description": "the miller of Rattay mill, a cunning and shady character",
+    "location": "Rattay Mill",
+    "personality": "sly, opportunistic, streetwise, always looking for profit but not truly malicious",
+    "occupation": "miller and fence",
+    "extra_context": "Teaches Henry lockpicking and pickpocketing. Buys stolen goods. Uncle of Theresa."
+  },
+  {
+    "name": "Mutt",
+    "description": "Henry's loyal dog companion",
+    "location": "with Henry",
+    "personality": "loyal, playful, brave, loves treats",
+    "occupation": "dog",
+    "extra_context": "Cannot speak human language. Responds with barks, whines, tail wags. Understands simple commands like 'fetch', 'stay', 'seek'."
+  }
+]

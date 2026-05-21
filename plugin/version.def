@@ -1,0 +1,18 @@
+LIBRARY version
+EXPORTS
+    GetFileVersionInfoA      = impl_GetFileVersionInfoA
+    GetFileVersionInfoW      = impl_GetFileVersionInfoW
+    GetFileVersionInfoExA    = impl_GetFileVersionInfoExA
+    GetFileVersionInfoExW    = impl_GetFileVersionInfoExW
+    GetFileVersionInfoSizeA  = impl_GetFileVersionInfoSizeA
+    GetFileVersionInfoSizeW  = impl_GetFileVersionInfoSizeW
+    GetFileVersionInfoSizeExA = impl_GetFileVersionInfoSizeExA
+    GetFileVersionInfoSizeExW = impl_GetFileVersionInfoSizeExW
+    VerFindFileA             = impl_VerFindFileA
+    VerFindFileW             = impl_VerFindFileW
+    VerInstallFileA          = impl_VerInstallFileA
+    VerInstallFileW          = impl_VerInstallFileW
+    VerLanguageNameA         = impl_VerLanguageNameA
+    VerLanguageNameW         = impl_VerLanguageNameW
+    VerQueryValueA           = impl_VerQueryValueA
+    VerQueryValueW           = impl_VerQueryValueW

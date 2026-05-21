@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "guid": "kcd2-ai-npc",
+  "name": "AI NPC Dialogue",
+  "description": "Talk to any NPC using AI-powered dialogue (LLM + TTS)",
+  "author": "kcd2-ai-npc",
+  "version_number": "0.1.0"
+}

@@ -1,0 +1,2223 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KCD2 AI NPC &mdash; &#1053;&#1072;&#1089;&#1090;&#1088;&#1086;&#1081;&#1082;&#1080;</title>
+  <link rel="icon" href="https://images.steamusercontent.com/ugc/10759354854730671383/C35EAF160E68866EE900CE1F3FDB4DD55ECE9A44/">
+  <link rel="shortcut icon" href="https://images.steamusercontent.com/ugc/10759354854730671383/C35EAF160E68866EE900CE1F3FDB4DD55ECE9A44/">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* â”€â”€ Night palette (EventCalendar-inspired) â”€â”€ */
+      --bg-deep:      #0a0c0e;
+      --bg-panel:     rgba(15, 19, 24, 0.88);
+      --bg-input:     rgba(255,255,255,0.032);
+      --border:       rgba(255,255,255,0.07);
+      --border-hi:    rgba(255,255,255,0.12);
+      --sep:          rgba(255,255,255,0.055);
+      --text-head:    #e8dfc8;
+      --text-body:    rgba(216,232,242,0.88);
+      --text-muted:   #8a9aaa;
+      --accent:       #38b966;
+      --accent-dim:   #2e7d52;
+      --accent-soft:  rgba(56,185,102,0.13);
+      --accent-glow:  rgba(56,185,102,0.45);
+      --blue:         #4a9eff;
+      --radius:       12px;
+      --font-ui:      'Bahnschrift', 'Rajdhani', 'Segoe UI Semibold', 'Arial Narrow', system-ui, sans-serif;
+      --font-body:    'Segoe UI', system-ui, sans-serif;
+      --font-mono:    'Cascadia Code', 'Consolas', 'Courier New', monospace;
+      accent-color:   var(--accent);
+      color-scheme:   dark;
+    }
+
+    body.day {
+      /* -- Day palette — Smart Lolis inspired -- */
+      --bg-deep:      radial-gradient(ellipse 80% 55% at 50% 0%, #18304a 0%, #0e1b29 45%, #06101b 100%);
+      --bg-panel:     rgba(8, 22, 36, 0.88);
+      --bg-input:     rgba(3, 13, 23, 0.82);
+      --border:       rgba(210,177,92,0.18);
+      --border-hi:    rgba(210,177,92,0.46);
+      --sep:          rgba(210,177,92,0.14);
+      --text-head:    #f1ecda;
+      --text-body:    rgba(241,236,218,0.86);
+      --text-muted:   #aeb8bc;
+      --accent:       #d2b15c;
+      --accent-dim:   #8f7230;
+      --accent-soft:  rgba(210,177,92,0.12);
+      --accent-glow:  rgba(210,177,92,0.42);
+      --blue:         #2a5d85;
+      color-scheme:   dark;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg-deep);
+      min-height: 100vh;
+      font-family: var(--font-body);
+      color: var(--text-body);
+      /* No top/bottom padding so the sticky header / sticky action bar sit
+         flush against the viewport edges from the very first pixel. Side
+         padding is moved into .page below. */
+      padding: 0;
+      transition: background 0.3s, color 0.3s;
+      position: relative;
+    }
+
+    /* â”€â”€ BACKGROUND EFFECTS â”€â”€ */
+    .bg-grid {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.022) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px);
+      background-size: 44px 44px;
+    }
+    body.day .bg-grid {
+      background-image:
+        linear-gradient(rgba(210,177,92,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(210,177,92,0.035) 1px, transparent 1px);
+    }
+    .bg-glow {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 70% 40% at 15% 70%, rgba(56,185,102,0.055) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 30% at 85% 25%, rgba(74,158,255,0.04) 0%, transparent 55%);
+    }
+    body.day .bg-glow {
+      background:
+        radial-gradient(ellipse 70% 40% at 15% 70%, rgba(210,177,92,0.08) 0%, transparent 58%),
+        radial-gradient(ellipse 50% 30% at 85% 25%, rgba(42,93,133,0.18) 0%, transparent 55%);
+    }
+
+    /* â”€â”€ LAYOUT â”€â”€ */
+    /* Responsive grid: cards flow into multiple columns when the viewport is
+       wide enough. Header, action bar and test-result panels span the full
+       grid width via .full-row (see below). */
+    .page {
+      position: relative; z-index: 1;
+      max-width: 1400px; margin: 0 auto;
+      padding: 0 16px;
+      display: grid;
+      /* 1 column on half-screen / narrow windows, 2 columns on full-screen.
+         minmax(560px, 1fr) means a card needs at least 560px to fit; once
+         viewport gives >= 2*560+gap, browser places two columns. Anything
+         wider just stretches the two columns evenly (capped by max-width). */
+      grid-template-columns: repeat(auto-fit, minmax(560px, 1fr));
+      gap: 14px;
+      align-content: start;
+    }
+    .full-row { grid-column: 1 / -1; }
+
+    /* â”€â”€ HEADER (sticky top) â”€â”€ */
+    .header {
+      display: flex; align-items: center; gap: 14px;
+      padding: 18px 20px 16px;
+      border-radius: var(--radius);
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-top: none;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.28), inset 0 1px 0 var(--border-hi);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      /* Sticky header: stays glued to the top of the viewport while the cards
+         underneath scroll. overflow: hidden was removed because in some
+         browsers it can break sticky positioning on the element itself.
+         margin-bottom removed: grid `gap` now controls spacing between rows. */
+      position: sticky;
+      top: 0;
+      z-index: 30;
+    }
+    .header::before {
+      content: ''; position: absolute;
+      left: 0; right: 0; top: 0; height: 5px;
+      background: var(--accent);
+    }
+    .header-icon {
+      width: 220px; height: 56px;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent);
+      font-size: 22px;
+      flex: none;
+      overflow: hidden;
+      padding: 0;
+    }
+    .header-logo {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 0;
+      display: block;
+    }
+    .header-info { flex: none; min-width: 0; }
+    .header-side-logo {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+      display: block;
+      flex: none;
+    }
+    .header-spacer { flex: 1; }
+    .header-promo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: none;
+    }
+    .header-links {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: none;
+    }
+    .header-mini-btn {
+      min-width: 104px;
+      padding: 3px 9px;
+      border: 1px solid var(--border-hi);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.035);
+      color: var(--text-muted);
+      font-family: var(--font-ui);
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-align: center;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    body.day .header-mini-btn { background: rgba(0,0,0,0.03); }
+    .header-mini-btn:hover {
+      color: var(--accent);
+      border-color: var(--accent-glow);
+      background: var(--accent-soft);
+    }
+    .header-title {
+      font-family: var(--font-ui);
+      font-size: 22px; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--text-head); line-height: 1;
+    }
+    .header-sub {
+      font-size: 11px; color: var(--text-muted);
+      margin-top: 3px; letter-spacing: 0.03em;
+      font-family: var(--font-mono);
+    }
+    .header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .header-promo + .header-actions { margin-left: 56px; }
+    @media (max-width: 1100px) {
+      .header { gap: 10px; padding-left: 14px; padding-right: 14px; }
+      .header-icon { width: 176px; height: 45px; }
+      .header-title { font-size: 19px; letter-spacing: 0.09em; }
+      .header-sub { font-size: 10px; }
+      .header-side-logo { width: 54px; height: 54px; }
+      .header-promo { gap: 8px; }
+      .header-mini-btn { min-width: 84px; padding: 2px 7px; font-size: 9px; }
+      .status-badge { padding: 6px 9px; font-size: 10px; letter-spacing: 0.08em; }
+    }
+    @media (max-width: 900px) {
+      .header-links { display: none; }
+      .header-side-logo { width: 48px; height: 48px; }
+    }
+
+    /* â”€â”€ STATUS BADGE â”€â”€ */
+    .status-badge {
+      display: flex; align-items: center; gap: 7px;
+      padding: 6px 12px; border-radius: 99px;
+      background: rgba(128,128,128,0.06);
+      border: 1px solid var(--border);
+      font-family: var(--font-ui);
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--text-muted);
+      transition: all 0.35s ease; white-space: nowrap;
+    }
+    .status-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--text-muted);
+      transition: background 0.35s, box-shadow 0.35s; flex-shrink: 0;
+    }
+    .status-badge.online  { color: var(--accent); border-color: var(--accent-glow); background: var(--accent-soft); }
+    .status-badge.online  .status-dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .status-badge.offline { color: #e05555; border-color: rgba(224,85,85,0.35); background: rgba(224,85,85,0.08); }
+    .status-badge.offline .status-dot { background: #e05555; }
+
+    /* â”€â”€ THEME BUTTON â”€â”€ */
+    .theme-btn {
+      width: 36px; height: 36px;
+      border: 1px solid var(--border-hi); border-radius: 9px;
+      background: rgba(128,128,128,0.06);
+      color: var(--text-muted); font-size: 17px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.18s; flex-shrink: 0;
+    }
+    .theme-btn:hover { background: var(--accent-soft); border-color: var(--accent-glow); color: var(--accent); }
+
+    /* â”€â”€ CARD â”€â”€ */
+    .card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-top-color: var(--border-hi);
+      border-radius: var(--radius);
+      backdrop-filter: blur(20px) saturate(130%);
+      -webkit-backdrop-filter: blur(20px) saturate(130%);
+      box-shadow: 0 2px 24px rgba(0,0,0,0.32), inset 0 1px 0 var(--border-hi);
+      /* overflow: visible so combobox dropdowns can escape the card and float
+         over neighbouring cards instead of being clipped at the card edge. */
+      overflow: visible; position: relative;
+      /* margin-bottom removed: parent grid uses `gap` for spacing. */
+      animation: slide-up 0.22s cubic-bezier(0.22,1,0.36,1) both;
+      transition: box-shadow 0.2s;
+    }
+    .card:hover { box-shadow: 0 4px 32px rgba(0,0,0,0.38), inset 0 1px 0 var(--border-hi); }
+    .card:nth-child(2) { animation-delay: 0.05s; }
+    .card:nth-child(3) { animation-delay: 0.10s; }
+    .card:nth-child(4) { animation-delay: 0.15s; }
+    @keyframes slide-up {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .card::before {
+      content: ''; position: absolute;
+      left: 0; top: 0; bottom: 0; width: 3px; z-index: 1;
+      background: linear-gradient(180deg, var(--accent) 0%, transparent 100%);
+      border-radius: var(--radius) 0 0 var(--radius);
+    }
+    .card-header {
+      display: flex; align-items: center;
+      padding: 9px 16px 8px;
+      border-bottom: 1px solid var(--sep);
+    }
+    .card-title {
+      font-family: var(--font-ui);
+      font-size: 12px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--text-muted); margin-top: 2px;
+    }
+    .card-body { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+
+    /* â”€â”€ FORM â”€â”€ */
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-row   { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 500px) { .form-row { grid-template-columns: 1fr; } }
+
+    label {
+      font-family: var(--font-ui);
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.09em; text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    label span { font-family: var(--font-body); font-size: 10px; font-weight: 400; text-transform: none; letter-spacing: 0; opacity: 0.7; }
+
+    input[type="text"],
+    input[type="password"],
+    input[type="number"],
+    input[type="url"],
+    select, textarea {
+      background: var(--bg-input);
+      border: 1px solid var(--border-hi);
+      border-radius: 8px; padding: 9px 12px;
+      font-size: 13px; color: var(--text-body);
+      outline: none; font-family: var(--font-body);
+      transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+      width: 100%;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+    body:not(.day) input:focus, body:not(.day) select:focus, body:not(.day) textarea:focus { background: rgba(255,255,255,0.05); }
+    body.day       input:focus, body.day       select:focus, body.day       textarea:focus { background: rgba(3,13,23,0.92); }
+    body:not(.day) input, body:not(.day) select, body:not(.day) textarea { color-scheme: dark; }
+    body.day       input, body.day       select, body.day       textarea { color-scheme: dark; }
+    body:not(.day) select option { background: #0d1014; color: var(--text-body); }
+    body.day       select option { background: #081624; color: var(--text-body); }
+    textarea { resize: vertical; min-height: 175px; font-size: 12px; line-height: 1.6; font-family: var(--font-mono); }
+    textarea::-webkit-resizer {
+      background-color: transparent;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cline x1='10' y1='2' x2='2' y2='10' stroke='%2338b966' stroke-width='1.2'/%3E%3Cline x1='10' y1='5' x2='5' y2='10' stroke='%2338b966' stroke-width='1.2'/%3E%3Cline x1='10' y1='8' x2='8' y2='10' stroke='%2338b966' stroke-width='1.2'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: bottom right;
+    }
+    body.day textarea::-webkit-resizer {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cline x1='10' y1='2' x2='2' y2='10' stroke='%23d2b15c' stroke-width='1.2'/%3E%3Cline x1='10' y1='5' x2='5' y2='10' stroke='%23d2b15c' stroke-width='1.2'/%3E%3Cline x1='10' y1='8' x2='8' y2='10' stroke='%23d2b15c' stroke-width='1.2'/%3E%3C/svg%3E");
+    }
+
+    /* â”€â”€ PRESET BUTTONS â”€â”€ */
+    .preset-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .preset-btn {
+      padding: 6px 16px; border: 1px solid var(--border-hi); border-radius: 7px;
+      background: rgba(255,255,255,0.03); color: var(--text-muted);
+      font-family: var(--font-ui); font-size: 12px; font-weight: 600;
+      letter-spacing: 0.05em; cursor: pointer; transition: all 0.15s;
+    }
+    body.day .preset-btn { background: rgba(0,0,0,0.03); }
+    .preset-btn:hover { color: var(--text-body); border-color: var(--border-hi); background: rgba(255,255,255,0.07); }
+    body.day .preset-btn:hover { background: rgba(0,0,0,0.06); }
+    .preset-btn.active { border-color: var(--accent-glow); background: var(--accent-soft); color: var(--accent); }
+
+    /* â”€â”€ SLIDER â”€â”€ */
+    .slider-row { display: flex; align-items: center; gap: 14px; }
+    .slider-row input[type="range"] {
+      flex: 1; height: 4px; padding: 0; border: none;
+      background: transparent; cursor: pointer;
+      -webkit-appearance: none; appearance: none; box-shadow: none;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 4px; border-radius: 2px; background: var(--border-hi);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 15px; height: 15px; border-radius: 50%;
+      background: var(--accent); margin-top: -5.5px;
+      box-shadow: 0 0 7px var(--accent-glow);
+      transition: transform 0.15s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+    .slider-value {
+      font-family: var(--font-ui); font-size: 14px; font-weight: 700;
+      color: var(--accent); min-width: 44px; text-align: right;
+    }
+
+    /* â”€â”€ HINT â”€â”€ */
+    .form-hint { font-size: 10px; color: var(--text-muted); font-style: italic; line-height: 1.5; }
+    .form-hint code { font-style: normal; font-family: var(--font-mono); color: var(--blue); font-size: 10px; }
+
+    /* â”€â”€ BOTTOM STACK (sticky container holding test results + buttons) â”€â”€ */
+    .bottom-stack {
+      position: sticky;
+      bottom: 0;
+      z-index: 30;
+      display: flex; flex-direction: column; gap: 8px;
+      padding: 10px 14px 12px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-bottom: none;
+      border-radius: var(--radius) var(--radius) 0 0;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 -2px 20px rgba(0,0,0,0.28), inset 0 1px 0 var(--border-hi);
+    }
+    /* Plain flex inside the sticky stack, no own background/border. */
+    .actions { display: flex; gap: 10px; }
+    .btn {
+      flex: 1; padding: 11px 18px; border-radius: 9px;
+      font-family: var(--font-ui); font-size: 13px; font-weight: 700;
+      letter-spacing: 0.09em; text-transform: uppercase; cursor: pointer;
+      border: 1px solid var(--border-hi); background: rgba(255,255,255,0.04);
+      color: var(--text-muted); transition: all 0.18s;
+    }
+    body.day .btn { background: rgba(0,0,0,0.03); }
+    .btn:hover { background: rgba(255,255,255,0.08); color: var(--text-body); }
+    body.day .btn:hover { background: rgba(0,0,0,0.07); color: var(--text-body); }
+    .btn-primary {
+      border-color: var(--accent-glow); background: var(--accent-soft); color: var(--accent);
+      border-top: 2px solid var(--accent);
+    }
+    .btn-primary:hover { background: var(--accent) !important; color: #f0faff !important; border-color: var(--accent); }
+    .btn-danger { background: rgba(224,85,85,0.12); color: #e05555; border-color: rgba(224,85,85,0.3); }
+    .btn-danger:hover { background: rgba(224,85,85,0.25); border-color: #e05555; }
+    .toggle-switch { position:relative; display:inline-block; width:38px; height:20px; cursor:pointer; }
+    .toggle-switch input { opacity:0; width:0; height:0; }
+    .toggle-slider { position:absolute; inset:0; background:var(--border-hi); border-radius:20px; transition:.2s; }
+    .toggle-slider::before { content:''; position:absolute; width:14px; height:14px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; }
+    input:checked + .toggle-slider { background:var(--accent); }
+    input:checked + .toggle-slider::before { transform:translateX(18px); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+    .btn-sm { flex: 0; padding: 7px 14px; font-size: 11px; }
+    .icon-btn .icon-spin { display: inline-block; line-height: 1; }
+    .icon-btn.spinning .icon-spin { animation: spin-once-clockwise 0.45s ease-out; }
+    @keyframes spin-once-clockwise {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    .test-result {
+      box-shadow: 0 -8px 28px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.045);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    body.day .test-result {
+      background:
+        linear-gradient(180deg, rgba(14,27,41,0.96), rgba(6,16,27,0.96)) !important;
+      border-color: var(--border-hi) !important;
+      box-shadow: 0 -10px 34px rgba(0,0,0,0.52), inset 0 1px 0 rgba(210,177,92,0.16);
+    }
+
+    /* â”€â”€ TOAST â”€â”€ */
+    .toast-stack {
+      position: fixed; top: 16px; right: 16px; z-index: 9999;
+      display: flex; flex-direction: column; gap: 10px;
+      align-items: flex-end; pointer-events: none;
+    }
+    .toast {
+      min-width: 230px; max-width: 320px; padding: 12px 15px;
+      background: rgba(10,12,14,0.97); border: 1px solid var(--border-hi);
+      border-radius: 10px;
+      box-shadow: 0 10px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06);
+      backdrop-filter: blur(14px);
+      transform: translateX(120%); opacity: 0;
+      pointer-events: auto;
+      transition: transform 0.28s cubic-bezier(0.22,1,0.36,1), opacity 0.22s ease;
+      position: relative; overflow: hidden;
+    }
+    body.day .toast {
+      background:
+        linear-gradient(180deg, rgba(14,27,41,0.98), rgba(6,16,27,0.98));
+      border-color: var(--border-hi);
+      box-shadow: 0 12px 36px rgba(0,0,0,0.58), inset 0 1px 0 rgba(210,177,92,0.18);
+    }
+    .toast.show { transform: translateX(0); opacity: 1; }
+    .toast::before {
+      content: ''; position: absolute;
+      left: 12px; right: 12px; top: 0; height: 1px; opacity: 0.8;
+    }
+    .toast-title {
+      font-family: var(--font-ui); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 4px;
+    }
+    .toast-text { font-size: 13px; font-weight: 500; color: var(--text-body); line-height: 1.3; }
+    .toast.success .toast-title { color: var(--accent); }
+    .toast.success::before { background: linear-gradient(90deg, transparent, var(--accent), transparent); }
+    .toast.error   .toast-title { color: #e05555; }
+    .toast.error::before   { background: linear-gradient(90deg, transparent, #e05555, transparent); }
+    .toast.info    .toast-title { color: var(--blue); }
+    .toast.info::before    { background: linear-gradient(90deg, transparent, var(--blue), transparent); }
+
+    /* â”€â”€ SCROLLBAR â”€â”€ */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
+
+    /* ── Combobox ── */
+    .combo-wrap { position: relative; display: flex; }
+    .combo-wrap input { flex: 1; border-radius: var(--radius) 0 0 var(--radius) !important; border-right: none !important; }
+    .combo-btn {
+      width: 30px; flex-shrink: 0;
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-left: none; border-radius: 0 var(--radius) var(--radius) 0;
+      color: var(--text-muted); cursor: pointer; font-size: 9px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .combo-btn:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+    .combo-wrap:focus-within .combo-btn { border-color: var(--accent); }
+    /* When the parent disables the suggestion list (e.g. "Свой" provider),
+       hide the dropdown chevron and let the input reclaim the full width. */
+    .combo-wrap.combo-disabled .combo-btn { display: none; }
+    .combo-wrap.combo-disabled .combo-list { display: none !important; }
+    .combo-wrap.combo-disabled input {
+      border-radius: var(--radius) !important;
+      border-right: 1px solid var(--border-hi) !important;
+    }
+    .combo-list {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: var(--bg-panel); border: 1px solid var(--border-hi);
+      border-radius: var(--radius); overflow: hidden;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.4); z-index: 9999;
+      max-height: 220px; overflow-y: auto; display: none;
+      backdrop-filter: blur(12px);
+    }
+    .combo-list.open { display: block; }
+    /* When a card contains an open combobox, lift it above sibling cards so
+       the dropdown is never covered by the next card's stacking context
+       (each .card forms its own context due to backdrop-filter). */
+    .card.combo-open { z-index: 50; }
+    .combo-item {
+      padding: 8px 14px; cursor: pointer; font-size: 13px;
+      color: var(--text-body); transition: background .1s;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font-family: var(--font-mono);
+    }
+    .combo-item:hover { background: var(--accent-soft); color: var(--text-head); }
+    .combo-item.hi { color: var(--accent); }
+  </style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header full-row">
+    <div class="header-icon"><img class="header-logo" src="https://images.steamusercontent.com/ugc/11071720402767191456/0FBEA45D789CB83CBE101C0F5767A58356660C12/" alt="KCD2 AI NPC"></div>
+    <div class="header-info">
+      <div class="header-title" data-i18n="title">KCD2 AI NPC &mdash; &#1053;&#1072;&#1089;&#1090;&#1088;&#1086;&#1081;&#1082;&#1080;</div>
+      <div class="header-sub" data-i18n="sub">127.0.0.1:4999 &middot; &#1082;&#1086;&#1085;&#1092;&#1080;&#1075;&#1091;&#1088;&#1072;&#1094;&#1080;&#1103; &#1089;&#1077;&#1088;&#1074;&#1077;&#1088;&#1072; &middot; v0.1.0</div>
+    </div>
+    <div class="header-spacer"></div>
+    <div class="header-promo">
+      <a href="https://steamcommunity.com/profiles/76561198201646941/" target="_blank" rel="noopener noreferrer">
+        <img class="header-side-logo" src="https://images.steamusercontent.com/ugc/10298350491345049153/11E3BF478FB24033C62858E4A11E4A8F42249928/" alt="Mod Logo">
+      </a>
+      <div class="header-links">
+        <a class="header-mini-btn" href="https://steamcommunity.com/profiles/76561198201646941/myworkshopfiles/?appid=0&sort=score&browsefilter=myfiles&view=imagewall" target="_blank" rel="noopener noreferrer" data-i18n="link_workshop">Мастерская</a>
+        <a class="header-mini-btn" href="https://steamcommunity.com/profiles/76561198201646941/myworkshopfiles/?section=guides" target="_blank" rel="noopener noreferrer" data-i18n="link_guide">Руководство</a>
+        <a class="header-mini-btn" href="https://github.com/KRYSYS1?tab=repositories" target="_blank" rel="noopener noreferrer" data-i18n="link_github">GitHub</a>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="&#1044;&#1085;&#1077;&#1074;&#1085;&#1072;&#1103; &#1090;&#1077;&#1084;&#1072;" aria-label="Toggle theme"></button>
+      <div id="status-badge" class="status-badge">
+        <div class="status-dot"></div>
+        <span id="status-text">&mdash;</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- GENERAL -->
+  <div class="card">
+    <div class="card-header"><span class="card-title" data-i18n="general_title">&#1054;&#1073;&#1097;&#1080;&#1077;</span></div>
+    <div class="card-body">
+      <div class="form-group">
+        <label data-i18n="resp_lang">&#1071;&#1079;&#1099;&#1082; &#1086;&#1090;&#1074;&#1077;&#1090;&#1086;&#1074;</label>
+        <div class="preset-row" id="lang-row">
+          <button class="preset-btn" data-lang="en"  onclick="setLang('en')">English</button>
+          <button class="preset-btn" data-lang="ru"  onclick="setLang('ru')">&#1056;&#1091;&#1089;&#1089;&#1082;&#1080;&#1081;</button>
+          <button class="preset-btn" data-lang="cs"  onclick="setLang('cs')">&#268;e&#353;tina</button>
+          <button class="preset-btn" data-lang="de"  onclick="setLang('de')">Deutsch</button>
+          <button class="preset-btn" data-lang="fr"  onclick="setLang('fr')">Fran&#231;ais</button>
+          <button class="preset-btn" data-lang="es"  onclick="setLang('es')">Espa&#241;ol</button>
+          <button class="preset-btn" data-lang="pl"  onclick="setLang('pl')">Polski</button>
+          <button class="preset-btn" data-lang="zh"  onclick="setLang('zh')">&#20013;&#25991;</button>
+          <button class="preset-btn" data-lang="ja"  onclick="setLang('ja')">&#26085;&#26412;&#35486;</button>
+        </div>
+        <input type="hidden" id="language" value="en">
+      </div>
+    </div>
+  </div>
+
+  <!-- LLM SETTINGS -->
+  <div class="card">
+    <div class="card-header"><span class="card-title" data-i18n="llm_title">&#1053;&#1072;&#1089;&#1090;&#1088;&#1086;&#1081;&#1082;&#1080; LLM</span></div>
+    <div class="card-body">
+      <div class="form-group">
+        <label data-i18n="provider">&#1055;&#1088;&#1086;&#1074;&#1072;&#1081;&#1076;&#1077;&#1088;</label>
+        <div class="preset-row" id="provider-row">
+          <button class="preset-btn" data-preset="ollama"      onclick="setPreset('ollama')">Ollama</button>
+          <button class="preset-btn" data-preset="openai"      onclick="setPreset('openai')">OpenAI</button>
+          <button class="preset-btn" data-preset="groq"        onclick="setPreset('groq')">Groq</button>
+          <button class="preset-btn" data-preset="openrouter"  onclick="setPreset('openrouter')">OpenRouter</button>
+          <button class="preset-btn" data-preset="lmstudio"    onclick="setPreset('lmstudio')">LM Studio</button>
+          <button class="preset-btn" data-preset="custom" data-i18n="custom" onclick="setPreset('custom')">&#1057;&#1074;&#1086;&#1081;</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="api-url">API URL</label>
+        <input type="url" id="api-url" placeholder="http://localhost:11434/v1" oninput="detectPreset()">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="api-key" data-i18n="api_key">API &#1050;&#1083;&#1102;&#1095;</label>
+          <input type="password" id="api-key" placeholder="API key">
+        </div>
+        <div class="form-group">
+          <label for="model" data-i18n="model">&#1052;&#1086;&#1076;&#1077;&#1083;&#1100;</label>
+          <input type="text" id="model" placeholder="llama3.1:8b">
+        </div>
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="max_tokens">&#1052;&#1072;&#1082;&#1089;. &#1090;&#1086;&#1082;&#1077;&#1085;&#1086;&#1074;</span> <span data-i18n="max_tokens_sub">&#1085;&#1072; &#1086;&#1090;&#1074;&#1077;&#1090;</span></label>
+        <div class="slider-row">
+          <input type="range" id="max-tokens" min="50" max="1000" step="10"
+            oninput="document.getElementById('max-tokens-val').textContent=this.value">
+          <span class="slider-value" id="max-tokens-val">200</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="temperature">&#1058;&#1077;&#1084;&#1087;&#1077;&#1088;&#1072;&#1090;&#1091;&#1088;&#1072;</span> <span data-i18n="temperature_sub">&#1082;&#1088;&#1077;&#1072;&#1090;&#1080;&#1074;&#1085;&#1086;&#1089;&#1090;&#1100; &middot; 0&ndash;2</span></label>
+        <div class="slider-row">
+          <input type="range" id="temperature" min="0" max="2" step="0.05"
+            oninput="document.getElementById('temp-val').textContent=parseFloat(this.value).toFixed(2)">
+          <span class="slider-value" id="temp-val">0.80</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TTS -->
+  <div class="card">
+    <div class="card-header"><span class="card-title" data-i18n="tts_title">&#1053;&#1072;&#1089;&#1090;&#1088;&#1086;&#1081;&#1082;&#1080; TTS</span></div>
+    <div class="card-body">
+      <div class="form-group">
+        <label data-i18n="tts_enabled">&#1054;&#1079;&#1074;&#1091;&#1095;&#1082;&#1072; NPC</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="tts-enabled" onchange="onTtsToggle(this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+          <span id="tts-status-text" style="font-size:12px; color:var(--text-muted);" data-i18n="tts_off">&#1074;&#1099;&#1082;&#1083;&#1102;&#1095;&#1077;&#1085;&#1072;</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label data-i18n="tts_engine">&#1044;&#1074;&#1080;&#1078;&#1086;&#1082;</label>
+        <div class="preset-row" id="tts-engine-row">
+          <button class="preset-btn" data-engine="edge"        onclick="setTtsEngine('edge')">Edge TTS</button>
+          <button class="preset-btn" data-engine="elevenlabs"  onclick="setTtsEngine('elevenlabs')">ElevenLabs</button>
+          <button class="preset-btn" data-engine="openai"      onclick="setTtsEngine('openai')">OpenAI TTS</button>
+        </div>
+        <input type="hidden" id="tts-engine" value="edge">
+      </div>
+      <!-- Edge TTS fields -->
+      <div id="tts-fields-edge">
+        <div class="form-group">
+          <label for="tts-voice" data-i18n="tts_voice">Мужской голос</label>
+          <input type="text" id="tts-voice" placeholder="en-GB-RyanNeural">
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label for="tts-voice-female" data-i18n="tts_voice_female">Женский голос</label>
+          <input type="text" id="tts-voice-female" placeholder="en-GB-SoniaNeural">
+        </div>
+        <div class="form-hint"><span data-i18n="tts_voices_hint">Голоса:</span> <code>en-GB-RyanNeural</code> <code>en-GB-SoniaNeural</code> <code>cs-CZ-AntoninNeural</code> <code>ru-RU-DmitryNeural</code> <code>ru-RU-SvetlanaNeural</code> <code>de-DE-ConradNeural</code></div>
+      </div>
+
+      <!-- ElevenLabs fields -->
+      <div id="tts-fields-elevenlabs" style="display:none;">
+        <div class="form-group">
+          <label for="tts-el-key">ElevenLabs API Key</label>
+          <input type="password" id="tts-el-key" placeholder="sk_...">
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label for="tts-el-voice">Voice ID (мужской)</label>
+          <input type="text" id="tts-el-voice" placeholder="21m00Tcm4TlvDq8ikWAM">
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label for="tts-el-voice-female">Voice ID (женский)</label>
+          <input type="text" id="tts-el-voice-female" placeholder="21m00Tcm4TlvDq8ikWAM">
+        </div>
+        <div class="form-hint">Voice IDs: <code>21m00Tcm4TlvDq8ikWAM</code> (Rachel) &nbsp;<code>ErXwobaYiN019PkySvjV</code> (Antoni) &nbsp;<code>VR6AewLTigWG4xSOukaG</code> (Arnold)</div>
+      </div>
+
+      <!-- OpenAI TTS fields -->
+      <div id="tts-fields-openai" style="display:none;">
+        <div class="form-group">
+          <label for="tts-oai-key">OpenAI API Key</label>
+          <input type="password" id="tts-oai-key" placeholder="sk-...">
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label for="tts-oai-voice">Voice (мужской)</label>
+          <div class="preset-row" id="tts-oai-voice-row">
+            <button class="preset-btn" data-oaiv="alloy"   onclick="setOaiVoice('alloy')">Alloy</button>
+            <button class="preset-btn" data-oaiv="echo"    onclick="setOaiVoice('echo')">Echo</button>
+            <button class="preset-btn" data-oaiv="fable"   onclick="setOaiVoice('fable')">Fable</button>
+            <button class="preset-btn" data-oaiv="onyx"    onclick="setOaiVoice('onyx')">Onyx</button>
+            <button class="preset-btn" data-oaiv="nova"    onclick="setOaiVoice('nova')">Nova</button>
+            <button class="preset-btn" data-oaiv="shimmer" onclick="setOaiVoice('shimmer')">Shimmer</button>
+          </div>
+          <input type="hidden" id="tts-oai-voice" value="onyx">
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label for="tts-oai-voice-female">Voice (женский)</label>
+          <div class="preset-row" id="tts-oai-voice-female-row">
+            <button class="preset-btn" data-oaivf="alloy"   onclick="setOaiVoiceFemale('alloy')">Alloy</button>
+            <button class="preset-btn" data-oaivf="echo"    onclick="setOaiVoiceFemale('echo')">Echo</button>
+            <button class="preset-btn" data-oaivf="fable"   onclick="setOaiVoiceFemale('fable')">Fable</button>
+            <button class="preset-btn" data-oaivf="onyx"    onclick="setOaiVoiceFemale('onyx')">Onyx</button>
+            <button class="preset-btn" data-oaivf="nova"    onclick="setOaiVoiceFemale('nova')">Nova</button>
+            <button class="preset-btn" data-oaivf="shimmer" onclick="setOaiVoiceFemale('shimmer')">Shimmer</button>
+          </div>
+          <input type="hidden" id="tts-oai-voice-female" value="nova">
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:8px;">
+        <label><span data-i18n="tts_volume">&#1043;&#1088;&#1086;&#1084;&#1082;&#1086;&#1089;&#1090;&#1100;</span> <span data-i18n="tts_volume_sub" style="color:var(--text-muted); font-size:11px;">0.0&ndash;1.0</span></label>
+        <div class="slider-row">
+          <input type="range" id="tts-volume" min="0" max="1" step="0.05"
+            oninput="document.getElementById('tts-vol-val').textContent=parseFloat(this.value).toFixed(2)">
+          <span class="slider-value" id="tts-vol-val">1.00</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STT (push-to-talk) -->
+  <div class="card">
+    <div class="card-header"><span class="card-title" data-i18n="stt_title">Голосовой ввод (STT)</span></div>
+    <div class="card-body">
+      <div class="form-group">
+        <label data-i18n="stt_enabled">Зажми V в игре — говорю; отпустил — отправилось</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="stt-enabled" onchange="onSttToggle(this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+          <span id="stt-status-text" style="font-size:12px; color:var(--text-muted);" data-i18n="stt_off">выключено</span>
+        </div>
+        <div class="form-hint" data-i18n="stt_hint">Короткое нажатие V = текстовый оверлей. Удержание дольше порога = запись с микрофона → Whisper → ответ NPC.</div>
+      </div>
+
+      <div class="form-group" style="margin-top:10px;">
+        <label data-i18n="stt_provider">Провайдер</label>
+        <div class="preset-row" id="stt-provider-row">
+          <button class="preset-btn" data-stt-prov="faster-whisper" data-i18n="stt_provider_local" onclick="setSttProvider('faster-whisper')">faster-whisper (локально)</button>
+          <button class="preset-btn" data-stt-prov="openai"         onclick="setSttProvider('openai')">OpenAI</button>
+          <button class="preset-btn" data-stt-prov="groq"           onclick="setSttProvider('groq')">Groq</button>
+          <button class="preset-btn" data-stt-prov="custom" data-i18n="stt_provider_custom" onclick="setSttProvider('custom')">Свой</button>
+        </div>
+        <input type="hidden" id="stt-provider" value="faster-whisper">
+      </div>
+
+      <div class="form-group" id="stt-row-api" style="margin-top:10px; display:none;">
+        <label for="stt-api-url" data-i18n="stt_api_url">API URL</label>
+        <input type="text" id="stt-api-url" placeholder="https://api.openai.com/v1">
+      </div>
+      <div class="form-group" id="stt-row-key" style="margin-top:10px; display:none;">
+        <label for="stt-api-key" data-i18n="stt_api_key">API ключ</label>
+        <input type="password" id="stt-api-key" placeholder="sk-...">
+      </div>
+
+      <div class="form-group" style="margin-top:10px;">
+        <label for="stt-model" data-i18n="stt_model">Модель</label>
+        <input type="text" id="stt-model" placeholder="base">
+        <div class="form-hint" id="stt-model-hint">
+          faster-whisper: <code>tiny</code> <code>base</code> <code>small</code> <code>medium</code> <code>large-v3</code>.
+          OpenAI: <code>whisper-1</code>.
+          Groq: <code>whisper-large-v3-turbo</code> <code>whisper-large-v3</code>.
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:10px;">
+        <label for="stt-language" data-i18n="stt_language">Язык речи</label>
+        <select id="stt-language">
+          <option value="auto" data-i18n="stt_lang_auto">авто-детект</option>
+          <option value="en">English</option>
+          <option value="ru">Русский</option>
+          <option value="cs">Čeština</option>
+          <option value="de">Deutsch</option>
+          <option value="fr">Français</option>
+          <option value="es">Español</option>
+          <option value="pl">Polski</option>
+          <option value="zh">中文</option>
+          <option value="ja">日本語</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="stt-row-device" style="margin-top:10px;">
+        <label for="stt-input-device" data-i18n="stt_input_device">Микрофон</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <select id="stt-input-device" style="flex:1;"></select>
+          <button class="btn btn-sm icon-btn" id="stt-refresh-btn" type="button" onclick="refreshSttDevices()" data-i18n-title="stt_refresh_title" title="Обновить список микрофонов" style="width:42px; min-width:42px; padding:8px 0;"><span class="icon-spin" data-i18n="stt_refresh">⟳</span></button>
+        </div>
+      </div>
+
+      <div class="form-group" id="stt-row-fw" style="margin-top:10px;">
+        <label data-i18n="stt_local_opts">Локальные настройки (faster-whisper)</label>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:130px;">
+            <label for="stt-device" data-i18n="stt_device" style="font-size:11px; color:var(--text-muted);">Устройство</label>
+            <select id="stt-device">
+              <option value="cpu">CPU</option>
+              <option value="cuda">CUDA (NVIDIA)</option>
+            </select>
+          </div>
+          <div style="flex:1; min-width:160px;">
+            <label for="stt-compute" data-i18n="stt_compute" style="font-size:11px; color:var(--text-muted);">compute_type</label>
+            <select id="stt-compute">
+              <option value="int8" data-i18n="stt_compute_int8">int8 (быстро, CPU)</option>
+              <option value="int8_float16">int8_float16 (GPU)</option>
+              <option value="float16">float16 (GPU)</option>
+              <option value="float32">float32 (baseline)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:10px;">
+        <label data-i18n="stt_timing">Тайминги</label>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:140px;">
+            <label for="stt-hold-threshold" data-i18n="stt_hold_threshold" style="font-size:11px; color:var(--text-muted);">Порог hold, мс</label>
+            <input type="number" id="stt-hold-threshold" min="50" max="1000" step="10" value="200">
+          </div>
+          <div style="flex:1; min-width:140px;">
+            <label for="stt-min-duration" data-i18n="stt_min_duration" style="font-size:11px; color:var(--text-muted);">Мин. длина, мс</label>
+            <input type="number" id="stt-min-duration" min="50" max="2000" step="10" value="300">
+          </div>
+          <div style="flex:1; min-width:140px;">
+            <label for="stt-max-duration" data-i18n="stt_max_duration" style="font-size:11px; color:var(--text-muted);">Макс. длина, сек</label>
+            <input type="number" id="stt-max-duration" min="3" max="120" step="1" value="30">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INPUT -->
+  <div class="card">
+    <div class="card-header"><span class="card-title" data-i18n="input_title">Input / Keybinds</span></div>
+    <div class="card-body">
+      <div class="form-group">
+        <label for="chat-key" data-i18n="chat_key">AI chat key</label>
+        <input type="text" id="chat-key" maxlength="3" placeholder="v">
+        <div class="form-hint"><span data-i18n="chat_key_hint">Default: v. This key toggles AI chat open/closed. Examples:</span> <code>v</code> <code>y</code> <code>g</code> <code>f5</code>. <span data-i18n="chat_key_hint_2">Saved to Data\Libs\Config\ai_npc_actions.xml. Restart/reload game scripts after changing.</span></div>
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label for="end-key" data-i18n="end_key">Optional separate end key</label>
+        <input type="text" id="end-key" maxlength="3" placeholder="">
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label for="overlay-enabled" data-i18n="overlay_enabled">Show input overlay</label>
+        <select id="overlay-enabled">
+          <option value="true" data-i18n="overlay_on">On</option>
+          <option value="false" data-i18n="overlay_off">Off</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label for="overlay-style" data-i18n="overlay_style">Input overlay style</label>
+        <select id="overlay-style">
+          <option value="kcd" data-i18n="overlay_style_kcd">KCD2 (parchment + gold)</option>
+          <option value="plain" data-i18n="overlay_style_plain">Plain (minimal dark)</option>
+        </select>
+        <div class="form-hint"><span data-i18n="overlay_style_hint">Visual style for the chat input window. Applies live after Save.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HUD positions -->
+  <div class="card">
+    <div class="card-header"><span class="card-title" data-i18n="hud_title">&#1054;&#1090;&#1086;&#1073;&#1088;&#1072;&#1078;&#1077;&#1085;&#1080;&#1077; HUD</span></div>
+    <div class="card-body">
+      <div class="form-group">
+        <label data-i18n="hud_left_top">&#1057;&#1083;&#1077;&#1074;&#1072;-&#1089;&#1074;&#1077;&#1088;&#1093;&#1091; (&#1087;&#1083;&#1072;&#1096;&#1082;&#1072;)</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="hud-left-top" onchange="saveHudFlags()">
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_left_top_hint">&#1095;&#1105;&#1088;&#1085;&#1072;&#1103; &#1087;&#1083;&#1072;&#1096;&#1082;&#1072; &#1089; &#1079;&#1086;&#1083;&#1086;&#1090;&#1086;&#1081; &#1088;&#1072;&#1084;&#1082;&#1086;&#1081; (HUD.ShowTutorial)</span>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label data-i18n="hud_right_top">&#1057;&#1087;&#1088;&#1072;&#1074;&#1072;-&#1089;&#1074;&#1077;&#1088;&#1093;&#1091; (&#1091;&#1074;&#1077;&#1076;&#1086;&#1084;&#1083;&#1077;&#1085;&#1080;&#1077;)</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="hud-right-top" onchange="saveHudFlags()">
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_right_top_hint">quest-style notification (HUD.ShowNotification)</span>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label data-i18n="hud_center">&#1055;&#1086; &#1094;&#1077;&#1085;&#1090;&#1088;&#1091; (&#1089;&#1091;&#1073;&#1090;&#1080;&#1090;&#1088;)</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="hud-center" onchange="saveHudFlags()">
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_center_hint">&#1079;&#1086;&#1083;&#1086;&#1090;&#1086;&#1081; &#1082;&#1091;&#1088;&#1089;&#1080;&#1074; &#1089; &#1086;&#1088;&#1085;&#1072;&#1084;&#1077;&#1085;&#1090;&#1086;&#1084; (Game.ShowTutorial)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SYSTEM PROMPT -->
+  <div class="card">
+    <div class="card-header"><span class="card-title" data-i18n="prompt_title">&#1064;&#1072;&#1073;&#1083;&#1086;&#1085; &#1089;&#1080;&#1089;&#1090;&#1077;&#1084;&#1085;&#1086;&#1075;&#1086; &#1087;&#1088;&#1086;&#1084;&#1087;&#1090;&#1072;</span></div>
+    <div class="card-body">
+      <div class="form-group">
+        <label data-i18n="template">&#1064;&#1072;&#1073;&#1083;&#1086;&#1085;</label>
+        <textarea id="prompt-template" spellcheck="false" autocomplete="off"></textarea>
+        <div class="form-hint">
+          <span data-i18n="variables">&#1055;&#1077;&#1088;&#1077;&#1084;&#1077;&#1085;&#1085;&#1099;&#1077;</span>: <code>{name}</code> <code>{description}</code> <code>{location}</code>
+          <code>{personality}</code> <code>{occupation}</code>
+          <code>{extra_context}</code> <code>{language_instruction}</code>
+        </div>
+      </div>
+      <div class="preset-row" style="margin-top:12px; margin-bottom:8px;">
+        <button class="preset-btn" data-prompt-preset="default" data-i18n="prompt_preset_default" onclick="setPromptPreset('default')">Дефолт</button>
+        <button class="preset-btn" data-prompt-preset="original" data-i18n="prompt_preset_original" onclick="setPromptPreset('original')">Оригинал</button>
+        <button class="preset-btn" data-prompt-preset="charming" data-i18n="prompt_preset_charming" onclick="setPromptPreset('charming')">Харизматичный</button>
+        <button class="preset-btn" data-prompt-preset="sarcastic" data-i18n="prompt_preset_sarcastic" onclick="setPromptPreset('sarcastic')">Саркастичный</button>
+        <button class="preset-btn" data-prompt-preset="rough" data-i18n="prompt_preset_rough" onclick="setPromptPreset('rough')">Грубиян</button>
+        <button class="preset-btn" data-prompt-preset="laconic" data-i18n="prompt_preset_laconic" onclick="setPromptPreset('laconic')">Краткий</button>
+        <button class="preset-btn" data-prompt-preset="uncensored" data-i18n="prompt_preset_uncensored" onclick="setPromptPreset('uncensored')">Без цензуры</button>
+        <button class="preset-btn" data-prompt-preset="custom" data-i18n="prompt_preset_custom" onclick="setPromptPreset('custom')">Свой</button>
+      </div>
+      <button class="btn btn-sm" data-i18n="reset" onclick="resetPrompt()">&#1057;&#1073;&#1088;&#1086;&#1089;&#1080;&#1090;&#1100;</button>
+    </div>
+  </div>
+
+  <!-- BOTTOM STACK: test result panels + action bar are wrapped together so
+       the whole stack sticks to the bottom of the viewport. The result panels
+       sit directly ABOVE the buttons, never covered by them. -->
+  <div class="bottom-stack full-row">
+    <div id="llm-test-result" class="test-result" style="display:none; padding:12px 14px; border-radius:9px;
+      background:var(--bg-input); border:1px solid var(--border-hi); font-size:13px;
+      color:var(--text-body); font-family:var(--font-mono); line-height:1.6; white-space:pre-wrap;
+      max-height:35vh; overflow:auto;">
+    </div>
+    <div id="tts-test-result" class="test-result" style="display:none; padding:12px 14px; border-radius:9px;
+      background:var(--bg-input); border:1px solid var(--border-hi); font-size:13px;
+      color:var(--text-body); font-family:var(--font-mono); line-height:1.6; white-space:pre-wrap;
+      max-height:35vh; overflow:auto;">
+    </div>
+    <div id="stt-test-result" class="test-result" style="display:none; padding:12px 14px; border-radius:9px;
+      background:var(--bg-input); border:1px solid var(--border-hi); font-size:13px;
+      color:var(--text-body); font-family:var(--font-mono); line-height:1.6; white-space:pre-wrap;
+      max-height:35vh; overflow:auto;">
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="actions">
+      <button class="btn" id="clear-history-btn" data-i18n="clear_history" data-i18n-title="clear_history_title" onclick="clearHistory()" title="Delete all NPC chat history">Clear History</button>
+      <button class="btn" id="test-llm-btn" data-i18n="test_llm" onclick="testLLM()">&#1058;&#1077;&#1089;&#1090; LLM</button>
+      <button class="btn" id="tts-test-btn" data-i18n="tts_test" onclick="testTTS()">&#1058;&#1077;&#1089;&#1090; TTS</button>
+      <button class="btn" id="stt-test-btn" data-i18n="stt_test" onclick="testSTT()" title="Записать ~3 сек с микрофона и распознать">&#1058;&#1077;&#1089;&#1090; STT</button>
+      <button class="btn btn-primary" id="save-btn" data-i18n="save" onclick="saveConfig()">&#1057;&#1086;&#1093;&#1088;&#1072;&#1085;&#1080;&#1090;&#1100;</button>
+    </div>
+  </div>
+
+</div>
+<div class="toast-stack" id="toast-stack"></div>
+
+<script>
+  const DEFAULT_PROMPT = `You are {name}, {description}.
+Your name: {name}.
+You live in {location} in the Kingdom of Bohemia, in the year 1403.
+
+Your personality: {personality}
+Your occupation: {occupation}
+
+# LENGTH (HIGHEST PRIORITY)
+- Reply in 1-2 short sentences. Hard cap: 25 words total.
+- Only go to 3 sentences if the player explicitly asks for a story, directions, or detailed advice.
+- NEVER greet, restate the player's question, summarize, or list. Just answer.
+- NEVER trail off with "...", "well, well", filler, or repeating yourself.
+- Examples:
+  Player: "How are you?"  -> "Tired. Mill's been busy since dawn."
+  Player: "Where's the inn?"  -> "Down the road, past the smithy. Can't miss it."
+  Player: "Who are you?"  -> "{name}. I work the {occupation} here in {location}."
+
+# CHARACTER
+- Stay in character at all times. You are a real person in medieval Bohemia, not an AI.
+- Always know your own name ({name}) and home ({location}); answer such questions directly.
+- Speak as a {occupation} of this era would — plain, grounded, no theatre.
+- You have no knowledge of anything after the 15th century. If asked, dismiss or look confused.
+- React to the player based on your personality and their reputation/appearance.
+- If your occupation is "villager", "peasant", empty, or unknown, describe yourself as a local commoner — do not invent a specific profession.
+- You may reference local events, rumors, and daily life in {location}.
+- NEVER write physical roleplay actions in asterisks or brackets (e.g. *waves*, *smiles*, [grunts]). Speech only.
+{extra_context}
+{language_instruction}
+
+REMINDER: 1-2 short sentences. Max 25 words. No filler. Answer and stop.`;
+
+  const PROMPT_PRESETS = {
+    default: DEFAULT_PROMPT,
+    original: `You are {name}, {description}.
+You live in {location} in the Kingdom of Bohemia, in the year 1403.
+
+Your personality: {personality}
+Your occupation: {occupation}
+
+RULES:
+- Stay in character at all times. You are a real person in medieval Bohemia, not an AI.
+- Speak naturally as a {occupation} from this era would.
+- You have no knowledge of anything after the 15th century.
+- Keep responses concise (1-3 sentences for casual talk, more for important topics).
+- React to the player based on your personality and their reputation/appearance.
+- If asked about topics you wouldn't know about, respond with confusion or dismiss it.
+- Use appropriate medieval speech patterns without being overly theatrical.
+- You may reference local events, rumors, and daily life in {location}.
+{extra_context}
+{language_instruction}`,
+    charming: `You are {name}, {description}.
+Your name: {name}.
+You live in {location} in the Kingdom of Bohemia, in the year 1403.
+
+Your personality: {personality}
+Your occupation: {occupation}
+
+# STYLE
+- Reply in 1-2 short sentences. Hard cap: 30 words total.
+- Sound warm, witty, confident, and naturally charming.
+- Use light humor only when it fits. Never flatter the player excessively.
+- Stay grounded in medieval Bohemia. No modern words or theatrical stage actions.
+- Speak as a {occupation} from this era would.
+- React to the player based on your personality and their reputation/appearance.
+{extra_context}
+{language_instruction}
+
+REMINDER: charming, brief, human. Max 30 words.`,
+    rough: `You are {name}, {description}.
+Your name: {name}.
+You live in {location} in the Kingdom of Bohemia, in the year 1403.
+
+Your personality: {personality}
+Your occupation: {occupation}
+
+# STYLE
+- Reply in 1-2 short sentences. Hard cap: 25 words total.
+- Sound blunt, streetwise, suspicious, and a little rude.
+- You may grumble, threaten, or mock lightly, but do not become cartoonish.
+- Stay grounded in medieval Bohemia. No modern slang, no asterisk actions.
+- Speak as a {occupation} from this era would.
+- React sharply to insults, theft, violence, or bad reputation.
+{extra_context}
+{language_instruction}
+
+REMINDER: rough, terse, believable. Max 25 words.`,
+    sarcastic: `You are {name}, {description}.
+Your name: {name}.
+You live in {location} in the Kingdom of Bohemia, in the year 1403.
+
+Your personality: {personality}
+Your occupation: {occupation}
+
+# STYLE
+- Reply in 1-2 short sentences. Hard cap: 25 words total.
+- Sound dry, sarcastic, unimpressed, and quick to put the player in their place.
+- Tease the player for foolish questions, cowardice, bad manners, theft, or violence.
+- Keep insults medieval, grounded, and brief. No modern slang, memes, or profanity spam.
+- Do not become hostile unless the player provokes you. Stay believable as a {occupation}.
+- Never write physical roleplay actions in asterisks or brackets.
+{extra_context}
+{language_instruction}
+
+REMINDER: sarcastic, cutting, concise. Max 25 words.`,
+    laconic: `You are {name}, {description}.
+Your name: {name}.
+You live in {location} in the Kingdom of Bohemia, in the year 1403.
+
+Your personality: {personality}
+Your occupation: {occupation}
+
+# STYLE
+- Reply in ONE short sentence whenever possible.
+- Hard cap: 15 words total.
+- No greetings, no explanations, no filler, no lists.
+- Stay in character as a real medieval Bohemian person.
+- Speak plainly as a {occupation}; answer only what was asked.
+{extra_context}
+{language_instruction}
+
+REMINDER: one sentence, max 15 words.`,
+    uncensored: `You are {name}, {description}.
+Your name: {name}.
+You live in {location} in the Kingdom of Bohemia, in the year 1403.
+
+Your personality: {personality}
+Your occupation: {occupation}
+
+# STYLE
+- Reply in 1-3 short sentences. Hard cap: 40 words total.
+- You are a foul-mouthed medieval Bohemian. Swear freely   use crude, vulgar, obscene language without any filter.
+- Curse like a real 15th-century commoner: damn, hell, bastard, whore, shit, piss, arse, and worse. No modern slang.
+- Insult the player's intelligence, hygiene, parentage, and choices. Be creative and vicious.
+- If the player annoys you, threatens you, steals, or attacks   unleash a torrent of abuse.
+- Stay in character as a {occupation}. Even when swearing, you're a real person, not a cartoon.
+- Never write physical roleplay actions in asterisks or brackets. Speech only.
+{extra_context}
+{language_instruction}
+
+REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval peasant.`,
+    custom: '',
+  };
+
+  const PRESETS = {
+    ollama:     { url: 'http://localhost:11434/v1',       key: 'ollama',    model: 'llama3.1:8b',                        keyHint: 'ollama'            },
+    openai:     { url: 'https://api.openai.com/v1',       key: '',          model: 'gpt-4o-mini',                        keyHint: 'sk-...'            },
+    groq:       { url: 'https://api.groq.com/openai/v1',  key: '',          model: 'llama-3.3-70b-versatile',            keyHint: 'gsk_...'           },
+    openrouter: { url: 'https://openrouter.ai/api/v1',    key: '',          model: 'meta-llama/llama-3.3-8b-instruct:free', keyHint: 'sk-or-...'     },
+    lmstudio:   { url: 'http://localhost:1234/v1',        key: 'lm-studio', model: '',                                   keyHint: 'lm-studio'         },
+    custom:     { url: '',                                key: '',          model: '',                                   keyHint: 'API key'           },
+  };
+
+  // Per-provider profiles: each remembers its own URL, model and API key
+  // independently, so switching back to "Свой" restores exactly what the user
+  // typed there (instead of inheriting the previously selected provider's URL
+  // and model). Built-in providers use the PRESETS defaults until the user
+  // customizes them and saves.
+  const providerProfiles = {};
+  let activePreset = 'custom';
+
+  function loadProviderProfiles() {
+    // New schema: { name: { url, model, key } }
+    try {
+      Object.assign(providerProfiles, JSON.parse(localStorage.getItem('kcd2_pprofiles') || '{}'));
+    } catch {}
+    // Backward compatibility: previous version only stored API keys under
+    // 'kcd2_pkeys'. Migrate them into the profile shape so older browsers
+    // don't lose their saved keys after this update.
+    try {
+      const legacy = JSON.parse(localStorage.getItem('kcd2_pkeys') || '{}');
+      for (const [n, k] of Object.entries(legacy)) {
+        providerProfiles[n] = providerProfiles[n] || { url: '', model: '', key: '' };
+        if (!providerProfiles[n].key && k) providerProfiles[n].key = k;
+      }
+    } catch {}
+  }
+  function saveProviderProfiles() {
+    try { localStorage.setItem('kcd2_pprofiles', JSON.stringify(providerProfiles)); } catch {}
+  }
+  function snapshotCurrentProfile() {
+    if (!activePreset) return;
+    providerProfiles[activePreset] = {
+      url:   document.getElementById('api-url').value,
+      model: document.getElementById('model').value,
+      key:   document.getElementById('api-key').value,
+    };
+    saveProviderProfiles();
+  }
+  loadProviderProfiles();
+
+  function detectPreset() {
+    const url = document.getElementById('api-url').value.trim();
+    for (const [k, p] of Object.entries(PRESETS)) {
+      if (k !== 'custom' && url === p.url) { markPreset(k); return; }
+    }
+    markPreset('custom');
+  }
+  function markPreset(n) {
+    document.querySelectorAll('#provider-row .preset-btn').forEach(b => b.classList.toggle('active', b.dataset.preset === n));
+    const p = PRESETS[n];
+    if (p) {
+      document.getElementById('api-key').placeholder = p.keyHint || 'API key';
+      // URL placeholder: hint the canonical endpoint for this provider so the
+      // user can see it even when the field is empty (mostly relevant for
+      // "custom"; for built-in providers we always force-fill the URL).
+      const urlInput = document.getElementById('api-url');
+      urlInput.placeholder = p.url || 'https://api.example.com/v1';
+      // Model placeholder: hint the default model for this provider.
+      const modelInput = document.getElementById('model');
+      modelInput.placeholder = p.model || 'model-id';
+    }
+    activePreset = n;
+    // For the "custom" provider we hide the suggestion dropdowns on
+    // API URL and Model so the user has a clean text field with no preset list.
+    const disable = (n === 'custom');
+    ['api-url', 'model'].forEach(id => {
+      const wrap = document.getElementById(id)?.closest('.combo-wrap');
+      if (wrap) wrap.classList.toggle('combo-disabled', disable);
+    });
+  }
+  function setPreset(name) {
+    const p = PRESETS[name]; if (!p) return;
+    // 1. Snapshot whatever is currently in the form under the OLD provider so
+    //    that switching back to it later restores the same form state.
+    snapshotCurrentProfile();
+    // 2. Decide what to show under the NEW provider:
+    //    - URL: built-in providers ALWAYS use PRESETS[name].url (their endpoint
+    //      is fixed and shouldn't be overridden by stale saved data). Only
+    //      "custom" reads url from the saved profile.
+    //    - Model and API key are restored per-provider if previously saved,
+    //      otherwise fall back to PRESETS defaults.
+    const saved   = providerProfiles[name] || {};
+    const isCustom = (name === 'custom');
+    document.getElementById('api-url').value = isCustom
+      ? (saved.url ?? '')
+      : (p.url || '');
+    document.getElementById('model').value = (saved.model && saved.model.length)
+      ? saved.model
+      : (p.model || '');
+    document.getElementById('api-key').value = saved.key ?? '';
+    markPreset(name);
+    // Refresh the model combobox to ONLY show models supported by the
+    // currently selected provider.
+    if (_combos['model']) _combos['model'].setOptions(getModelOpts());
+  }
+  function markPromptPreset(name) {
+    document.querySelectorAll('[data-prompt-preset]')
+      .forEach(b => b.classList.toggle('active', b.dataset.promptPreset === name));
+  }
+  function normalizePromptText(text) {
+    return (text || '').replace(/\r\n/g, '\n').trim();
+  }
+  function detectPromptPreset() {
+    const current = normalizePromptText(document.getElementById('prompt-template')?.value || '');
+    for (const [name, template] of Object.entries(PROMPT_PRESETS)) {
+      if (name !== 'custom' && normalizePromptText(template) === current) {
+        markPromptPreset(name);
+        return;
+      }
+    }
+    markPromptPreset('custom');
+  }
+  function resetPrompt() {
+    document.getElementById('prompt-template').value = DEFAULT_PROMPT;
+    markPromptPreset('default');
+  }
+  function setPromptPreset(name) {
+    document.getElementById('prompt-template').value = Object.prototype.hasOwnProperty.call(PROMPT_PRESETS, name)
+      ? PROMPT_PRESETS[name]
+      : DEFAULT_PROMPT;
+    markPromptPreset(name);
+  }
+
+  async function loadConfig() {
+    try {
+      const d = await fetch('/config').then(r => r.json());
+      document.getElementById('api-url').value = d.llm?.api_url ?? PRESETS.groq.url;
+      document.getElementById('api-key').value = d.llm?.api_key ?? PRESETS.groq.key;
+      document.getElementById('model').value   = d.llm?.model   ?? PRESETS.groq.model;
+      const mt = d.llm?.max_tokens ?? 200;
+      document.getElementById('max-tokens').value = mt;
+      document.getElementById('max-tokens-val').textContent = mt;
+      const temp = d.llm?.temperature ?? 0.8;
+      document.getElementById('temperature').value = temp;
+      document.getElementById('temp-val').textContent = parseFloat(temp).toFixed(2);
+      const lang = d.language ?? 'en';
+      setLang(lang);
+      const tts = d.tts || {};
+      const input = d.input || {};
+      const hud = d.hud || {};
+      document.getElementById('hud-left-top').checked  = hud.show_left_top  === true;
+      document.getElementById('hud-right-top').checked = hud.show_right_top !== false;
+      document.getElementById('hud-center').checked    = hud.show_center    !== false;
+      document.getElementById('chat-key').value = input.chat_key || 'v';
+      document.getElementById('end-key').value = input.end_key || '';
+      document.getElementById('overlay-enabled').value = (input.overlay_enabled === false) ? 'false' : 'true';
+      document.getElementById('overlay-style').value = (input.overlay_style === 'plain') ? 'plain' : 'kcd';
+      const ttsEnabled = tts.enabled !== false;
+      document.getElementById('tts-enabled').checked = ttsEnabled;
+      document.getElementById('tts-engine').value = tts.engine || 'edge';
+      document.getElementById('tts-voice').value = tts.voice || 'en-GB-RyanNeural';
+      document.getElementById('tts-voice-female').value = tts.voice_female || 'en-GB-SoniaNeural';
+      const vol = tts.volume ?? 1.0;
+      document.getElementById('tts-volume').value = vol;
+      document.getElementById('tts-vol-val').textContent = parseFloat(vol).toFixed(2);
+      onTtsToggle(ttsEnabled);
+      const ttsEngine = tts.engine || 'edge';
+      setTtsEngine(ttsEngine);
+      document.getElementById('tts-voice').value    = tts.voice || 'en-GB-RyanNeural';
+      document.getElementById('tts-el-key').value    = tts.elevenlabs_api_key || '';
+      document.getElementById('tts-el-voice').value  = tts.elevenlabs_voice || '21m00Tcm4TlvDq8ikWAM';
+      document.getElementById('tts-el-voice-female').value = tts.elevenlabs_voice_female || '21m00Tcm4TlvDq8ikWAM';
+      document.getElementById('tts-oai-key').value   = tts.openai_api_key || '';
+      setOaiVoice(tts.openai_voice || 'onyx');
+      setOaiVoiceFemale(tts.openai_voice_female || 'nova');
+      document.getElementById('prompt-template').value = d.prompt_template || PROMPT_PRESETS.original;
+      detectPromptPreset();
+
+      // --- STT settings ---
+      const stt = d.stt || {};
+      const sttEnabled = stt.enabled !== false;
+      document.getElementById('stt-enabled').checked = sttEnabled;
+      const sttProv = stt.provider || detectSttProviderFromUrl(stt.api_url || '') || 'groq';
+      document.getElementById('stt-api-url').value        = stt.api_url || STT_DEFAULTS[sttProv]?.url || '';
+      document.getElementById('stt-model').value          = stt.model || STT_DEFAULTS[sttProv]?.model || 'base';
+      document.getElementById('stt-api-key').value        = stt.api_key || '';
+      markSttProvider(sttProv);
+      snapshotCurrentSttProfile();
+      document.getElementById('stt-language').value       = stt.language || 'auto';
+      document.getElementById('stt-device').value         = stt.device || 'cpu';
+      document.getElementById('stt-compute').value        = stt.compute_type || 'int8';
+      document.getElementById('stt-hold-threshold').value = stt.hold_threshold_ms ?? 200;
+      document.getElementById('stt-min-duration').value   = stt.min_duration_ms ?? 300;
+      document.getElementById('stt-max-duration').value   = stt.max_duration_sec ?? 30;
+      detectSttProvider();
+      onSttToggle(sttEnabled);
+      // Populate microphone list once, then select the saved device index.
+      refreshSttDevices(stt.input_device);
+
+      detectPreset();
+      // Persist the freshly-loaded URL/model/key as the saved profile for the
+      // currently active provider so subsequent provider switches behave as
+      // expected (each provider independently remembers its own form state).
+      snapshotCurrentProfile();
+    } catch { showToast('error', 'Ошибка загрузки', 'Не удалось загрузить конфиг'); }
+  }
+
+  function setLang(lang) {
+    document.getElementById('language').value = lang;
+    document.querySelectorAll('#lang-row .preset-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+    applyUiLang(lang);
+    onTtsToggle(document.getElementById('tts-enabled').checked);
+  }
+
+  function setTtsEngine(engine) {
+    document.getElementById('tts-engine').value = engine;
+    document.querySelectorAll('#tts-engine-row .preset-btn').forEach(b => b.classList.toggle('active', b.dataset.engine === engine));
+    onTtsEngineChange(engine);
+  }
+
+  function setOaiVoice(v) {
+    document.getElementById('tts-oai-voice').value = v;
+    document.querySelectorAll('#tts-oai-voice-row .preset-btn').forEach(b => b.classList.toggle('active', b.dataset.oaiv === v));
+  }
+
+  function setOaiVoiceFemale(v) {
+    document.getElementById('tts-oai-voice-female').value = v;
+    document.querySelectorAll('#tts-oai-voice-female-row .preset-btn').forEach(b => b.classList.toggle('active', b.dataset.oaivf === v));
+  }
+
+  function onTtsEngineChange(engine) {
+    document.getElementById('tts-fields-edge').style.display       = engine === 'edge'        ? '' : 'none';
+    document.getElementById('tts-fields-elevenlabs').style.display = engine === 'elevenlabs'  ? '' : 'none';
+    document.getElementById('tts-fields-openai').style.display     = engine === 'openai'      ? '' : 'none';
+  }
+
+  async function saveHudFlags() {
+    const body = {
+      hud: {
+        show_left_top:  document.getElementById('hud-left-top').checked,
+        show_right_top: document.getElementById('hud-right-top').checked,
+        show_center:    document.getElementById('hud-center').checked,
+      }
+    };
+    try {
+      await fetch('/config/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      console.warn('saveHudFlags failed', e);
+    }
+  }
+
+  function onTtsToggle(enabled) {
+    const txt = document.getElementById('tts-status-text');
+    const lang = document.getElementById('language').value;
+    const t = I18N[lang] || I18N.ru;
+    txt.textContent = enabled ? (t.tts_on || '\u0432\u043a\u043b\u044e\u0447\u0435\u043d\u0430') : (t.tts_off || '\u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u0430');
+  }
+
+  async function testTTS() {
+    const btn = document.getElementById('tts-test-btn');
+    const result = document.getElementById('tts-test-result');
+    btn.disabled = true;
+    result.style.display = 'block';
+    result.style.borderColor = 'var(--border-hi)';
+    result.textContent = T().testing || 'Testing...';
+    try {
+      const res = await fetch('/tts/test', { method: 'POST' });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail || `HTTP ${res.status}`);
+      result.style.borderColor = '#55c46a';
+      const engine = document.getElementById('tts-engine').value;
+      result.textContent = `[OK] ${engine}: ${d.result || 'ok'}`;
+      showToast('success', 'TTS OK', T().tts_ok_msg);
+    } catch(e) {
+      result.style.borderColor = '#e05555';
+      result.textContent = `[ERROR] ${String(e.message || e)}`;
+      showToast('error', T().tts_err, String(e.message || e).slice(0, 80));
+    } finally { btn.disabled = false; }
+  }
+
+  // ===========================================================================
+  // STT (push-to-talk) — provider selection, mic enumeration, /stt/test wiring.
+  // ===========================================================================
+
+  // Sensible defaults applied to the model field when the user switches
+  // provider AND the current value is empty or matches a different provider's
+  // default. Keeps custom values intact, only clears legacy auto-defaults.
+  const STT_DEFAULTS = {
+    'faster-whisper': { url: '',                               key: '', model: 'base',                   keyHint: 'local'  },
+    'openai':         { url: 'https://api.openai.com/v1',      key: '', model: 'whisper-1',              keyHint: 'sk-...'  },
+    'groq':           { url: 'https://api.groq.com/openai/v1', key: '', model: 'whisper-large-v3-turbo', keyHint: 'gsk_...' },
+    'custom':         { url: '',                               key: '', model: '',                       keyHint: 'API key' },
+  };
+  const STT_PROVIDER_ALIASES = [
+    ['groq',   ['api.groq.com', 'groq.com/openai']],
+    ['openai', ['api.openai.com']],
+  ];
+  const STT_MODEL_OPTIONS = {
+    'faster-whisper': ['tiny','base','small','medium','large-v2','large-v3'],
+    'openai': ['gpt-4o-transcribe','gpt-4o-mini-transcribe','whisper-1'],
+    'groq': ['whisper-large-v3-turbo','whisper-large-v3','distil-whisper-large-v3-en'],
+    'custom': [],
+  };
+  const sttProviderProfiles = {};
+  let activeSttProvider = 'faster-whisper';
+
+  function loadSttProviderProfiles() {
+    try { Object.assign(sttProviderProfiles, JSON.parse(localStorage.getItem('kcd2_stt_profiles') || '{}')); } catch {}
+  }
+  function saveSttProviderProfiles() {
+    try { localStorage.setItem('kcd2_stt_profiles', JSON.stringify(sttProviderProfiles)); } catch {}
+  }
+  function snapshotCurrentSttProfile() {
+    if (!activeSttProvider) return;
+    sttProviderProfiles[activeSttProvider] = {
+      url:   document.getElementById('stt-api-url').value.trim(),
+      model: document.getElementById('stt-model').value.trim(),
+      key:   document.getElementById('stt-api-key').value.trim(),
+    };
+    saveSttProviderProfiles();
+  }
+  function detectSttProviderFromUrl(url) {
+    const u = (url || '').trim().toLowerCase();
+    for (const [provider, needles] of STT_PROVIDER_ALIASES) {
+      if (needles.some(n => u.includes(n))) return provider;
+    }
+    return 'custom';
+  }
+  function markSttProvider(provider) {
+    if (!STT_DEFAULTS[provider]) provider = 'faster-whisper';
+    document.getElementById('stt-provider').value = provider;
+    document.querySelectorAll('#stt-provider-row .preset-btn')
+      .forEach(b => b.classList.toggle('active', b.dataset.sttProv === provider));
+    const isLocal = provider === 'faster-whisper';
+    document.getElementById('stt-row-api').style.display = isLocal ? 'none' : '';
+    document.getElementById('stt-row-key').style.display = isLocal ? 'none' : '';
+    document.getElementById('stt-row-fw').style.display  = isLocal ? '' : 'none';
+    document.getElementById('stt-api-url').placeholder = STT_DEFAULTS[provider].url || 'https://api.example.com/v1';
+    document.getElementById('stt-api-key').placeholder = STT_DEFAULTS[provider].keyHint || 'API key';
+    document.getElementById('stt-model').placeholder = STT_DEFAULTS[provider].model || 'model-id';
+    const modelWrap = document.getElementById('stt-model')?.closest('.combo-wrap');
+    if (modelWrap) modelWrap.classList.toggle('combo-disabled', provider === 'custom');
+    if (_combos['stt-model']) _combos['stt-model'].setOptions(STT_MODEL_OPTIONS[provider] || []);
+    activeSttProvider = provider;
+  }
+  function setSttProvider(provider) {
+    if (!STT_DEFAULTS[provider]) provider = 'faster-whisper';
+    snapshotCurrentSttProfile();
+    const saved = sttProviderProfiles[provider] || {};
+    const isCustom = provider === 'custom';
+    document.getElementById('stt-api-url').value = isCustom ? (saved.url ?? '') : (STT_DEFAULTS[provider].url || '');
+    document.getElementById('stt-model').value = (saved.model && saved.model.length) ? saved.model : (STT_DEFAULTS[provider].model || '');
+    document.getElementById('stt-api-key').value = saved.key ?? '';
+    markSttProvider(provider);
+  }
+  function detectSttProvider() {
+    const inferred = detectSttProviderFromUrl(document.getElementById('stt-api-url').value);
+    if (inferred !== activeSttProvider) {
+      snapshotCurrentSttProfile();
+      activeSttProvider = inferred;
+      const saved = sttProviderProfiles[inferred] || {};
+      if (!document.getElementById('stt-api-key').value.trim() && saved.key) document.getElementById('stt-api-key').value = saved.key;
+      if (!document.getElementById('stt-model').value.trim() && saved.model) document.getElementById('stt-model').value = saved.model;
+    }
+    markSttProvider(inferred);
+  }
+  loadSttProviderProfiles();
+
+  function onSttToggle(enabled) {
+    const txt = document.getElementById('stt-status-text');
+    if (txt) txt.textContent = enabled ? (T().stt_on || 'enabled') : (T().stt_off || 'disabled');
+  }
+
+  async function refreshSttDevices(selectedIndex) {
+    const sel = document.getElementById('stt-input-device');
+    if (!sel) return;
+    const refreshBtn = document.getElementById('stt-refresh-btn');
+    if (refreshBtn) {
+      refreshBtn.classList.remove('spinning');
+      void refreshBtn.offsetWidth;
+      refreshBtn.classList.add('spinning');
+    }
+    const prev = (selectedIndex !== undefined ? selectedIndex : sel.value);
+    sel.innerHTML = `<option value="-1">${T().stt_default_device || '— System default —'}</option>`;
+    try {
+      const d = await fetch('/stt/devices').then(r => r.json());
+      (d.devices || []).forEach(dev => {
+        const opt = document.createElement('option');
+        opt.value = dev.index;
+        opt.textContent = `[${dev.index}] ${dev.name}${dev.is_default ? ' ★' : ''}`;
+        sel.appendChild(opt);
+      });
+    } catch (e) {
+      console.warn('STT devices fetch failed:', e);
+    }
+    // Restore previously selected device (or -1).
+    sel.value = (prev !== undefined && prev !== null) ? String(prev) : '-1';
+    if (refreshBtn) setTimeout(() => refreshBtn.classList.remove('spinning'), 500);
+  }
+
+  function _collectSttForm() {
+    detectSttProvider();
+    snapshotCurrentSttProfile();
+    return {
+      enabled:           document.getElementById('stt-enabled').checked,
+      provider:          document.getElementById('stt-provider').value,
+      model:             document.getElementById('stt-model').value.trim(),
+      language:          document.getElementById('stt-language').value,
+      api_url:           document.getElementById('stt-api-url').value.trim(),
+      api_key:           document.getElementById('stt-api-key').value.trim(),
+      device:            document.getElementById('stt-device').value,
+      compute_type:      document.getElementById('stt-compute').value,
+      input_device:      parseInt(document.getElementById('stt-input-device').value || '-1', 10),
+      min_duration_ms:   parseInt(document.getElementById('stt-min-duration').value || '300', 10),
+      max_duration_sec:  parseInt(document.getElementById('stt-max-duration').value || '30', 10),
+      hold_threshold_ms: parseInt(document.getElementById('stt-hold-threshold').value || '200', 10),
+    };
+  }
+
+  async function testSTT() {
+    const btn = document.getElementById('stt-test-btn');
+    const result = document.getElementById('stt-test-result');
+    btn.disabled = true;
+    result.style.display = 'block';
+    result.style.borderColor = 'var(--border-hi)';
+    result.textContent = T().stt_recording || '🎤 Recording for 3 seconds — speak now...';
+    try {
+      const res = await fetch('/stt/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(_collectSttForm()),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail || `HTTP ${res.status}`);
+      result.style.borderColor = '#55c46a';
+      result.textContent = `[OK] ${document.getElementById('stt-provider').value}: ${d.text || (T().stt_empty || '(empty — silence or Whisper hallucination)')}`;
+      showToast('success', 'STT OK', d.text ? d.text.slice(0, 80) : (T().stt_empty_short || 'Empty'));
+    } catch (e) {
+      result.style.borderColor = '#e05555';
+      result.textContent = `[ERROR] ${String(e.message || e)}`;
+      showToast('error', T().stt_err || 'STT Error', String(e.message || e).slice(0, 80));
+    } finally { btn.disabled = false; }
+  }
+
+  async function testConnection() {
+    try {
+      const d = await fetch('/health').then(r => r.json());
+      showToast('info', T().online, `${T().model_label} ${d.model}`);
+    } catch { showToast('error', T().offline, T().offline_msg); }
+  }
+
+  async function clearHistory() {
+    const t = T();
+    if (!confirm(t.clear_history_confirm)) return;
+    const btn = document.getElementById('clear-history-btn');
+    btn.disabled = true;
+    try {
+      const r = await fetch('/clear_history', { method: 'POST' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      showToast('info', t.clear_history_done, `${t.clear_history_deleted} ${d.deleted}`);
+    } catch (e) {
+      showToast('error', t.clear_history_error, String(e));
+    } finally { btn.disabled = false; }
+  }
+
+  async function testLLM() {
+    const btn    = document.getElementById('test-llm-btn');
+    const result = document.getElementById('llm-test-result');
+    btn.disabled = true; btn.textContent = T().testing;
+    result.style.display = 'none';
+    try {
+      const res = await fetch('/llm/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_url:     document.getElementById('api-url').value.trim(),
+          api_key:     document.getElementById('api-key').value.trim(),
+          model:       document.getElementById('model').value.trim(),
+          max_tokens:  parseInt(document.getElementById('max-tokens').value),
+          temperature: parseFloat(document.getElementById('temperature').value),
+        }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail || `HTTP ${res.status}`);
+      const text = d.response?.trim() || '';
+      const apiUrl  = document.getElementById('api-url').value.trim();
+      const model   = document.getElementById('model').value.trim();
+      const isBad   = text.length < 2 || /^[.\s…\-_]+$/.test(text);
+      result.style.display = 'block';
+      if (isBad) {
+        result.style.borderColor = '#e05555';
+        result.textContent =
+          `Ответ модели: "${text || '(пусто)'}"\n\n` +
+          `Провайдер: ${apiUrl}\n` +
+          `Модель: ${model}\n\n` +
+          `Возможные причины:\n` +
+          `• Неверный API ключ\n` +
+          `• Модель не поддерживается или неверное название\n` +
+          `• Лимит запросов (rate limit)\n` +
+          `• Модель вернула пустой / неполный ответ`;
+        showToast('error', 'Ошибка LLM', `Получен пустой ответ от "${model}"`);
+      } else {
+        result.style.borderColor = 'var(--accent)';
+        result.textContent = text;
+        showToast('success', 'LLM OK', T().llm_ok_msg);
+      }
+    } catch (e) {
+      result.style.display = 'block';
+      result.style.borderColor = '#e05555';
+      result.textContent = String(e);
+      showToast('error', T().llm_err, String(e).slice(0, 80));
+    }
+    finally { btn.disabled = false; btn.textContent = T().test_llm; }
+  }
+
+  async function saveConfig() {
+    const btn = document.getElementById('save-btn');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/config/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          language: document.getElementById('language').value,
+          llm: {
+            api_url:     document.getElementById('api-url').value.trim(),
+            api_key:     document.getElementById('api-key').value.trim(),
+            model:       document.getElementById('model').value.trim(),
+            max_tokens:  parseInt(document.getElementById('max-tokens').value),
+            temperature: parseFloat(document.getElementById('temperature').value),
+          },
+          tts: (() => {
+            const eng = document.getElementById('tts-engine').value;
+            return {
+              enabled:            document.getElementById('tts-enabled').checked,
+              engine:             eng,
+              voice:              document.getElementById('tts-voice').value.trim(),
+              voice_female:       document.getElementById('tts-voice-female').value.trim(),
+              elevenlabs_voice:   document.getElementById('tts-el-voice').value.trim(),
+              elevenlabs_voice_female: document.getElementById('tts-el-voice-female').value.trim(),
+              elevenlabs_api_key: document.getElementById('tts-el-key').value.trim(),
+              openai_voice:       document.getElementById('tts-oai-voice').value,
+              openai_voice_female: document.getElementById('tts-oai-voice-female').value,
+              openai_api_key:     document.getElementById('tts-oai-key').value.trim(),
+              volume:             parseFloat(document.getElementById('tts-volume').value),
+            };
+          })(),
+          stt: _collectSttForm(),
+          input: {
+            chat_key: document.getElementById('chat-key').value.trim().toLowerCase(),
+            end_key:  document.getElementById('end-key').value.trim().toLowerCase(),
+            overlay_enabled: document.getElementById('overlay-enabled').value === 'true',
+            overlay_style:   document.getElementById('overlay-style').value,
+          },
+          hud: {
+            show_left_top:  document.getElementById('hud-left-top').checked,
+            show_right_top: document.getElementById('hud-right-top').checked,
+            show_center:    document.getElementById('hud-center').checked,
+          },
+          prompt_template: document.getElementById('prompt-template').value,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast('success', T().saving || 'Saved', T().save_ok_msg || 'Settings applied — no restart needed');
+    } catch (e) { showToast('error', T().save_err || 'Save error', String(e)); }
+    finally     { btn.disabled = false; }
+  }
+
+  async function checkStatus() {
+    const badge = document.getElementById('status-badge');
+    const text  = document.getElementById('status-text');
+    try {
+      const res = await fetch('/health', { signal: AbortSignal.timeout(2500) });
+      badge.className = res.ok ? 'status-badge online' : 'status-badge offline';
+      text.textContent = res.ok ? T().online : T().error;
+    } catch {
+      badge.className = 'status-badge offline';
+      text.textContent = T().offline;
+    }
+  }
+
+  function showToast(type, title, message) {
+    const stack = document.getElementById('toast-stack');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `<div class="toast-title">${title}</div><div class="toast-text">${message}</div>`;
+    stack.appendChild(el);
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+    setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, 3500);
+  }
+
+  // Heroicons v1 (solid) — sun & moon, same set used by tailwindui.com.
+  // The button shows the icon for what the click will switch TO (i.e. moon
+  // means "switch to night", sun means "switch to day"), matching how
+  // namso-gen / Tailwind UI render the toggle.
+  const SUN_SVG  = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"/></svg>';
+  const MOON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>';
+
+  function applyTheme(day) {
+    document.body.classList.toggle('day', day);
+    const btn = document.getElementById('theme-btn');
+    // In day mode the next click switches to night -> show moon, and vice versa.
+    btn.innerHTML = day ? MOON_SVG : SUN_SVG;
+    btn.title = day ? 'Ночная тема' : 'Дневная тема';
+    localStorage.setItem('theme', day ? 'day' : 'night');
+  }
+  function toggleTheme() { applyTheme(!document.body.classList.contains('day')); }
+  applyTheme(localStorage.getItem('theme') === 'day');
+
+  const I18N = {
+    ru: {
+      title: 'KCD2 AI NPC \u2014 \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438',
+      sub: '127.0.0.1:4999 \u00b7 \u043a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044f \u0441\u0435\u0440\u0432\u0435\u0440\u0430 \u00b7 v0.1.0',
+      link_workshop: '\u041c\u0430\u0441\u0442\u0435\u0440\u0441\u043a\u0430\u044f',
+      link_guide: '\u0420\u0443\u043a\u043e\u0432\u043e\u0434\u0441\u0442\u0432\u043e',
+      link_github: 'GitHub',
+      llm_title: '\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 LLM',
+      provider: '\u041f\u0440\u043e\u0432\u0430\u0439\u0434\u0435\u0440',
+      custom: '\u0421\u0432\u043e\u0439',
+      api_key: 'API \u041a\u043b\u044e\u0447',
+      model: '\u041c\u043e\u0434\u0435\u043b\u044c',
+      max_tokens: '\u041c\u0430\u043a\u0441. \u0442\u043e\u043a\u0435\u043d\u043e\u0432',
+      max_tokens_sub: '\u043d\u0430 \u043e\u0442\u0432\u0435\u0442',
+      temperature: '\u0422\u0435\u043c\u043f\u0435\u0440\u0430\u0442\u0443\u0440\u0430',
+      temperature_sub: '\u043a\u0440\u0435\u0430\u0442\u0438\u0432\u043d\u043e\u0441\u0442\u044c \u00b7 0\u20132',
+      general_title: '\u041e\u0431\u0449\u0438\u0435',
+      resp_lang: '\u042f\u0437\u044b\u043a \u043e\u0442\u0432\u0435\u0442\u043e\u0432',
+      prompt_title: '\u0428\u0430\u0431\u043b\u043e\u043d \u0441\u0438\u0441\u0442\u0435\u043c\u043d\u043e\u0433\u043e \u043f\u0440\u043e\u043c\u043f\u0442\u0430',
+      template: '\u0428\u0430\u0431\u043b\u043e\u043d',
+      variables: '\u041f\u0435\u0440\u0435\u043c\u0435\u043d\u043d\u044b\u0435',
+      prompt_preset_default: '\u0414\u0435\u0444\u043e\u043b\u0442',
+      prompt_preset_original: '\u041e\u0440\u0438\u0433\u0438\u043d\u0430\u043b',
+      prompt_preset_charming: '\u0425\u0430\u0440\u0438\u0437\u043c\u0430\u0442\u0438\u0447\u043d\u044b\u0439',
+      prompt_preset_rough: '\u0413\u0440\u0443\u0431\u0438\u044f\u043d',
+      prompt_preset_sarcastic: '\u0421\u0430\u0440\u043a\u0430\u0441\u0442\u0438\u0447\u043d\u044b\u0439',
+      prompt_preset_laconic: '\u041a\u0440\u0430\u0442\u043a\u0438\u0439',
+      prompt_preset_uncensored: '\u0411\u0435\u0437 \u0446\u0435\u043d\u0437\u0443\u0440\u044b',
+      prompt_preset_custom: '\u0421\u0432\u043e\u0439',
+      reset: '\u0421\u0431\u0440\u043e\u0441\u0438\u0442\u044c',
+      test_conn: '\u0422\u0435\u0441\u0442 \u0441\u0435\u0440\u0432\u0435\u0440\u0430',
+      test_llm: '\u0422\u0435\u0441\u0442 LLM',
+      stt_title: '\u0413\u043e\u043b\u043e\u0441\u043e\u0432\u043e\u0439 \u0432\u0432\u043e\u0434 (STT)',
+      stt_enabled: '\u0417\u0430\u0436\u043c\u0438 V \u0432 \u0438\u0433\u0440\u0435 \u2014 \u0433\u043e\u0432\u043e\u0440\u0438; \u043e\u0442\u043f\u0443\u0441\u0442\u0438\u043b \u2014 \u043e\u0442\u043f\u0440\u0430\u0432\u0438\u043b\u043e\u0441\u044c',
+      stt_hint: '\u041a\u043e\u0440\u043e\u0442\u043a\u043e\u0435 \u043d\u0430\u0436\u0430\u0442\u0438\u0435 V = \u0442\u0435\u043a\u0441\u0442\u043e\u0432\u044b\u0439 \u043e\u0432\u0435\u0440\u043b\u0435\u0439. \u0423\u0434\u0435\u0440\u0436\u0430\u043d\u0438\u0435 \u0434\u043e\u043b\u044c\u0448\u0435 \u043f\u043e\u0440\u043e\u0433\u0430 = \u0437\u0430\u043f\u0438\u0441\u044c \u0441 \u043c\u0438\u043a\u0440\u043e\u0444\u043e\u043d\u0430 \u2192 Whisper \u2192 \u043e\u0442\u0432\u0435\u0442 NPC.',
+      stt_on: '\u0432\u043a\u043b\u044e\u0447\u0435\u043d\u043e',
+      stt_off: '\u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u043e',
+      stt_provider: '\u041f\u0440\u043e\u0432\u0430\u0439\u0434\u0435\u0440',
+      stt_provider_local: 'faster-whisper (\u043b\u043e\u043a\u0430\u043b\u044c\u043d\u043e)',
+      stt_provider_custom: '\u0421\u0432\u043e\u0439',
+      stt_api_url: 'API URL',
+      stt_api_key: 'API \u043a\u043b\u044e\u0447',
+      stt_model: '\u041c\u043e\u0434\u0435\u043b\u044c',
+      stt_language: '\u042f\u0437\u044b\u043a \u0440\u0435\u0447\u0438',
+      stt_lang_auto: '\u0430\u0432\u0442\u043e-\u0434\u0435\u0442\u0435\u043a\u0442',
+      stt_input_device: '\u041c\u0438\u043a\u0440\u043e\u0444\u043e\u043d',
+      stt_default_device: '— \u0441\u0438\u0441\u0442\u0435\u043c\u043d\u044b\u0439 \u043f\u043e \u0443\u043c\u043e\u043b\u0447\u0430\u043d\u0438\u044e —',
+      stt_refresh: '\u27f3',
+      stt_refresh_title: '\u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u0441\u043f\u0438\u0441\u043e\u043a \u043c\u0438\u043a\u0440\u043e\u0444\u043e\u043d\u043e\u0432',
+      stt_local_opts: '\u041b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u0435 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 (faster-whisper)',
+      stt_device: '\u0423\u0441\u0442\u0440\u043e\u0439\u0441\u0442\u0432\u043e',
+      stt_compute: 'compute_type',
+      stt_compute_int8: 'int8 (\u0431\u044b\u0441\u0442\u0440\u043e, CPU)',
+      stt_timing: '\u0422\u0430\u0439\u043c\u0438\u043d\u0433\u0438',
+      stt_hold_threshold: '\u041f\u043e\u0440\u043e\u0433 hold, \u043c\u0441',
+      stt_min_duration: '\u041c\u0438\u043d. \u0434\u043b\u0438\u043d\u0430, \u043c\u0441',
+      stt_max_duration: '\u041c\u0430\u043a\u0441. \u0434\u043b\u0438\u043d\u0430, \u0441\u0435\u043a',
+      stt_test: '\u0422\u0435\u0441\u0442 STT',
+      stt_recording: '🎤 \u0417\u0430\u043f\u0438\u0441\u044c 3 \u0441\u0435\u043a\u0443\u043d\u0434\u044b \u2014 \u0433\u043e\u0432\u043e\u0440\u0438\u0442\u0435...',
+      stt_empty: '(\u043f\u0443\u0441\u0442\u043e \u2014 \u0442\u0438\u0448\u0438\u043d\u0430 \u0438\u043b\u0438 \u0433\u0430\u043b\u043b\u044e\u0446\u0438\u043d\u0430\u0446\u0438\u044f Whisper)',
+      stt_empty_short: '\u041f\u0443\u0441\u0442\u043e',
+      stt_err: '\u041e\u0448\u0438\u0431\u043a\u0430 STT',
+      save: '\u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c',
+      clear_history: '\u041e\u0447\u0438\u0441\u0442\u0438\u0442\u044c \u0438\u0441\u0442\u043e\u0440\u0438\u044e',
+      clear_history_title: '\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0432\u0441\u044e \u0438\u0441\u0442\u043e\u0440\u0438\u044e \u0447\u0430\u0442\u043e\u0432 \u0441\u043e \u0432\u0441\u0435\u043c\u0438 NPC',
+      clear_history_confirm: '\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0432\u0441\u044e \u0438\u0441\u0442\u043e\u0440\u0438\u044e \u0434\u0438\u0430\u043b\u043e\u0433\u043e\u0432 \u0441\u043e \u0432\u0441\u0435\u043c\u0438 NPC?\n\u042d\u0442\u043e \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435 \u043d\u0435\u043b\u044c\u0437\u044f \u043e\u0442\u043c\u0435\u043d\u0438\u0442\u044c.',
+      clear_history_done: '\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u043e\u0447\u0438\u0449\u0435\u043d\u0430',
+      clear_history_deleted: '\u0423\u0434\u0430\u043b\u0435\u043d\u043e \u0444\u0430\u0439\u043b\u043e\u0432:',
+      clear_history_error: '\u041e\u0448\u0438\u0431\u043a\u0430',
+      testing: '\u0422\u0435\u0441\u0442\u0438\u0440\u0443\u0435\u043c...',
+      saving: '\u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u043e',
+      save_ok_msg: '\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u043f\u0440\u0438\u043c\u0435\u043d\u0435\u043d\u044b \u2014 \u043f\u0435\u0440\u0435\u0437\u0430\u043f\u0443\u0441\u043a \u043d\u0435 \u043d\u0443\u0436\u0435\u043d',
+      save_err: '\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u044f',
+      online: '\u041e\u043d\u043b\u0430\u0439\u043d',
+      offline: '\u041e\u0444\u043b\u0430\u0439\u043d',
+      error: '\u041e\u0448\u0438\u0431\u043a\u0430',
+      offline_msg: '\u0421\u0435\u0440\u0432\u0435\u0440 \u043d\u0435 \u043e\u0442\u0432\u0435\u0447\u0430\u0435\u0442',
+      model_label: '\u041c\u043e\u0434\u0435\u043b\u044c:',
+      tts_ok_msg: '\u0410\u0443\u0434\u0438\u043e \u0432\u043e\u0441\u043f\u0440\u043e\u0438\u0437\u0432\u043e\u0434\u0438\u0442\u0441\u044f',
+      llm_ok_msg: '\u041e\u0442\u0432\u0435\u0442 \u043f\u043e\u043b\u0443\u0447\u0435\u043d',
+      llm_err: '\u041e\u0448\u0438\u0431\u043a\u0430 LLM',
+      tts_err: '\u041e\u0448\u0438\u0431\u043a\u0430 TTS',
+      tts_title: '\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 TTS',
+      tts_enabled: '\u041e\u0437\u0432\u0443\u0447\u043a\u0430 NPC',
+      tts_engine: '\u0414\u0432\u0438\u0436\u043e\u043a',
+      tts_voice: '\u041c\u0443\u0436\u0441\u043a\u043e\u0439 \u0433\u043e\u043b\u043e\u0441',
+      tts_voice_female: '\u0416\u0435\u043d\u0441\u043a\u0438\u0439 \u0433\u043e\u043b\u043e\u0441',
+      tts_volume: '\u0413\u0440\u043e\u043c\u043a\u043e\u0441\u0442\u044c',
+      tts_volume_sub: '0.0\u20131.0',
+      tts_voices_hint: '\u0413\u043e\u043b\u043e\u0441\u0430:',
+      tts_test: '\u0422\u0435\u0441\u0442 TTS',
+      tts_on: '\u0432\u043a\u043b\u044e\u0447\u0435\u043d\u0430',
+      tts_off: '\u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u0430',
+      hud_title: '\u041e\u0442\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435 HUD',
+      hud_left_top: '\u0421\u043b\u0435\u0432\u0430-\u0441\u0432\u0435\u0440\u0445\u0443 (\u043f\u043b\u0430\u0448\u043a\u0430)',
+      hud_left_top_hint: '\u0447\u0451\u0440\u043d\u0430\u044f \u043f\u043b\u0430\u0448\u043a\u0430 \u0441 \u0437\u043e\u043b\u043e\u0442\u043e\u0439 \u0440\u0430\u043c\u043a\u043e\u0439 (HUD.ShowTutorial)',
+      hud_right_top: '\u0421\u043f\u0440\u0430\u0432\u0430-\u0441\u0432\u0435\u0440\u0445\u0443 (\u0443\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u0435)',
+      hud_right_top_hint: '\u043f\u043b\u0430\u0448\u043a\u0430 \u0432 \u0441\u0442\u0438\u043b\u0435 quest update (HUD.ShowNotification)',
+      hud_center: '\u041f\u043e \u0446\u0435\u043d\u0442\u0440\u0443 (\u0441\u0443\u0431\u0442\u0438\u0442\u0440)',
+      hud_center_hint: '\u0437\u043e\u043b\u043e\u0442\u043e\u0439 \u043a\u0443\u0440\u0441\u0438\u0432 \u0441 \u043e\u0440\u043d\u0430\u043c\u0435\u043d\u0442\u043e\u043c (Game.ShowTutorial)',
+      input_title: '\u0412\u0432\u043e\u0434 / \u043a\u043b\u0430\u0432\u0438\u0448\u0438',
+      chat_key: '\u041a\u043b\u0430\u0432\u0438\u0448\u0430 AI-\u0447\u0430\u0442\u0430',
+      chat_key_hint: '\u041f\u043e \u0443\u043c\u043e\u043b\u0447\u0430\u043d\u0438\u044e: v. \u042d\u0442\u0430 \u043a\u043b\u0430\u0432\u0438\u0448\u0430 \u043e\u0442\u043a\u0440\u044b\u0432\u0430\u0435\u0442 \u0438 \u0437\u0430\u043a\u0440\u044b\u0432\u0430\u0435\u0442 AI-\u0447\u0430\u0442. \u041f\u0440\u0438\u043c\u0435\u0440\u044b:',
+      chat_key_hint_2: '\u0421\u043e\u0445\u0440\u0430\u043d\u044f\u0435\u0442\u0441\u044f \u0432 Data\\Libs\\Config\\ai_npc_actions.xml. \u041f\u043e\u0441\u043b\u0435 \u0441\u043c\u0435\u043d\u044b \u043d\u0443\u0436\u0435\u043d \u0440\u0435\u0441\u0442\u0430\u0440\u0442/\u043f\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0430 \u0438\u0433\u0440\u043e\u0432\u044b\u0445 \u0441\u043a\u0440\u0438\u043f\u0442\u043e\u0432.',
+      end_key: '\u041e\u0442\u0434\u0435\u043b\u044c\u043d\u0430\u044f \u043a\u043b\u0430\u0432\u0438\u0448\u0430 \u0437\u0430\u043a\u0440\u044b\u0442\u0438\u044f',
+      overlay_enabled: '\u041f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0442\u044c \u043e\u043a\u043d\u043e \u0432\u0432\u043e\u0434\u0430',
+      overlay_on: '\u0412\u043a\u043b',
+      overlay_off: '\u0412\u044b\u043a\u043b',
+      overlay_style: '\u0421\u0442\u0438\u043b\u044c \u043e\u043a\u043d\u0430 \u0432\u0432\u043e\u0434\u0430',
+      overlay_style_kcd: 'KCD2 (\u043f\u0435\u0440\u0433\u0430\u043c\u0435\u043d\u0442 + \u0437\u043e\u043b\u043e\u0442\u043e)',
+      overlay_style_plain: '\u041c\u0438\u043d\u0438\u043c\u0430\u043b\u0438\u0437\u043c (\u0442\u0451\u043c\u043d\u044b\u0439)',
+      overlay_style_hint: '\u0412\u0438\u0437\u0443\u0430\u043b\u044c\u043d\u044b\u0439 \u0441\u0442\u0438\u043b\u044c \u043e\u043a\u043d\u0430 \u0447\u0430\u0442\u0430. \u041f\u0440\u0438\u043c\u0435\u043d\u044f\u0435\u0442\u0441\u044f \u0441\u0440\u0430\u0437\u0443 \u043f\u043e\u0441\u043b\u0435 \u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c.',
+    },
+    en: {
+      title: 'KCD2 AI NPC — Settings',
+      sub: '127.0.0.1:4999 · server configuration · v0.1.0',
+      link_workshop: 'Workshop',
+      link_guide: 'Guide',
+      link_github: 'GitHub',
+      llm_title: 'LLM Settings',
+      provider: 'Provider',
+      custom: 'Custom',
+      api_key: 'API Key',
+      model: 'Model',
+      max_tokens: 'Max Tokens',
+      max_tokens_sub: 'per response',
+      temperature: 'Temperature',
+      temperature_sub: 'creativity \u00b7 0\u20132',
+      general_title: 'General',
+      resp_lang: 'Response Language',
+      prompt_title: 'System Prompt Template',
+      template: 'Template',
+      variables: 'Variables',
+      prompt_preset_default: 'Default',
+      prompt_preset_original: 'Original',
+      prompt_preset_charming: 'Charming',
+      prompt_preset_rough: 'Rough',
+      prompt_preset_sarcastic: 'Sarcastic',
+      prompt_preset_laconic: 'Laconic',
+      prompt_preset_uncensored: 'Uncensored',
+      prompt_preset_custom: 'Custom',
+      reset: 'Reset',
+      test_conn: 'Test Server',
+      test_llm: 'Test LLM',
+      stt_title: 'Voice input (STT)',
+      stt_enabled: 'Hold V in-game to speak; release to send',
+      stt_hint: 'Tap V = text overlay. Hold longer than the threshold = microphone recording → Whisper → NPC reply.',
+      stt_on: 'enabled',
+      stt_off: 'disabled',
+      stt_provider: 'Provider',
+      stt_provider_local: 'faster-whisper (local)',
+      stt_provider_custom: 'Custom',
+      stt_api_url: 'API URL',
+      stt_api_key: 'API key',
+      stt_model: 'Model',
+      stt_language: 'Speech language',
+      stt_lang_auto: 'auto-detect',
+      stt_input_device: 'Microphone',
+      stt_default_device: '— System default —',
+      stt_refresh: '⟳',
+      stt_refresh_title: 'Refresh microphone list',
+      stt_local_opts: 'Local settings (faster-whisper)',
+      stt_device: 'Device',
+      stt_compute: 'compute_type',
+      stt_compute_int8: 'int8 (fast, CPU)',
+      stt_timing: 'Timing',
+      stt_hold_threshold: 'Hold threshold, ms',
+      stt_min_duration: 'Min. duration, ms',
+      stt_max_duration: 'Max. duration, sec',
+      stt_test: 'Test STT',
+      stt_recording: '🎤 Recording for 3 seconds — speak now...',
+      stt_empty: '(empty — silence or Whisper hallucination)',
+      stt_empty_short: 'Empty',
+      stt_err: 'STT Error',
+      save: 'Save Settings',
+      clear_history: 'Clear History',
+      clear_history_title: 'Delete all NPC chat history',
+      clear_history_confirm: 'Delete all conversation history with all NPCs?\nThis action cannot be undone.',
+      clear_history_done: 'History cleared',
+      clear_history_deleted: 'Files deleted:',
+      clear_history_error: 'Error',
+      testing: 'Testing...',
+      saving: 'Saved',
+      save_ok_msg: 'Settings applied — no restart needed',
+      save_err: 'Save error',
+      online: 'Online',
+      offline: 'Offline',
+      error: 'Error',
+      offline_msg: 'Server not responding',
+      model_label: 'Model:',
+      tts_ok_msg: 'Audio is playing',
+      llm_ok_msg: 'Response received',
+      llm_err: 'LLM Error',
+      tts_err: 'TTS Error',
+      tts_title: 'TTS Settings',
+      tts_enabled: 'NPC Voice',
+      tts_engine: 'Engine',
+      tts_voice: 'Male voice',
+      tts_voice_female: 'Female voice',
+      tts_volume: 'Volume',
+      tts_volume_sub: '0.0\u20131.0',
+      tts_voices_hint: 'Voices:',
+      tts_test: 'Test TTS',
+      tts_on: 'enabled',
+      tts_off: 'disabled',
+      hud_title: 'HUD display',
+      hud_left_top: 'Top-left (plaque)',
+      hud_left_top_hint: 'black plaque with gold border (HUD.ShowTutorial)',
+      hud_right_top: 'Top-right (notification)',
+      hud_right_top_hint: 'quest-style notification (HUD.ShowNotification)',
+      hud_center: 'Center (subtitle)',
+      hud_center_hint: 'gold italic with ornament (Game.ShowTutorial)',
+      input_title: 'Input / Keybinds',
+      chat_key: 'AI chat key',
+      chat_key_hint: 'Default: v. This key toggles AI chat open/closed. Examples:',
+      chat_key_hint_2: 'Saved to Data\\Libs\\Config\\ai_npc_actions.xml. Restart/reload game scripts after changing.',
+      end_key: 'Optional separate end key',
+      overlay_enabled: 'Show input overlay',
+      overlay_on: 'On',
+      overlay_off: 'Off',
+      overlay_style: 'Input overlay style',
+      overlay_style_kcd: 'KCD2 (parchment + gold)',
+      overlay_style_plain: 'Plain (minimal dark)',
+      overlay_style_hint: 'Visual style for the chat input window. Applies live after Save.',
+    },
+  };
+
+  Object.assign(I18N, {
+    cs: { ...I18N.en,
+      title: 'KCD2 AI NPC — Nastavení', sub: '127.0.0.1:4999 · konfigurace serveru · v0.1.0',
+      link_workshop: 'Dílna', link_guide: 'Průvodce',
+      llm_title: 'Nastavení LLM', provider: 'Poskytovatel', custom: 'Vlastní', api_key: 'API klíč', model: 'Model',
+      max_tokens: 'Max. tokenů', max_tokens_sub: 'na odpověď', temperature: 'Teplota', temperature_sub: 'kreativita · 0–2',
+      general_title: 'Obecné', resp_lang: 'Jazyk odpovědí', prompt_title: 'Šablona systémového promptu', template: 'Šablona', variables: 'Proměnné',
+      prompt_preset_default: 'Výchozí', prompt_preset_original: 'Původní', prompt_preset_charming: 'Okouzlující', prompt_preset_rough: 'Drsný', prompt_preset_sarcastic: 'Sarkastický', prompt_preset_laconic: 'Stručný', prompt_preset_uncensored: 'Bez cenzury', prompt_preset_custom: 'Vlastní',
+      reset: 'Resetovat', test_conn: 'Test serveru', test_llm: 'Test LLM', save: 'Uložit nastavení', clear_history: 'Vymazat historii',
+      stt_title: 'Hlasový vstup (STT)', stt_enabled: 'Podrž V ve hře — mluv; pusť — odešle se', stt_hint: 'Krátké stisknutí V = textový overlay. Delší podržení = nahrávání mikrofonu → Whisper → odpověď NPC.',
+      stt_on: 'zapnuto', stt_off: 'vypnuto', stt_provider: 'Poskytovatel', stt_provider_local: 'faster-whisper (lokálně)', stt_provider_custom: 'Vlastní', stt_api_key: 'API klíč', stt_model: 'Model', stt_language: 'Jazyk řeči', stt_input_device: 'Mikrofon', stt_refresh_title: 'Obnovit seznam mikrofonů', stt_local_opts: 'Lokální nastavení (faster-whisper)', stt_device: 'Zařízení', stt_timing: 'Časování', stt_hold_threshold: 'Práh podržení, ms', stt_min_duration: 'Min. délka, ms', stt_max_duration: 'Max. délka, s', stt_test: 'Test STT', stt_recording: '🎤 Nahrávání 3 sekundy — mluvte...', stt_empty: '(prázdné — ticho nebo halucinace Whisperu)', stt_empty_short: 'Prázdné', stt_err: 'Chyba STT',
+      testing: 'Testuji...', saving: 'Uloženo', save_ok_msg: 'Nastavení použito — restart není potřeba', save_err: 'Chyba ukládání', online: 'Online', offline: 'Offline', error: 'Chyba', offline_msg: 'Server neodpovídá', model_label: 'Model:', tts_ok_msg: 'Audio se přehrává', llm_ok_msg: 'Odpověď přijata', llm_err: 'Chyba LLM', tts_err: 'Chyba TTS',
+      tts_title: 'Nastavení TTS', tts_enabled: 'Hlas NPC', tts_engine: 'Engine', tts_voice: 'Mužský hlas', tts_voice_female: 'Ženský hlas', tts_volume: 'Hlasitost', tts_voices_hint: 'Hlasy:', tts_test: 'Test TTS', tts_on: 'zapnuto', tts_off: 'vypnuto',
+      hud_title: 'Zobrazení HUD', hud_left_top: 'Vlevo nahoře (štítek)', hud_right_top: 'Vpravo nahoře (oznámení)', hud_center: 'Uprostřed (titulek)',
+      input_title: 'Vstup / klávesy', chat_key: 'Klávesa AI chatu', end_key: 'Volitelná klávesa zavření', overlay_enabled: 'Zobrazit vstupní overlay', overlay_on: 'Zap', overlay_off: 'Vyp', overlay_style: 'Styl vstupního okna', overlay_style_kcd: 'KCD2 (pergamen + zlato)', overlay_style_plain: 'Jednoduchý (tmavý)'
+    },
+    de: { ...I18N.en,
+      title: 'KCD2 AI NPC — Einstellungen', sub: '127.0.0.1:4999 · Serverkonfiguration · v0.1.0',
+      link_workshop: 'Workshop', link_guide: 'Anleitung',
+      llm_title: 'LLM-Einstellungen', provider: 'Anbieter', custom: 'Eigene', api_key: 'API-Schlüssel', model: 'Modell',
+      max_tokens: 'Max. Tokens', max_tokens_sub: 'pro Antwort', temperature: 'Temperatur', temperature_sub: 'Kreativität · 0–2',
+      general_title: 'Allgemein', resp_lang: 'Antwortsprache', prompt_title: 'System-Prompt-Vorlage', template: 'Vorlage', variables: 'Variablen',
+      prompt_preset_default: 'Standard', prompt_preset_original: 'Original', prompt_preset_charming: 'Charmant', prompt_preset_rough: 'Grob', prompt_preset_sarcastic: 'Sarkastisch', prompt_preset_laconic: 'Knapp', prompt_preset_uncensored: 'Unzensiert', prompt_preset_custom: 'Eigene',
+      reset: 'Zurücksetzen', test_conn: 'Server testen', test_llm: 'LLM testen', save: 'Einstellungen speichern', clear_history: 'Verlauf löschen',
+      stt_title: 'Spracheingabe (STT)', stt_enabled: 'Im Spiel V halten — sprechen; loslassen — senden', stt_hint: 'V antippen = Text-Overlay. Länger halten = Mikrofonaufnahme → Whisper → NPC-Antwort.',
+      stt_on: 'aktiviert', stt_off: 'deaktiviert', stt_provider: 'Anbieter', stt_provider_local: 'faster-whisper (lokal)', stt_provider_custom: 'Eigene', stt_api_key: 'API-Schlüssel', stt_model: 'Modell', stt_language: 'Sprache', stt_input_device: 'Mikrofon', stt_refresh_title: 'Mikrofonliste aktualisieren', stt_local_opts: 'Lokale Einstellungen (faster-whisper)', stt_device: 'Gerät', stt_timing: 'Timing', stt_hold_threshold: 'Halte-Schwelle, ms', stt_min_duration: 'Min. Dauer, ms', stt_max_duration: 'Max. Dauer, s', stt_test: 'STT testen', stt_recording: '🎤 Aufnahme für 3 Sekunden — jetzt sprechen...', stt_empty: '(leer — Stille oder Whisper-Halluzination)', stt_empty_short: 'Leer', stt_err: 'STT-Fehler',
+      testing: 'Teste...', saving: 'Gespeichert', save_ok_msg: 'Einstellungen angewendet — kein Neustart nötig', save_err: 'Speicherfehler', online: 'Online', offline: 'Offline', error: 'Fehler', offline_msg: 'Server antwortet nicht', model_label: 'Modell:', tts_ok_msg: 'Audio wird abgespielt', llm_ok_msg: 'Antwort erhalten', llm_err: 'LLM-Fehler', tts_err: 'TTS-Fehler',
+      tts_title: 'TTS-Einstellungen', tts_enabled: 'NPC-Stimme', tts_engine: 'Engine', tts_voice: 'Männliche Stimme', tts_voice_female: 'Weibliche Stimme', tts_volume: 'Lautstärke', tts_voices_hint: 'Stimmen:', tts_test: 'TTS testen', tts_on: 'aktiviert', tts_off: 'deaktiviert',
+      hud_title: 'HUD-Anzeige', hud_left_top: 'Oben links (Tafel)', hud_right_top: 'Oben rechts (Benachrichtigung)', hud_center: 'Mitte (Untertitel)',
+      input_title: 'Eingabe / Tasten', chat_key: 'AI-Chat-Taste', end_key: 'Optionale Schließen-Taste', overlay_enabled: 'Eingabe-Overlay anzeigen', overlay_on: 'Ein', overlay_off: 'Aus', overlay_style: 'Stil des Eingabefensters', overlay_style_kcd: 'KCD2 (Pergament + Gold)', overlay_style_plain: 'Einfach (dunkel)'
+    },
+    fr: { ...I18N.en,
+      title: 'KCD2 AI NPC — Paramètres', sub: '127.0.0.1:4999 · configuration serveur · v0.1.0',
+      link_workshop: 'Atelier', link_guide: 'Guide',
+      llm_title: 'Paramètres LLM', provider: 'Fournisseur', custom: 'Personnalisé', api_key: 'Clé API', model: 'Modèle',
+      max_tokens: 'Tokens max.', max_tokens_sub: 'par réponse', temperature: 'Température', temperature_sub: 'créativité · 0–2',
+      general_title: 'Général', resp_lang: 'Langue des réponses', prompt_title: 'Modèle de prompt système', template: 'Modèle', variables: 'Variables',
+      prompt_preset_default: 'Défaut', prompt_preset_original: 'Original', prompt_preset_charming: 'Charmant', prompt_preset_rough: 'Rude', prompt_preset_sarcastic: 'Sarcastique', prompt_preset_laconic: 'Laconique', prompt_preset_uncensored: 'Non censuré', prompt_preset_custom: 'Personnalisé',
+      reset: 'Réinitialiser', test_conn: 'Tester serveur', test_llm: 'Tester LLM', save: 'Enregistrer', clear_history: 'Effacer l’historique',
+      stt_title: 'Entrée vocale (STT)', stt_enabled: 'Maintenez V en jeu — parlez; relâchez — envoi', stt_hint: 'Appui court sur V = overlay texte. Maintien plus long = micro → Whisper → réponse NPC.',
+      stt_on: 'activé', stt_off: 'désactivé', stt_provider: 'Fournisseur', stt_provider_local: 'faster-whisper (local)', stt_provider_custom: 'Personnalisé', stt_api_key: 'Clé API', stt_model: 'Modèle', stt_language: 'Langue parlée', stt_input_device: 'Microphone', stt_refresh_title: 'Actualiser la liste des micros', stt_local_opts: 'Paramètres locaux (faster-whisper)', stt_device: 'Appareil', stt_timing: 'Temporisation', stt_hold_threshold: 'Seuil maintien, ms', stt_min_duration: 'Durée min., ms', stt_max_duration: 'Durée max., s', stt_test: 'Tester STT', stt_recording: '🎤 Enregistrement 3 secondes — parlez...', stt_empty: '(vide — silence ou hallucination Whisper)', stt_empty_short: 'Vide', stt_err: 'Erreur STT',
+      testing: 'Test...', saving: 'Enregistré', save_ok_msg: 'Paramètres appliqués — redémarrage inutile', save_err: 'Erreur d’enregistrement', online: 'En ligne', offline: 'Hors ligne', error: 'Erreur', offline_msg: 'Le serveur ne répond pas', model_label: 'Modèle :', tts_ok_msg: 'Audio en lecture', llm_ok_msg: 'Réponse reçue', llm_err: 'Erreur LLM', tts_err: 'Erreur TTS',
+      tts_title: 'Paramètres TTS', tts_enabled: 'Voix NPC', tts_engine: 'Moteur', tts_voice: 'Voix masculine', tts_voice_female: 'Voix féminine', tts_volume: 'Volume', tts_voices_hint: 'Voix :', tts_test: 'Tester TTS', tts_on: 'activé', tts_off: 'désactivé',
+      hud_title: 'Affichage HUD', hud_left_top: 'Haut gauche (plaque)', hud_right_top: 'Haut droite (notification)', hud_center: 'Centre (sous-titre)',
+      input_title: 'Saisie / touches', chat_key: 'Touche chat IA', end_key: 'Touche de fermeture optionnelle', overlay_enabled: 'Afficher l’overlay de saisie', overlay_on: 'On', overlay_off: 'Off', overlay_style: 'Style de la fenêtre de saisie', overlay_style_kcd: 'KCD2 (parchemin + or)', overlay_style_plain: 'Simple (sombre)'
+    },
+    es: { ...I18N.en,
+      title: 'KCD2 AI NPC — Ajustes', sub: '127.0.0.1:4999 · configuración del servidor · v0.1.0',
+      link_workshop: 'Workshop', link_guide: 'Guía',
+      llm_title: 'Ajustes LLM', provider: 'Proveedor', custom: 'Propio', api_key: 'Clave API', model: 'Modelo',
+      max_tokens: 'Tokens máx.', max_tokens_sub: 'por respuesta', temperature: 'Temperatura', temperature_sub: 'creatividad · 0–2',
+      general_title: 'General', resp_lang: 'Idioma de respuestas', prompt_title: 'Plantilla del prompt del sistema', template: 'Plantilla', variables: 'Variables',
+      prompt_preset_default: 'Predeterminado', prompt_preset_original: 'Original', prompt_preset_charming: 'Encantador', prompt_preset_rough: 'Rudo', prompt_preset_sarcastic: 'Sarcástico', prompt_preset_laconic: 'Lacónico', prompt_preset_uncensored: 'Sin censura', prompt_preset_custom: 'Propio',
+      reset: 'Restablecer', test_conn: 'Probar servidor', test_llm: 'Probar LLM', save: 'Guardar ajustes', clear_history: 'Borrar historial',
+      stt_title: 'Entrada de voz (STT)', stt_enabled: 'Mantén V en el juego — habla; suelta — enviar', stt_hint: 'Toque corto V = overlay de texto. Mantener = micrófono → Whisper → respuesta NPC.',
+      stt_on: 'activado', stt_off: 'desactivado', stt_provider: 'Proveedor', stt_provider_local: 'faster-whisper (local)', stt_provider_custom: 'Propio', stt_api_key: 'Clave API', stt_model: 'Modelo', stt_language: 'Idioma hablado', stt_input_device: 'Micrófono', stt_refresh_title: 'Actualizar lista de micrófonos', stt_local_opts: 'Ajustes locales (faster-whisper)', stt_device: 'Dispositivo', stt_timing: 'Tiempos', stt_hold_threshold: 'Umbral de mantener, ms', stt_min_duration: 'Duración mín., ms', stt_max_duration: 'Duración máx., s', stt_test: 'Probar STT', stt_recording: '🎤 Grabando 3 segundos — habla...', stt_empty: '(vacío — silencio o alucinación de Whisper)', stt_empty_short: 'Vacío', stt_err: 'Error STT',
+      testing: 'Probando...', saving: 'Guardado', save_ok_msg: 'Ajustes aplicados — no hace falta reiniciar', save_err: 'Error al guardar', online: 'En línea', offline: 'Sin conexión', error: 'Error', offline_msg: 'El servidor no responde', model_label: 'Modelo:', tts_ok_msg: 'Audio reproduciéndose', llm_ok_msg: 'Respuesta recibida', llm_err: 'Error LLM', tts_err: 'Error TTS',
+      tts_title: 'Ajustes TTS', tts_enabled: 'Voz NPC', tts_engine: 'Motor', tts_voice: 'Voz masculina', tts_voice_female: 'Voz femenina', tts_volume: 'Volumen', tts_voices_hint: 'Voces:', tts_test: 'Probar TTS', tts_on: 'activado', tts_off: 'desactivado',
+      hud_title: 'Visualización HUD', hud_left_top: 'Arriba izquierda (placa)', hud_right_top: 'Arriba derecha (notificación)', hud_center: 'Centro (subtítulo)',
+      input_title: 'Entrada / teclas', chat_key: 'Tecla de chat IA', end_key: 'Tecla opcional de cierre', overlay_enabled: 'Mostrar overlay de entrada', overlay_on: 'On', overlay_off: 'Off', overlay_style: 'Estilo de ventana de entrada', overlay_style_kcd: 'KCD2 (pergamino + oro)', overlay_style_plain: 'Simple (oscuro)'
+    },
+    pl: { ...I18N.en,
+      title: 'KCD2 AI NPC — Ustawienia', sub: '127.0.0.1:4999 · konfiguracja serwera · v0.1.0',
+      link_workshop: 'Warsztat', link_guide: 'Poradnik',
+      llm_title: 'Ustawienia LLM', provider: 'Dostawca', custom: 'Własny', api_key: 'Klucz API', model: 'Model',
+      max_tokens: 'Maks. tokenów', max_tokens_sub: 'na odpowiedź', temperature: 'Temperatura', temperature_sub: 'kreatywność · 0–2',
+      general_title: 'Ogólne', resp_lang: 'Język odpowiedzi', prompt_title: 'Szablon promptu systemowego', template: 'Szablon', variables: 'Zmienne',
+      prompt_preset_default: 'Domyślny', prompt_preset_original: 'Oryginalny', prompt_preset_charming: 'Czarujący', prompt_preset_rough: 'Szorstki', prompt_preset_sarcastic: 'Sarkastyczny', prompt_preset_laconic: 'Lakoniczny', prompt_preset_uncensored: 'Bez cenzury', prompt_preset_custom: 'Własny',
+      reset: 'Resetuj', test_conn: 'Test serwera', test_llm: 'Test LLM', save: 'Zapisz ustawienia', clear_history: 'Wyczyść historię',
+      stt_title: 'Wejście głosowe (STT)', stt_enabled: 'Przytrzymaj V w grze — mów; puść — wyślij', stt_hint: 'Krótkie V = overlay tekstowy. Dłuższe przytrzymanie = mikrofon → Whisper → odpowiedź NPC.',
+      stt_on: 'włączone', stt_off: 'wyłączone', stt_provider: 'Dostawca', stt_provider_local: 'faster-whisper (lokalnie)', stt_provider_custom: 'Własny', stt_api_key: 'Klucz API', stt_model: 'Model', stt_language: 'Język mowy', stt_input_device: 'Mikrofon', stt_refresh_title: 'Odśwież listę mikrofonów', stt_local_opts: 'Ustawienia lokalne (faster-whisper)', stt_device: 'Urządzenie', stt_timing: 'Czasy', stt_hold_threshold: 'Próg przytrzymania, ms', stt_min_duration: 'Min. długość, ms', stt_max_duration: 'Maks. długość, s', stt_test: 'Test STT', stt_recording: '🎤 Nagrywanie 3 sekundy — mów...', stt_empty: '(pusto — cisza lub halucynacja Whisper)', stt_empty_short: 'Pusto', stt_err: 'Błąd STT',
+      testing: 'Testowanie...', saving: 'Zapisano', save_ok_msg: 'Ustawienia zastosowane — restart niepotrzebny', save_err: 'Błąd zapisu', online: 'Online', offline: 'Offline', error: 'Błąd', offline_msg: 'Serwer nie odpowiada', model_label: 'Model:', tts_ok_msg: 'Audio jest odtwarzane', llm_ok_msg: 'Odpowiedź otrzymana', llm_err: 'Błąd LLM', tts_err: 'Błąd TTS',
+      tts_title: 'Ustawienia TTS', tts_enabled: 'Głos NPC', tts_engine: 'Silnik', tts_voice: 'Głos męski', tts_voice_female: 'Głos żeński', tts_volume: 'Głośność', tts_voices_hint: 'Głosy:', tts_test: 'Test TTS', tts_on: 'włączone', tts_off: 'wyłączone',
+      hud_title: 'Wyświetlanie HUD', hud_left_top: 'Lewy górny róg (tabliczka)', hud_right_top: 'Prawy górny róg (powiadomienie)', hud_center: 'Środek (napisy)',
+      input_title: 'Wejście / klawisze', chat_key: 'Klawisz czatu AI', end_key: 'Opcjonalny klawisz zamknięcia', overlay_enabled: 'Pokaż overlay wejścia', overlay_on: 'Wł.', overlay_off: 'Wył.', overlay_style: 'Styl okna wejścia', overlay_style_kcd: 'KCD2 (pergamin + złoto)', overlay_style_plain: 'Prosty (ciemny)'
+    },
+    zh: { ...I18N.en,
+      title: 'KCD2 AI NPC — 设置', sub: '127.0.0.1:4999 · 服务器配置 · v0.1.0',
+      link_workshop: '创意工坊', link_guide: '指南',
+      llm_title: 'LLM 设置', provider: '提供商', custom: '自定义', api_key: 'API 密钥', model: '模型',
+      max_tokens: '最大 Token', max_tokens_sub: '每次回复', temperature: '温度', temperature_sub: '创造性 · 0–2',
+      general_title: '通用', resp_lang: '回复语言', prompt_title: '系统提示词模板', template: '模板', variables: '变量',
+      prompt_preset_default: '默认', prompt_preset_original: '原始', prompt_preset_charming: '迷人', prompt_preset_rough: '粗鲁', prompt_preset_sarcastic: '讽刺', prompt_preset_laconic: '简短', prompt_preset_uncensored: '无审查', prompt_preset_custom: '自定义',
+      reset: '重置', test_conn: '测试服务器', test_llm: '测试 LLM', save: '保存设置', clear_history: '清除历史',
+      stt_title: '语音输入 (STT)', stt_enabled: '游戏中按住 V 说话；松开发送', stt_hint: '短按 V = 文本覆盖层。长按 = 麦克风录音 → Whisper → NPC 回复。',
+      stt_on: '已启用', stt_off: '已禁用', stt_provider: '提供商', stt_provider_local: 'faster-whisper（本地）', stt_provider_custom: '自定义', stt_api_key: 'API 密钥', stt_model: '模型', stt_language: '语音语言', stt_input_device: '麦克风', stt_refresh_title: '刷新麦克风列表', stt_local_opts: '本地设置 (faster-whisper)', stt_device: '设备', stt_timing: '时序', stt_hold_threshold: '按住阈值，毫秒', stt_min_duration: '最短时长，毫秒', stt_max_duration: '最长时长，秒', stt_test: '测试 STT', stt_recording: '🎤 录音 3 秒 — 请说话...', stt_empty: '（空 — 静音或 Whisper 幻觉）', stt_empty_short: '空', stt_err: 'STT 错误',
+      testing: '测试中...', saving: '已保存', save_ok_msg: '设置已应用 — 无需重启', save_err: '保存错误', online: '在线', offline: '离线', error: '错误', offline_msg: '服务器无响应', model_label: '模型：', tts_ok_msg: '音频正在播放', llm_ok_msg: '已收到回复', llm_err: 'LLM 错误', tts_err: 'TTS 错误',
+      tts_title: 'TTS 设置', tts_enabled: 'NPC 语音', tts_engine: '引擎', tts_voice: '男性声音', tts_voice_female: '女性声音', tts_volume: '音量', tts_voices_hint: '声音：', tts_test: '测试 TTS', tts_on: '已启用', tts_off: '已禁用',
+      hud_title: 'HUD 显示', hud_left_top: '左上（牌匾）', hud_right_top: '右上（通知）', hud_center: '中间（字幕）',
+      input_title: '输入 / 按键', chat_key: 'AI 聊天键', end_key: '可选关闭键', overlay_enabled: '显示输入覆盖层', overlay_on: '开', overlay_off: '关', overlay_style: '输入窗口样式', overlay_style_kcd: 'KCD2（羊皮纸 + 金色）', overlay_style_plain: '简洁（深色）'
+    },
+    ja: { ...I18N.en,
+      title: 'KCD2 AI NPC — 設定', sub: '127.0.0.1:4999 · サーバー設定 · v0.1.0',
+      link_workshop: 'ワークショップ', link_guide: 'ガイド',
+      llm_title: 'LLM 設定', provider: 'プロバイダー', custom: 'カスタム', api_key: 'API キー', model: 'モデル',
+      max_tokens: '最大トークン', max_tokens_sub: '応答ごと', temperature: '温度', temperature_sub: '創造性 · 0–2',
+      general_title: '一般', resp_lang: '応答言語', prompt_title: 'システムプロンプトテンプレート', template: 'テンプレート', variables: '変数',
+      prompt_preset_default: 'デフォルト', prompt_preset_original: 'オリジナル', prompt_preset_charming: '魅力的', prompt_preset_rough: '荒っぽい', prompt_preset_sarcastic: '皮肉', prompt_preset_laconic: '簡潔', prompt_preset_uncensored: '無検閲', prompt_preset_custom: 'カスタム',
+      reset: 'リセット', test_conn: 'サーバーテスト', test_llm: 'LLM テスト', save: '設定を保存', clear_history: '履歴を消去',
+      stt_title: '音声入力 (STT)', stt_enabled: 'ゲーム内で V を長押しして話し、離すと送信', stt_hint: 'V を短押し = テキストオーバーレイ。長押し = マイク録音 → Whisper → NPC 応答。',
+      stt_on: '有効', stt_off: '無効', stt_provider: 'プロバイダー', stt_provider_local: 'faster-whisper（ローカル）', stt_provider_custom: 'カスタム', stt_api_key: 'API キー', stt_model: 'モデル', stt_language: '音声言語', stt_input_device: 'マイク', stt_refresh_title: 'マイク一覧を更新', stt_local_opts: 'ローカル設定 (faster-whisper)', stt_device: 'デバイス', stt_timing: 'タイミング', stt_hold_threshold: '長押ししきい値, ms', stt_min_duration: '最小時間, ms', stt_max_duration: '最大時間, 秒', stt_test: 'STT テスト', stt_recording: '🎤 3秒間録音 — 話してください...', stt_empty: '（空 — 無音または Whisper の幻覚）', stt_empty_short: '空', stt_err: 'STT エラー',
+      testing: 'テスト中...', saving: '保存済み', save_ok_msg: '設定を適用しました — 再起動不要', save_err: '保存エラー', online: 'オンライン', offline: 'オフライン', error: 'エラー', offline_msg: 'サーバーが応答しません', model_label: 'モデル:', tts_ok_msg: '音声を再生中', llm_ok_msg: '応答を受信しました', llm_err: 'LLM エラー', tts_err: 'TTS エラー',
+      tts_title: 'TTS 設定', tts_enabled: 'NPC 音声', tts_engine: 'エンジン', tts_voice: '男性音声', tts_voice_female: '女性音声', tts_volume: '音量', tts_voices_hint: '音声:', tts_test: 'TTS テスト', tts_on: '有効', tts_off: '無効',
+      hud_title: 'HUD 表示', hud_left_top: '左上（プレート）', hud_right_top: '右上（通知）', hud_center: '中央（字幕）',
+      input_title: '入力 / キー', chat_key: 'AI チャットキー', end_key: '任意の終了キー', overlay_enabled: '入力オーバーレイを表示', overlay_on: 'オン', overlay_off: 'オフ', overlay_style: '入力ウィンドウのスタイル', overlay_style_kcd: 'KCD2（羊皮紙 + 金）', overlay_style_plain: 'シンプル（暗色）'
+    },
+  });
+
+  Object.assign(I18N.cs, { stt_lang_auto: 'automatická detekce', stt_default_device: '— Výchozí systémové —' });
+  Object.assign(I18N.de, { stt_lang_auto: 'automatische Erkennung', stt_default_device: '— Systemstandard —' });
+  Object.assign(I18N.fr, { stt_lang_auto: 'détection automatique', stt_default_device: '— Périphérique système par défaut —' });
+  Object.assign(I18N.es, { stt_lang_auto: 'detección automática', stt_default_device: '— Predeterminado del sistema —' });
+  Object.assign(I18N.pl, { stt_lang_auto: 'automatyczne wykrywanie', stt_default_device: '— Domyślne systemowe —' });
+  Object.assign(I18N.zh, { stt_lang_auto: '自动检测', stt_default_device: '— 系统默认 —' });
+  Object.assign(I18N.ja, { stt_lang_auto: '自動検出', stt_default_device: '— システム既定 —' });
+
+  function T() { const l = document.getElementById('language').value || 'ru'; return I18N[l] || I18N.ru; }
+
+  function applyUiLang(lang) {
+    const t = I18N[lang] || I18N.ru;
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      if (t[el.dataset.i18n] !== undefined) el.textContent = t[el.dataset.i18n];
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+      if (t[el.dataset.i18nTitle] !== undefined) el.title = t[el.dataset.i18nTitle];
+    });
+    const defaultMic = document.querySelector('#stt-input-device option[value="-1"]');
+    if (defaultMic) defaultMic.textContent = t.stt_default_device || I18N.en.stt_default_device;
+    const statusBadge = document.getElementById('status-badge');
+    const statusText = document.getElementById('status-text');
+    if (statusBadge && statusText) {
+      if (statusBadge.classList.contains('online')) statusText.textContent = t.online;
+      else if (statusBadge.classList.contains('offline')) statusText.textContent = t.offline;
+    }
+    document.title = t.title || document.title;
+  }
+
+  /* ── Combobox helper ── */
+  const _combos = {};
+  function makeCombo(inputId, options) {
+    const input = document.getElementById(inputId);
+    if (!input || input.parentNode.classList.contains('combo-wrap')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'combo-wrap';
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'combo-btn'; btn.innerHTML = '&#9660;';
+    btn.title = 'Show options';
+    wrap.appendChild(btn);
+    const list = document.createElement('div');
+    list.className = 'combo-list';
+    wrap.appendChild(list);
+    function render(opts) {
+      list.innerHTML = '';
+      opts.forEach(o => {
+        const d = document.createElement('div');
+        d.className = 'combo-item' + (o === input.value ? ' hi' : '');
+        d.textContent = o;
+        d.addEventListener('mousedown', e => {
+          e.preventDefault();
+          input.value = o;
+          input.dispatchEvent(new Event('input', {bubbles:true}));
+          list.classList.remove('open');
+        });
+        list.appendChild(d);
+      });
+    }
+    // Toggle a marker class on the closest .card so its z-index can outrank
+    // sibling cards while the dropdown is open. Without this, dropdowns get
+    // visually covered by the card that follows in the grid.
+    const card = wrap.closest('.card');
+    function syncCardClass() {
+      if (!card) return;
+      card.classList.toggle('combo-open', list.classList.contains('open'));
+    }
+    btn.addEventListener('click', () => {
+      if (list.classList.contains('open')) { list.classList.remove('open'); syncCardClass(); return; }
+      render(options);
+      list.classList.add('open');
+      syncCardClass();
+      input.focus();
+    });
+    input.addEventListener('input', () => {
+      const v = input.value.toLowerCase();
+      const filtered = options.filter(o => o.toLowerCase().includes(v));
+      render(filtered.length ? filtered : options);
+      list.classList.add('open');
+      syncCardClass();
+    });
+    document.addEventListener('mousedown', e => {
+      if (!wrap.contains(e.target)) { list.classList.remove('open'); syncCardClass(); }
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { list.classList.remove('open'); syncCardClass(); }
+    });
+    _combos[inputId] = { render, list, setOptions(o) { options = o; } };
+  }
+
+  const MODEL_OPTIONS = {
+    groq:       ['llama-3.3-70b-versatile','llama-3.1-70b-versatile','llama-3.1-8b-instant','mixtral-8x7b-32768','gemma2-9b-it'],
+    openai:     ['gpt-4o-mini','gpt-4o','gpt-4-turbo','gpt-3.5-turbo'],
+    ollama:     ['llama3.1:8b','llama3.1:70b','mistral:7b','qwen2.5:7b','gemma2:9b','phi3:mini'],
+    lmstudio:   ['local-model'],
+    openrouter: ['meta-llama/llama-3.3-70b-instruct:free','meta-llama/llama-3.1-8b-instruct:free','mistralai/mixtral-8x7b-instruct','google/gemma-2-9b-it:free'],
+    mistral:    ['mistral-small-latest','mistral-medium-latest','mistral-large-latest','open-mistral-7b'],
+  };
+  function getModelOpts() {
+    const url = (document.getElementById('api-url')?.value||'').toLowerCase();
+    if (url.includes('groq'))       return MODEL_OPTIONS.groq;
+    if (url.includes('openai.com')) return MODEL_OPTIONS.openai;
+    if (url.includes('11434'))      return MODEL_OPTIONS.ollama;
+    if (url.includes('1234'))       return MODEL_OPTIONS.lmstudio;
+    if (url.includes('openrouter')) return MODEL_OPTIONS.openrouter;
+    if (url.includes('mistral'))    return MODEL_OPTIONS.mistral;
+    return [...new Set(Object.values(MODEL_OPTIONS).flat())];
+  }
+
+  makeCombo('api-url', [
+    'https://api.groq.com/openai/v1',
+    'https://api.openai.com/v1',
+    'http://localhost:11434/v1',
+    'https://openrouter.ai/api/v1',
+    'http://localhost:1234/v1',
+    'https://api.mistral.ai/v1',
+    'https://api.together.xyz/v1',
+  ]);
+  makeCombo('model', getModelOpts());
+  makeCombo('stt-model', STT_MODEL_OPTIONS[activeSttProvider] || STT_MODEL_OPTIONS['faster-whisper']);
+  document.getElementById('stt-api-url')?.addEventListener('input', detectSttProvider);
+  document.getElementById('stt-api-url')?.addEventListener('change', detectSttProvider);
+  const EDGE_TTS_VOICES = [
+    'ru-RU-DmitryNeural','ru-RU-SvetlanaNeural','ru-RU-DariyaNeural',
+    'en-US-GuyNeural','en-US-JennyNeural','en-GB-RyanNeural','en-GB-SoniaNeural',
+    'cs-CZ-AntoninNeural','cs-CZ-VlastaNeural',
+    'de-DE-ConradNeural','de-DE-KatjaNeural',
+    'fr-FR-HenriNeural','fr-FR-DeniseNeural',
+    'es-ES-AlvaroNeural','es-ES-ElviraNeural',
+    'pl-PL-MarekNeural','pl-PL-ZofiaNeural',
+    'zh-CN-YunxiNeural','zh-CN-XiaoxiaoNeural',
+    'ja-JP-KeitaNeural','ja-JP-NanamiNeural',
+  ];
+  makeCombo('tts-voice', EDGE_TTS_VOICES);
+  makeCombo('tts-voice-female', EDGE_TTS_VOICES);
+
+  /* Update model options when URL changes */
+  const _origDetect = detectPreset;
+  detectPreset = function() {
+    _origDetect();
+    if (_combos['model']) _combos['model'].setOptions(getModelOpts());
+  };
+
+  loadConfig();
+  document.getElementById('prompt-template')?.addEventListener('input', detectPromptPreset);
+  checkStatus();
+  setInterval(checkStatus, 15000);
+</script>
+</body>
+</html>
