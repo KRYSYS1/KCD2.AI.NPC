@@ -452,6 +452,15 @@
       border-color: var(--border-hi) !important;
       box-shadow: 0 -10px 34px rgba(0,0,0,0.52), inset 0 1px 0 rgba(210,177,92,0.16);
     }
+    .test-result.is-error,
+    body.day .test-result.is-error {
+      border-color: #e05555 !important;
+      box-shadow: 0 -8px 28px rgba(0,0,0,0.36), 0 0 0 1px rgba(224,85,85,0.18), inset 0 1px 0 rgba(255,255,255,0.045);
+    }
+    .test-result.is-ok,
+    body.day .test-result.is-ok {
+      border-color: #55c46a !important;
+    }
 
     /* â”€â”€ TOAST â”€â”€ */
     .toast-stack {
@@ -1388,17 +1397,20 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     const result = document.getElementById('tts-test-result');
     btn.disabled = true;
     result.style.display = 'block';
+    result.classList.remove('is-error', 'is-ok');
     result.style.borderColor = 'var(--border-hi)';
     result.textContent = T().testing || 'Testing...';
     try {
       const res = await fetch('/tts/test', { method: 'POST' });
       const d = await res.json();
       if (!res.ok) throw new Error(d.detail || `HTTP ${res.status}`);
+      result.classList.add('is-ok');
       result.style.borderColor = '#55c46a';
       const engine = document.getElementById('tts-engine').value;
       result.textContent = `[OK] ${engine}: ${d.result || 'ok'}`;
       showToast('success', 'TTS OK', T().tts_ok_msg);
     } catch(e) {
+      result.classList.add('is-error');
       result.style.borderColor = '#e05555';
       const msg = String(e.message || e);
       const hint = T().tts_voice_lang_hint || 'If Edge TTS fails, choose a voice country/language that matches the NPC response language.';
@@ -1551,6 +1563,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     const result = document.getElementById('stt-test-result');
     btn.disabled = true;
     result.style.display = 'block';
+    result.classList.remove('is-error', 'is-ok');
     result.style.borderColor = 'var(--border-hi)';
     result.textContent = T().stt_recording || '🎤 Recording for 3 seconds — speak now...';
     try {
@@ -1561,10 +1574,12 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.detail || `HTTP ${res.status}`);
+      result.classList.add('is-ok');
       result.style.borderColor = '#55c46a';
       result.textContent = `[OK] ${document.getElementById('stt-provider').value}: ${d.text || (T().stt_empty || '(empty — silence or Whisper hallucination)')}`;
       showToast('success', 'STT OK', d.text ? d.text.slice(0, 80) : (T().stt_empty_short || 'Empty'));
     } catch (e) {
+      result.classList.add('is-error');
       result.style.borderColor = '#e05555';
       result.textContent = `[ERROR] ${String(e.message || e)}`;
       showToast('error', T().stt_err || 'STT Error', String(e.message || e).slice(0, 80));
@@ -1597,6 +1612,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     const btn    = document.getElementById('test-llm-btn');
     const result = document.getElementById('llm-test-result');
     btn.disabled = true; btn.textContent = T().testing;
+    result.classList.remove('is-error', 'is-ok');
     result.style.display = 'none';
     try {
       const res = await fetch('/llm/test', {
@@ -1618,6 +1634,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       const isBad   = text.length < 2 || /^[.\s…\-_]+$/.test(text);
       result.style.display = 'block';
       if (isBad) {
+        result.classList.add('is-error');
         result.style.borderColor = '#e05555';
         result.textContent =
           `Ответ модели: "${text || '(пусто)'}"\n\n` +
@@ -1630,12 +1647,14 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
           `• Модель вернула пустой / неполный ответ`;
         showToast('error', 'Ошибка LLM', `Получен пустой ответ от "${model}"`);
       } else {
+        result.classList.add('is-ok');
         result.style.borderColor = 'var(--accent)';
         result.textContent = text;
         showToast('success', 'LLM OK', T().llm_ok_msg);
       }
     } catch (e) {
       result.style.display = 'block';
+      result.classList.add('is-error');
       result.style.borderColor = '#e05555';
       result.textContent = String(e);
       showToast('error', T().llm_err, String(e).slice(0, 80));
