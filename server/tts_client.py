@@ -10,6 +10,31 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+_CYR_MAP = {
+    "\u0430": "a", "\u0431": "b", "\u0432": "v", "\u0433": "g", "\u0434": "d", "\u0435": "e", "\u0451": "yo", "\u0436": "zh", "\u0437": "z",
+    "\u0438": "i", "\u0439": "y", "\u043a": "k", "\u043b": "l", "\u043c": "m", "\u043d": "n", "\u043e": "o", "\u043f": "p", "\u0440": "r",
+    "\u0441": "s", "\u0442": "t", "\u0443": "u", "\u0444": "f", "\u0445": "kh", "\u0446": "ts", "\u0447": "ch", "\u0448": "sh", "\u0449": "sch",
+    "\u044a": "", "\u044b": "y", "\u044c": "", "\u044d": "e", "\u044e": "yu", "\u044f": "ya",
+}
+
+
+def _has_cyrillic(text: str) -> bool:
+    return any("\u0430" <= ch.lower() <= "\u044f" or ch.lower() == "\u0451" for ch in text)
+
+
+def _transliterate_cyrillic(text: str) -> str:
+    out = []
+    for ch in text:
+        low = ch.lower()
+        repl = _CYR_MAP.get(low)
+        if repl is None:
+            out.append(ch)
+        elif ch.isupper() and repl:
+            out.append(repl[0].upper() + repl[1:])
+        else:
+            out.append(repl)
+    return "".join(out)
+
 _pygame_ready = False
 _pygame_lock = threading.Lock()
 
@@ -106,9 +131,20 @@ class TTSClient:
         tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
         tmp.close()
         t0 = time.perf_counter()
-        communicate = edge_tts.Communicate(text, voice)
-        await communicate.save(tmp.name)
-        logger.info(f"edge-tts synth in {(time.perf_counter()-t0)*1000:.0f} ms, chars={len(text)}, gender={gender}, voice={voice}")
+        synth_text = text
+        try:
+            communicate = edge_tts.Communicate(synth_text, voice)
+            await communicate.save(tmp.name)
+        except Exception as first_exc:
+            voice_lang = voice.split("-", 2)[0].lower() if "-" in voice else ""
+            if _has_cyrillic(text) and voice_lang != "ru":
+                synth_text = _transliterate_cyrillic(text)
+                logger.warning(f"edge-tts failed for Cyrillic text with voice={voice}; retrying transliterated text: {first_exc}")
+                communicate = edge_tts.Communicate(synth_text, voice)
+                await communicate.save(tmp.name)
+            else:
+                raise
+        logger.info(f"edge-tts synth in {(time.perf_counter()-t0)*1000:.0f} ms, chars={len(text)}, synth_chars={len(synth_text)}, gender={gender}, voice={voice}")
         thread = threading.Thread(
             target=_play_file, args=(tmp.name, self.config.volume), daemon=True
         )
