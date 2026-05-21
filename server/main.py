@@ -44,6 +44,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 CONFIG_PATH = Path(__file__).parent.parent / "config.json"
+EXAMPLE_CONFIG_PATH = Path(__file__).parent.parent / "config.example.json"
 STATIC_DIR = Path(__file__).parent / "static"
 
 
@@ -52,6 +53,12 @@ def load_config() -> ServerConfig:
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
         return ServerConfig(**data)
+    if EXAMPLE_CONFIG_PATH.exists():
+        CONFIG_PATH.write_text(EXAMPLE_CONFIG_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+        logger.warning(
+            "config.json was missing, so it was created from config.example.json. "
+            "Open config.json and set your API key before chatting with NPCs."
+        )
     return ServerConfig()
 
 
@@ -117,9 +124,38 @@ def detect_game_root() -> Path | None:
                 p = epic_root / name
                 if p.exists():
                     candidates.append(p)
+    # Generic library scan across available Windows drives. This covers custom
+    # install drives without hardcoding one developer's machine.
+    for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+        drive = Path(f"{letter}:\\")
+        if not drive.exists():
+            continue
+        for template in [
+            ("Games", "{name}"),
+            ("GOG Games", "{name}"),
+            ("SteamLibrary", "steamapps", "common", "{name}"),
+            ("Program Files", "Epic Games", "{name}"),
+        ]:
+            for name in ["KingdomComeDeliverance2", "Kingdom Come Deliverance II"]:
+                parts = [name if part == "{name}" else part for part in template]
+                p = drive.joinpath(*parts)
+                if p.exists():
+                    candidates.append(p)
+    seen: set[Path] = set()
+    unique_candidates: list[Path] = []
     for candidate in candidates:
-        if candidate.exists() and (candidate / "kcd.log").exists():
-            return candidate
+        try:
+            key = candidate.resolve()
+        except Exception:
+            key = candidate
+        if key not in seen:
+            seen.add(key)
+            unique_candidates.append(candidate)
+    candidates = unique_candidates
+
+    with_logs = [candidate for candidate in candidates if candidate.exists() and (candidate / "kcd.log").exists()]
+    if with_logs:
+        return max(with_logs, key=lambda candidate: (candidate / "kcd.log").stat().st_mtime)
     for candidate in candidates:
         if candidate.exists():
             return candidate

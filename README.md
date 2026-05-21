@@ -58,10 +58,13 @@ pip install -r requirements.txt
 
 ### 3. Configure
 
-Open `config.json` and replace `YOUR_GROQ_API_KEY_HERE` with your Groq API key (free at [console.groq.com](https://console.groq.com)):
+If `config.json` is missing, copy `config.example.json` to `config.json` first. The server also creates `config.json` from the example on first launch.
+
+Open `config.json` and replace `YOUR_GROQ_API_KEY_HERE` with your Groq API key (free at [console.groq.com](https://console.groq.com)). If the server cannot find your game automatically, set `game_path` to your KCD2 game root, for example `C:\SteamLibrary\steamapps\common\KingdomComeDeliverance2`:
 
 ```json
 {
+  "game_path": "",
   "language": "en",
   "llm": {
     "api_url": "https://api.groq.com/openai/v1",
@@ -199,6 +202,12 @@ Kingdom Come Deliverance II\          ← game root (e.g. E:\Games\Kingdom Come 
 │   └── plugins\ai_npc\               ← add folder
 │       ├── main.lua
 │       └── manifest.json
+├── Bin\Win64MasterMasterSteamPGO\
+│   ├── KingdomCome.exe               ← game executable
+│   ├── version.dll                   ← add DLL (same build as GOG package)
+│   └── plugins\ai_npc\               ← add folder
+│       ├── main.lua
+│       └── manifest.json
 ├── scripts\
 │   └── mods\
 │       └── ai_npc.lua                ← add file
@@ -221,6 +230,8 @@ Kingdom Come Deliverance II\          ← game root (e.g. E:\Games\Kingdom Come 
 1. Find your game root — the folder where `Bin\Win64MasterMasterGogPGO\KingdomCome.exe` (GOG) or `Bin\Win64MasterMasterSteamPGO\KingdomCome.exe` (Steam) is located
 2. Copy everything from `game_files\` into the game root, merging folders when prompted
 3. The mod loads automatically on next launch
+
+The repository ships both `Win64MasterMasterGogPGO` and `Win64MasterMasterSteamPGO` so manual installs work for either storefront without renaming folders by hand.
 
 ## License
 

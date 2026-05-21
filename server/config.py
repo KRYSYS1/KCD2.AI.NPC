@@ -134,6 +134,10 @@ class HUDConfig(BaseModel):
 class ServerConfig(BaseModel):
     host: str = Field(default="127.0.0.1")
     port: int = Field(default=4999)
+    game_path: str = Field(
+        default="",
+        description="Optional KCD2 game root. Example: C:\\SteamLibrary\\steamapps\\common\\KingdomComeDeliverance2",
+    )
     language: str = Field(
         default="en",
         description="Response language: en, ru, cs, de, etc.",

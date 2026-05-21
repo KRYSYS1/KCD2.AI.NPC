@@ -1,6 +1,7 @@
-{
+﻿{
   "host": "127.0.0.1",
   "port": 4999,
+  "game_path": "",
   "language": "en",
   "llm": {
     "api_url": "https://api.groq.com/openai/v1",
@@ -52,3 +53,4 @@
     "show_center": true
   }
 }
+
