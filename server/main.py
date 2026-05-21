@@ -50,7 +50,7 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 def load_config() -> ServerConfig:
     if CONFIG_PATH.exists():
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        with open(CONFIG_PATH, "r", encoding="utf-8-sig") as f:
             data = json.load(f)
         return ServerConfig(**data)
     if EXAMPLE_CONFIG_PATH.exists():
@@ -1343,7 +1343,7 @@ async def update_config(req: ConfigUpdateRequest):
     global config, llm_client
     data: dict = {}
     if CONFIG_PATH.exists():
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        with open(CONFIG_PATH, "r", encoding="utf-8-sig") as f:
             data = json.load(f)
 
     if req.language is not None:
