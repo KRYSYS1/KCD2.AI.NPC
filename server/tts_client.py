@@ -132,16 +132,26 @@ class TTSClient:
         tmp.close()
         t0 = time.perf_counter()
         synth_text = text
-        try:
-            communicate = edge_tts.Communicate(synth_text, voice)
+        voice_lang = voice.split("-", 2)[0].lower() if "-" in voice else ""
+
+        async def save_edge_audio(value: str) -> None:
+            try:
+                os.unlink(tmp.name)
+            except OSError:
+                pass
+            communicate = edge_tts.Communicate(value, voice)
             await communicate.save(tmp.name)
+            size = os.path.getsize(tmp.name) if os.path.exists(tmp.name) else 0
+            if size < 512:
+                raise RuntimeError(f"Edge TTS returned empty audio ({size} bytes)")
+
+        try:
+            await save_edge_audio(synth_text)
         except Exception as first_exc:
-            voice_lang = voice.split("-", 2)[0].lower() if "-" in voice else ""
             if _has_cyrillic(text) and voice_lang != "ru":
                 synth_text = _transliterate_cyrillic(text)
                 logger.warning(f"edge-tts failed for Cyrillic text with voice={voice}; retrying transliterated text: {first_exc}")
-                communicate = edge_tts.Communicate(synth_text, voice)
-                await communicate.save(tmp.name)
+                await save_edge_audio(synth_text)
             else:
                 raise
         logger.info(f"edge-tts synth in {(time.perf_counter()-t0)*1000:.0f} ms, chars={len(text)}, synth_chars={len(synth_text)}, gender={gender}, voice={voice}")
