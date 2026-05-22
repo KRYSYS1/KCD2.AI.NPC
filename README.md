@@ -58,17 +58,9 @@ pip install -r requirements.txt
 
 ### 3. Configure
 
-Start the server once, then open `http://127.0.0.1:4999` in your browser and configure the mod through the web interface.
+If `config.json` is missing, copy `config.example.json` to `config.json` first. The server also creates `config.json` from the example on first launch.
 
-In the web UI:
-
-- Set your language.
-- Enter your Groq API key (free at [console.groq.com](https://console.groq.com)) for LLM/STT, or configure another provider.
-- Configure TTS voices, microphone/STT, HUD options, and keys.
-- Use the test buttons at the bottom of the page: **TEST LLM**, **TEST TTS**, and **TEST STT**.
-- Click **Save**.
-
-If `config.json` is missing, the server creates it from `config.example.json` on first launch. You can also edit `config.json` manually. If the server cannot find your game automatically, set `game_path` to your KCD2 game root, for example `C:\SteamLibrary\steamapps\common\KingdomComeDeliverance2`:
+Open `config.json` and replace `YOUR_GROQ_API_KEY_HERE` with your Groq API key (free at [console.groq.com](https://console.groq.com)). If the server cannot find your game automatically, set `game_path` to your KCD2 game root, for example `C:\SteamLibrary\steamapps\common\KingdomComeDeliverance2`:
 
 ```json
 {
