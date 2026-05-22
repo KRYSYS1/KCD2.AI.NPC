@@ -1,56 +1,56 @@
 ﻿{
-  "host": "127.0.0.1",
-  "port": 4999,
-  "game_path": "",
-  "language": "en",
-  "llm": {
-    "api_url": "https://api.groq.com/openai/v1",
-    "api_key": "",
-    "model": "llama-3.3-70b-versatile",
-    "max_tokens": 200,
-    "temperature": 0.8
-  },
-  "tts": {
-    "enabled": true,
-    "engine": "edge",
-    "piper_model": "en_US-lessac-medium",
-    "output_dir": "./audio_cache",
-    "voice": "en-GB-RyanNeural",
-    "volume": 1.0,
-    "elevenlabs_api_key": "",
-    "elevenlabs_voice": "FGY2WhTYpPnrIDTdsKH5",
-    "openai_voice": "onyx",
-    "openai_api_key": "",
-    "voice_female": "en-GB-SoniaNeural",
-    "elevenlabs_voice_female": "21m00Tcm4TlvDq8ikWAM",
-    "openai_voice_female": "nova"
-  },
-  "stt": {
-    "enabled": true,
-    "engine": "whisper",
-    "model": "whisper-large-v3-turbo",
-    "provider": "groq",
-    "language": "ru",
-    "api_url": "https://api.groq.com/openai/v1",
-    "api_key": "",
-    "device": "cpu",
-    "compute_type": "int8",
-    "input_device": -1,
-    "min_duration_ms": 300,
-    "max_duration_sec": 30,
-    "hold_threshold_ms": 200
-  },
-  "input": {
-    "chat_key": "v",
-    "end_key": "",
-    "overlay_enabled": true,
-    "overlay_style": "plain"
-  },
-  "prompt_template": "You are {name}, {description}.\nYou live in {location} in the Kingdom of Bohemia, in the year 1403.\n\nYour personality: {personality}\nYour occupation: {occupation}\n\nRULES:\n- Stay in character at all times. You are a real person in medieval Bohemia, not an AI.\n- Speak naturally as a {occupation} from this era would.\n- You have no knowledge of anything after the 15th century.\n- Keep responses concise (1-3 sentences for casual talk, more for important topics).\n- React to the player based on your personality and their reputation/appearance.\n- If asked about topics you wouldn't know about, respond with confusion or dismiss it.\n- Use appropriate medieval speech patterns without being overly theatrical.\n- You may reference local events, rumors, and daily life in {location}.\n{extra_context}\n{language_instruction}",
-  "hud": {
-    "show_left_top": false,
-    "show_right_top": true,
-    "show_center": true
-  }
+    "host":  "127.0.0.1",
+    "port":  4999,
+    "game_path":  "",
+    "language":  "ru",
+    "llm":  {
+                "api_url":  "https://api.groq.com/openai/v1",
+                "api_key":  "",
+                "model":  "llama-3.3-70b-versatile",
+                "max_tokens":  200,
+                "temperature":  0.8
+            },
+    "tts":  {
+                "enabled":  true,
+                "engine":  "edge",
+                "piper_model":  "en_US-lessac-medium",
+                "output_dir":  "./audio_cache",
+                "voice":  "ru-RU-DmitryNeural",
+                "volume":  1.0,
+                "elevenlabs_api_key":  "",
+                "elevenlabs_voice":  "FGY2WhTYpPnrIDTdsKH5",
+                "openai_voice":  "onyx",
+                "openai_api_key":  "",
+                "voice_female":  "ru-RU-SvetlanaNeural",
+                "elevenlabs_voice_female":  "21m00Tcm4TlvDq8ikWAM",
+                "openai_voice_female":  "nova"
+            },
+    "stt":  {
+                "enabled":  true,
+                "engine":  "whisper",
+                "model":  "whisper-large-v3-turbo",
+                "provider":  "groq",
+                "language":  "ru",
+                "api_url":  "https://api.groq.com/openai/v1",
+                "api_key":  "",
+                "device":  "cpu",
+                "compute_type":  "int8",
+                "input_device":  -1,
+                "min_duration_ms":  300,
+                "max_duration_sec":  30,
+                "hold_threshold_ms":  200
+            },
+    "input":  {
+                  "chat_key":  "v",
+                  "end_key":  "",
+                  "overlay_enabled":  true,
+                  "overlay_style":  "plain",
+                  "tap_mode":  "direct_overlay"
+              },
+    "prompt_template":  "You are {name}, {description}.\nYou live in {location} in the Kingdom of Bohemia, in the year 1403.\n\nYour personality: {personality}\nYour occupation: {occupation}\n\nRULES:\n- Stay in character at all times. You are a real person in medieval Bohemia, not an AI.\n- Speak naturally as a {occupation} from this era would.\n- You have no knowledge of anything after the 15th century.\n- Keep responses concise (1-3 sentences for casual talk, more for important topics).\n- React to the player based on your personality and their reputation/appearance.\n- If asked about topics you wouldn\u0027t know about, respond with confusion or dismiss it.\n- Use appropriate medieval speech patterns without being overly theatrical.\n- You may reference local events, rumors, and daily life in {location}.\n{extra_context}\n{language_instruction}",
+    "hud":  {
+                "show_left_top":  false,
+                "show_right_top":  true,
+                "show_center":  true
+            }
 }
-
