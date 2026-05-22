@@ -102,7 +102,7 @@ class TTSClient:
         """Fire-and-forget speak: swallows engine errors after logging
         so a failing TTS does not crash chat handling."""
         try:
-            await self._synth_and_play(text)
+            await self._synth_and_play(text, gender)
         except Exception as e:
             logger.error(f"TTS speak failed [{self.config.engine}]: {e}")
 
