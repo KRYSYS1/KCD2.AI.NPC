@@ -211,19 +211,29 @@ Kingdom Come Deliverance II\          ← game root (e.g. E:\Games\Kingdom Come 
 ├── scripts\
 │   └── mods\
 │       └── ai_npc.lua                ← add file
-├── Data\
-│   ├── Scripts\ai_npc\               ← add folder
-│   │   ├── main.lua
-│   │   ├── npc_token_names.lua
-│   │   └── ui_name_keys.lua
-│   └── Libs\Config\
-│       └── ai_npc_actions.xml        ← add file
-└── Localization\                     ← add folder (merge)
-    ├── text__ai_npc.xml
-    ├── English_xml\
-    │   └── text__ai_npc.xml
-    └── Russian_xml\
-        └── text__ai_npc.xml
++-- Data\\
+|   +-- Scripts\\
+|   |   +-- ai_npc\\                   <- add folder
+|   |   |   +-- main.lua
+|   |   |   +-- command.lua
+|   |   |   +-- npc_token_names.lua
+|   |   |   +-- ui_name_keys.lua
+|   |   +-- Utils\\
+|   |       +-- ai_npc_init.lua        <- Lua bootstrap used by manual installs
+|   +-- Libs\\Config\\
+|       +-- ai_npc_actions.xml        <- add file
++-- Localization\\                     <- add folder (merge)
+|   +-- text__ai_npc.xml
+|   +-- English_xml\\
+|   |   +-- text__ai_npc.xml
+|   +-- Russian_xml\\
+|       +-- text__ai_npc.xml
++-- mods\\ai_npc\\                      <- add folder
+    +-- mod.cfg
+    +-- mod.manifest
+    +-- Localization\\
+        +-- English_xml.pak
+        +-- Russian_xml.pak
 ```
 
 **Steps:**
