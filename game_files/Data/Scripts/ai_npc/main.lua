@@ -1623,14 +1623,34 @@ local function pause_game_input()
     System.LogAlways("[AI NPC] Game input locked (overlay typing)")
 end
 
+local function force_game_focus_after_overlay_close()
+    local calls = {
+        function() if System and System.ShowCursor then System.ShowCursor(0) end end,
+        function() if System and System.ShowCursor then System.ShowCursor(false) end end,
+        function() if UIAction and UIAction.HideCursor then UIAction.HideCursor() end end,
+        function() if UIAction and UIAction.SetCursorVisible then UIAction.SetCursorVisible(false) end end,
+        function() if Game and Game.ShowCursor then Game.ShowCursor(false) end end,
+        function() if Game and Game.SetMouseCursorVisible then Game.SetMouseCursorVisible(false) end end,
+        function() if Input and Input.SetExclusiveMode then Input.SetExclusiveMode(true) end end,
+        function() if Input and Input.GrabInput then Input.GrabInput(true) end end,
+    }
+    for _, fn in ipairs(calls) do
+        pcall(fn)
+    end
+end
+
 local function resume_game_input()
-    if not input_lockout_active then return end
+    if not input_lockout_active then
+        pcall(force_game_focus_after_overlay_close)
+        return
+    end
     input_lockout_active = false
     if ActionMapManager and ActionMapManager.EnableActionMap then
         for _, name in ipairs(INPUT_LOCKOUT_MAPS) do
             pcall(ActionMapManager.EnableActionMap, name, true)
         end
     end
+    pcall(force_game_focus_after_overlay_close)
     System.LogAlways("[AI NPC] Game input unlocked")
 end
 
