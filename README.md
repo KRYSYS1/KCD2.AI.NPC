@@ -242,12 +242,14 @@ Run this from the extracted repository folder:
 
 ```bat
 python install_mod.py "C:\SteamLibrary\steamapps\common\KingdomComeDeliverance2"
+python install_mod.py "D:\Program Files (x86)\Steam\steamapps\common\KingdomComeDeliverance2"
 ```
 
-GOG example:
+GOG examples:
 
 ```bat
 python install_mod.py "E:\Games\Kingdom Come Deliverance II"
+python install_mod.py "C:\GOG Games\KingdomComeDeliverance2"
 ```
 
 The installer copies everything from `game_files\` into the game root automatically.
@@ -258,6 +260,32 @@ The installer copies everything from `game_files\` into the game root automatica
 3. The mod loads automatically on next launch
 
 The repository ships both `Win64MasterMasterGogPGO` and `Win64MasterMasterSteamPGO` so manual installs work for either storefront without renaming folders by hand.
+
+**One-command uninstall:**
+
+Remove installed game mod files from Steam/GOG game folder:
+
+```bat
+python uninstall_mod.py "C:\SteamLibrary\steamapps\common\KingdomComeDeliverance2"
+python uninstall_mod.py "D:\Program Files (x86)\Steam\steamapps\common\KingdomComeDeliverance2"
+python uninstall_mod.py "C:\GOG Games\KingdomComeDeliverance2"
+```
+
+Skip the confirmation prompt if needed:
+
+```bat
+python uninstall_mod.py "C:\SteamLibrary\steamapps\common\KingdomComeDeliverance2" --yes
+```
+
+**Remove Python dependencies:**
+
+If you installed dependencies globally and want to remove them:
+
+```bat
+pip uninstall -r requirements.txt -y
+```
+
+If you used a virtual environment, just delete the virtual environment folder instead.
 
 ## License
 
