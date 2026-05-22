@@ -180,12 +180,47 @@ def detect_bin_dir(game_root: Path | None) -> Path | None:
     return gog
 
 
+def detect_workshop_command_paths(game_root: Path | None) -> list[Path]:
+    paths: list[Path] = []
+    steamapps_roots: list[Path] = []
+    if game_root is not None:
+        common_dir = game_root.parent
+        if common_dir.name.lower() == "common":
+            steamapps_roots.append(common_dir.parent)
+    for steam_root in [
+        Path(r"C:\SteamLibrary"),
+        Path(r"D:\SteamLibrary"),
+        Path(r"C:\Program Files (x86)\Steam"),
+        Path(r"D:\Program Files (x86)\Steam"),
+    ]:
+        steamapps_roots.append(steam_root / "steamapps")
+    seen: set[Path] = set()
+    for steamapps in steamapps_roots:
+        content_root = steamapps / "workshop" / "content" / "1771300"
+        if not content_root.exists():
+            continue
+        for manifest in content_root.glob("*/mod.manifest"):
+            try:
+                text = manifest.read_text(encoding="utf-8-sig", errors="ignore")
+            except Exception:
+                continue
+            if "<modid>ai_npc</modid>" not in text:
+                continue
+            path = manifest.parent / "Data" / "Scripts" / "ai_npc" / "command.lua"
+            key = path.resolve()
+            if key not in seen:
+                seen.add(key)
+                paths.append(path)
+    return paths
+
+
 GAME_ROOT = detect_game_root()
 BIN_DIR = detect_bin_dir(GAME_ROOT) if GAME_ROOT else None
 
 RESP_LUA_PATH     = GAME_ROOT / "Data" / "Scripts" / "ai_npc" / "resp.lua" if GAME_ROOT else None
 RESP_LUA_PATH_BIN = BIN_DIR / "resp.lua" if BIN_DIR else None
 COMMAND_LUA_PATH  = GAME_ROOT / "Data" / "Scripts" / "ai_npc" / "command.lua" if GAME_ROOT else None
+WORKSHOP_COMMAND_LUA_PATHS = detect_workshop_command_paths(GAME_ROOT)
 REQUEST_JSON_PATH = GAME_ROOT / "Data" / "Scripts" / "ai_npc" / "request.json" if GAME_ROOT else None
 KCD_LOG_PATH      = GAME_ROOT / "kcd.log" if GAME_ROOT else None
 ACTION_MAP_PATH   = GAME_ROOT / "Data" / "Libs" / "Config" / "ai_npc_actions.xml" if GAME_ROOT else None
@@ -496,7 +531,8 @@ def _overlay_submit(text: str) -> None:
     global _overlay_request_counter
     if not text or not text.strip():
         return
-    if not active_npc:
+    npc = active_npc or target_npc
+    if not npc:
         logger.warning("[overlay] submit ignored: no active NPC")
         return
     if _main_loop is None:
@@ -506,7 +542,7 @@ def _overlay_submit(text: str) -> None:
     # Forward player_action_log captured in the latest ACTIVE| broadcast so the
     # LLM gets pickpocket/hit/loot context even when the user submits from the
     # in-game overlay (which bypasses Lua's send_message path).
-    raw_actions = active_npc.get("recent_player_actions") or []
+    raw_actions = npc.get("recent_player_actions") or []
     parsed_actions: list[PlayerActionEntry] = []
     for a in raw_actions:
         try:
@@ -514,14 +550,14 @@ def _overlay_submit(text: str) -> None:
         except Exception as exc:
             logger.warning(f"[overlay] skip malformed action entry {a!r}: {exc}")
     req = ChatRequest(
-        npc_id=active_npc.get("npc_id", ""),
-        npc_name=active_npc.get("npc_name", "NPC"),
-        npc_class=active_npc.get("npc_class", ""),
+        npc_id=npc.get("npc_id", ""),
+        npc_name=npc.get("npc_name", "NPC"),
+        npc_class=npc.get("npc_class", ""),
         npc_location="",
         player_message=text.strip(),
-        extra_context=active_npc.get("extra_context", "") or "",
+        extra_context=npc.get("extra_context", "") or "",
         recent_player_actions=parsed_actions,
-        npc_gender=active_npc.get("gender"),
+        npc_gender=npc.get("gender"),
         request_id=20_000_000 + _overlay_request_counter,
     )
     logger.info(
@@ -833,9 +869,16 @@ def write_command_lua(message: str) -> int:
         return s.replace("\\", "\\\\").replace("'", "\\'").replace("\n", " ").replace("\r", "")
 
     content = f"AI_NPC_HandleWebCommand('{lua_esc(message)}', {web_command_id})\n"
+    targets: list[Path] = []
     if COMMAND_LUA_PATH is not None:
-        COMMAND_LUA_PATH.parent.mkdir(parents=True, exist_ok=True)
-        COMMAND_LUA_PATH.write_text(content, encoding="utf-8")
+        targets.append(COMMAND_LUA_PATH)
+    targets.extend(WORKSHOP_COMMAND_LUA_PATHS)
+    for path in targets:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
+        except Exception as exc:
+            logger.warning(f"Could not write command.lua ({path}): {exc}")
     return web_command_id
 
 
@@ -847,18 +890,22 @@ def write_command_lua(message: str) -> int:
 # main asyncio loop via run_coroutine_threadsafe.
 
 def _on_v_tap() -> None:
-    """V tapped (release < threshold): open the in-game chat overlay.
-
-    We can't `bind v ai_chat` in CryEngine because then a hold would also
-    open the overlay (the engine doesn't separate press from release in this
-    build). Instead the server writes a control message to command.lua which
-    the Lua mod picks up on its 500ms poll and forwards to AI_NPC_Toggle().
-    """
+    """V tapped (release < threshold): open text input via the configured mode."""
     try:
-        cmd_id = write_command_lua("__AI_NPC_TAP__")
-        logger.info(f"[V-tap] queued __AI_NPC_TAP__ as command_id={cmd_id}")
+        tap_mode = (getattr(config.input, "tap_mode", "direct_overlay") or "direct_overlay").strip().lower()
+        if tap_mode == "lua_command":
+            cmd_id = write_command_lua("__AI_NPC_TAP__")
+            logger.info(f"[V-tap] queued __AI_NPC_TAP__ as command_id={cmd_id}")
+            return
+        npc = active_npc or target_npc
+        if not npc:
+            logger.warning("[V-tap] ignored: no active/target NPC")
+            return
+        npc_name = npc.get("npc_name_resolved") or npc.get("npc_name") or "NPC"
+        input_overlay.show(npc_name)
+        logger.info(f"[V-tap] overlay opened for {npc_name}")
     except Exception:
-        logger.exception("[V-tap] failed to write command.lua")
+        logger.exception("[V-tap] failed to open overlay")
 
 
 def _ptt_npc_for_request() -> dict | None:
@@ -1035,6 +1082,7 @@ class InputUpdateRequest(BaseModel):
     end_key: str | None = None
     overlay_enabled: bool | None = None
     overlay_style: str | None = None
+    tap_mode: str | None = None
 
 
 class HUDUpdateRequest(BaseModel):
@@ -1405,6 +1453,10 @@ async def update_config(req: ConfigUpdateRequest):
         if new_style_raw not in ("kcd", "plain"):
             new_style_raw = "kcd"
         data["input"]["overlay_style"] = new_style_raw
+        tap_mode = (data["input"].get("tap_mode") or "direct_overlay").strip().lower()
+        if tap_mode not in ("direct_overlay", "lua_command"):
+            tap_mode = "direct_overlay"
+        data["input"]["tap_mode"] = tap_mode
         config.input = InputConfig(**data["input"])
         write_action_map(config.input.chat_key, config.input.end_key)
         if new_style_raw != prev_style:

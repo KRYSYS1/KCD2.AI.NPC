@@ -889,6 +889,14 @@
         </select>
         <div class="form-hint"><span data-i18n="overlay_style_hint">Visual style for the chat input window. Applies live after Save.</span></div>
       </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label for="tap-mode" data-i18n="tap_mode">Tap V text input mode</label>
+        <select id="tap-mode">
+          <option value="direct_overlay" data-i18n="tap_mode_direct">Direct Python overlay (Steam Workshop)</option>
+          <option value="lua_command" data-i18n="tap_mode_lua">Lua command.lua bridge (GOG/dev)</option>
+        </select>
+        <div class="form-hint" data-i18n="tap_mode_hint">Workshop: direct overlay. GOG/loose files: command.lua bridge if Lua file polling is available.</div>
+      </div>
     </div>
   </div>
 
@@ -1287,6 +1295,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       document.getElementById('end-key').value = input.end_key || '';
       document.getElementById('overlay-enabled').value = (input.overlay_enabled === false) ? 'false' : 'true';
       document.getElementById('overlay-style').value = (input.overlay_style === 'plain') ? 'plain' : 'kcd';
+      document.getElementById('tap-mode').value = (input.tap_mode === 'lua_command') ? 'lua_command' : 'direct_overlay';
       const ttsEnabled = tts.enabled !== false;
       document.getElementById('tts-enabled').checked = ttsEnabled;
       document.getElementById('tts-engine').value = tts.engine || 'edge';
@@ -1700,6 +1709,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
             end_key:  document.getElementById('end-key').value.trim().toLowerCase(),
             overlay_enabled: document.getElementById('overlay-enabled').value === 'true',
             overlay_style:   document.getElementById('overlay-style').value,
+            tap_mode:        document.getElementById('tap-mode').value,
           },
           hud: {
             show_left_top:  document.getElementById('hud-left-top').checked,
@@ -1869,6 +1879,10 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       overlay_style_kcd: 'KCD2 (\u043f\u0435\u0440\u0433\u0430\u043c\u0435\u043d\u0442 + \u0437\u043e\u043b\u043e\u0442\u043e)',
       overlay_style_plain: '\u041c\u0438\u043d\u0438\u043c\u0430\u043b\u0438\u0437\u043c (\u0442\u0451\u043c\u043d\u044b\u0439)',
       overlay_style_hint: '\u0412\u0438\u0437\u0443\u0430\u043b\u044c\u043d\u044b\u0439 \u0441\u0442\u0438\u043b\u044c \u043e\u043a\u043d\u0430 \u0447\u0430\u0442\u0430. \u041f\u0440\u0438\u043c\u0435\u043d\u044f\u0435\u0442\u0441\u044f \u0441\u0440\u0430\u0437\u0443 \u043f\u043e\u0441\u043b\u0435 \u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c.',
+      tap_mode: '\u0420\u0435\u0436\u0438\u043c text input \u043f\u043e tap V',
+      tap_mode_direct: '\u041f\u0440\u044f\u043c\u043e\u0439 Python overlay (Steam Workshop)',
+      tap_mode_lua: 'Lua command.lua bridge (GOG/dev)',
+      tap_mode_hint: 'Workshop: \u043f\u0440\u044f\u043c\u043e\u0439 overlay. GOG/loose files: command.lua bridge, \u0435\u0441\u043b\u0438 Lua-\u043e\u043f\u0440\u043e\u0441 \u0444\u0430\u0439\u043b\u043e\u0432 \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d.',
     },
     en: {
       title: 'KCD2 AI NPC — Settings',
@@ -1982,6 +1996,10 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       overlay_style_kcd: 'KCD2 (parchment + gold)',
       overlay_style_plain: 'Plain (minimal dark)',
       overlay_style_hint: 'Visual style for the chat input window. Applies live after Save.',
+      tap_mode: 'Tap V text input mode',
+      tap_mode_direct: 'Direct Python overlay (Steam Workshop)',
+      tap_mode_lua: 'Lua command.lua bridge (GOG/dev)',
+      tap_mode_hint: 'Workshop: direct overlay. GOG/loose files: command.lua bridge if Lua file polling is available.',
     },
   };
 

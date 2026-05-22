@@ -197,7 +197,7 @@ class InputOverlay:
         )
         self._entry.pack(side="left", fill="x", expand=True, ipady=6)
         self._entry.bind("<Return>", self._on_enter)
-        self._entry.bind("<Escape>", lambda e: self._hide_impl())
+        self._entry.bind("<Escape>", self._on_escape)
 
         logger.info(f"Overlay fonts: label='{font_label_family}', entry='{font_entry_family}'")
 
@@ -226,7 +226,7 @@ class InputOverlay:
         )
         self._entry.pack(fill="x", padx=12, pady=(0, 10), ipady=8)
         self._entry.bind("<Return>", self._on_enter)
-        self._entry.bind("<Escape>", lambda e: self._hide_impl())
+        self._entry.bind("<Escape>", self._on_escape)
 
     def _restyle_impl(self) -> None:
         if not self._root:
@@ -328,14 +328,15 @@ class InputOverlay:
         except Exception as e:
             logger.debug(f"Steal foreground failed: {e}")
 
-    def _hide_impl(self) -> None:
+    def _hide_impl(self, return_focus: bool = True) -> None:
         if not self._root:
             return
         try:
             was_visible = self._visible
             self._root.withdraw()
             self._visible = False
-            self._return_focus_to_game()
+            if return_focus:
+                self._return_focus_to_game()
             if was_visible:
                 self._notify_visibility(False)
         except Exception as e:
@@ -346,12 +347,21 @@ class InputOverlay:
             text = self._entry.get().strip()
         except Exception:
             text = ""
-        self._hide_impl()
+        self._hide_impl(return_focus=False)
         if text and self._submit_cb:
             try:
                 self._submit_cb(text)
             except Exception as e:
                 logger.error(f"Overlay submit callback failed: {e}")
+        if self._root:
+            self._root.after(180, self._return_focus_to_game)
+        return "break"
+
+    def _on_escape(self, _event) -> str:
+        self._hide_impl(return_focus=False)
+        if self._root:
+            self._root.after(180, self._return_focus_to_game)
+        return "break"
 
     @staticmethod
     def _return_focus_to_game() -> None:
