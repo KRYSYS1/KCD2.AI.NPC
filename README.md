@@ -236,7 +236,23 @@ Kingdom Come Deliverance II\          ← game root (e.g. E:\Games\Kingdom Come 
         +-- Russian_xml.pak
 ```
 
-**Steps:**
+**One-command install:**
+
+Run this from the extracted repository folder:
+
+```bat
+python install_mod.py "C:\SteamLibrary\steamapps\common\KingdomComeDeliverance2"
+```
+
+GOG example:
+
+```bat
+python install_mod.py "E:\Games\Kingdom Come Deliverance II"
+```
+
+The installer copies everything from `game_files\` into the game root automatically.
+
+**Manual copy steps:**
 1. Find your game root — the folder where `Bin\Win64MasterMasterGogPGO\KingdomCome.exe` (GOG) or `Bin\Win64MasterMasterSteamPGO\KingdomCome.exe` (Steam) is located
 2. Copy everything from `game_files\` into the game root, merging folders when prompted
 3. The mod loads automatically on next launch
