@@ -122,6 +122,7 @@ class InputConfig(BaseModel):
     end_key: str = Field(default="", description="Optional separate keyboard key for ending AI NPC chat.")
     overlay_enabled: bool = Field(default=True, description="Show a borderless Tkinter input overlay when chat is active.")
     overlay_style: str = Field(default="kcd", description="Visual style for the input overlay: 'kcd' (parchment + gold border, KCD2-styled) or 'plain' (minimal dark with thin gold border).")
+    tap_overlay_enabled: bool = Field(default=True, description="Enable tap chat-key text input overlay. When false, short taps are ignored while hold-to-talk remains available.")
     tap_mode: str = Field(default="direct_overlay", description="Tap chat-key behavior: 'direct_overlay' opens the Python overlay directly (Workshop-safe), 'lua_command' queues __AI_NPC_TAP__ through command.lua (loose-file/dev mode).")
 
 

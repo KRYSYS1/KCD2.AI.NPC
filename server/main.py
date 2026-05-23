@@ -892,6 +892,9 @@ def write_command_lua(message: str) -> int:
 def _on_v_tap() -> None:
     """V tapped (release < threshold): open text input via the configured mode."""
     try:
+        if getattr(config.input, "tap_overlay_enabled", True) is False:
+            logger.info("[V-tap] ignored: tap text input disabled in config")
+            return
         tap_mode = (getattr(config.input, "tap_mode", "direct_overlay") or "direct_overlay").strip().lower()
         if tap_mode == "lua_command":
             cmd_id = write_command_lua("__AI_NPC_TAP__")
@@ -1082,6 +1085,7 @@ class InputUpdateRequest(BaseModel):
     end_key: str | None = None
     overlay_enabled: bool | None = None
     overlay_style: str | None = None
+    tap_overlay_enabled: bool | None = None
     tap_mode: str | None = None
 
 

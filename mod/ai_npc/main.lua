@@ -430,6 +430,25 @@ local function try_localize_key(raw_key)
     return nil
 end
 
+local function get_language_code()
+    local names = {
+        "g_language",
+        "sys_language",
+        "sys_localization_folder",
+        "sys_localization_format",
+    }
+    if System and type(System.GetCVar) == "function" then
+        for _, name in ipairs(names) do
+            local ok, val = pcall(System.GetCVar, name)
+            if ok and val ~= nil then
+                local s = tostring(val):lower()
+                if s ~= "" then return s end
+            end
+        end
+    end
+    return ""
+end
+
 local function try_name_from_token(raw_token)
     if raw_token == nil then return nil end
     local token = tostring(raw_token):gsub("^%s+", ""):gsub("%s+$", "")
