@@ -293,7 +293,7 @@
       border-radius: var(--radius) 0 0 var(--radius);
     }
     .card-header {
-      display: flex; align-items: center;
+      display: flex; align-items: center; justify-content: center; text-align: center;
       padding: 9px 16px 8px;
       border-bottom: 1px solid var(--sep);
     }
@@ -426,7 +426,7 @@
     .btn-primary:hover { background: var(--accent) !important; color: #f0faff !important; border-color: var(--accent); }
     .btn-danger { background: rgba(224,85,85,0.12); color: #e05555; border-color: rgba(224,85,85,0.3); }
     .btn-danger:hover { background: rgba(224,85,85,0.25); border-color: #e05555; }
-    .toggle-switch { position:relative; display:inline-block; width:38px; height:20px; cursor:pointer; }
+    .toggle-switch { position:relative; display:inline-block; flex:0 0 38px; width:38px; min-width:38px; height:20px; cursor:pointer; }
     .toggle-switch input { opacity:0; width:0; height:0; }
     .toggle-slider { position:absolute; inset:0; background:var(--border-hi); border-radius:20px; transition:.2s; }
     .toggle-slider::before { content:''; position:absolute; width:14px; height:14px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; }
@@ -585,7 +585,7 @@
 
   <!-- GENERAL -->
   <div class="card">
-    <div class="card-header"><span class="card-title" data-i18n="general_title">&#1054;&#1073;&#1097;&#1080;&#1077;</span></div>
+    <div class="card-header"><span class="card-title" data-i18n="general_title">Язык ИИ и интерфейса</span></div>
     <div class="card-body">
       <div class="form-group">
         <label data-i18n="resp_lang">&#1071;&#1079;&#1099;&#1082; &#1086;&#1090;&#1074;&#1077;&#1090;&#1086;&#1074;</label>
@@ -696,11 +696,11 @@
           <input type="password" id="tts-el-key" placeholder="sk_...">
         </div>
         <div class="form-group" style="margin-top:10px;">
-          <label for="tts-el-voice">Voice ID (мужской)</label>
+          <label for="tts-el-voice" data-i18n="tts_voice_id_male">Voice ID (male)</label>
           <input type="text" id="tts-el-voice" placeholder="21m00Tcm4TlvDq8ikWAM">
         </div>
         <div class="form-group" style="margin-top:10px;">
-          <label for="tts-el-voice-female">Voice ID (женский)</label>
+          <label for="tts-el-voice-female" data-i18n="tts_voice_id_female">Voice ID (female)</label>
           <input type="text" id="tts-el-voice-female" placeholder="21m00Tcm4TlvDq8ikWAM">
         </div>
         <div class="form-hint">Voice IDs: <code>21m00Tcm4TlvDq8ikWAM</code> (Rachel) &nbsp;<code>ErXwobaYiN019PkySvjV</code> (Antoni) &nbsp;<code>VR6AewLTigWG4xSOukaG</code> (Arnold)</div>
@@ -713,7 +713,7 @@
           <input type="password" id="tts-oai-key" placeholder="sk-...">
         </div>
         <div class="form-group" style="margin-top:10px;">
-          <label for="tts-oai-voice">Voice (мужской)</label>
+          <label for="tts-oai-voice" data-i18n="tts_openai_voice_male">Voice (male)</label>
           <div class="preset-row" id="tts-oai-voice-row">
             <button class="preset-btn" data-oaiv="alloy"   onclick="setOaiVoice('alloy')">Alloy</button>
             <button class="preset-btn" data-oaiv="echo"    onclick="setOaiVoice('echo')">Echo</button>
@@ -725,7 +725,7 @@
           <input type="hidden" id="tts-oai-voice" value="onyx">
         </div>
         <div class="form-group" style="margin-top:10px;">
-          <label for="tts-oai-voice-female">Voice (женский)</label>
+          <label for="tts-oai-voice-female" data-i18n="tts_openai_voice_female">Voice (female)</label>
           <div class="preset-row" id="tts-oai-voice-female-row">
             <button class="preset-btn" data-oaivf="alloy"   onclick="setOaiVoiceFemale('alloy')">Alloy</button>
             <button class="preset-btn" data-oaivf="echo"    onclick="setOaiVoiceFemale('echo')">Echo</button>
@@ -865,7 +865,7 @@
   <div class="card">
     <div class="card-header"><span class="card-title" data-i18n="input_title">Input / Keybinds</span></div>
     <div class="card-body">
-      <div class="form-group">
+      <div class="form-group" style="margin-bottom:10px;">
         <label data-i18n="tap_overlay_enabled">Tap V text overlay</label>
         <div style="display:flex; align-items:center; gap:10px;">
           <label class="toggle-switch">
@@ -875,7 +875,6 @@
           <span style="font-size:12px; color:var(--text-muted);" data-i18n="tap_overlay_hint">Turn off to disable text chat on short V press. Hold V voice stays enabled.</span>
         </div>
       </div>
-      <div style="height:10px;"></div>
       <div class="form-group">
         <label for="chat-key" data-i18n="chat_key">AI chat key</label>
         <input type="text" id="chat-key" maxlength="3" placeholder="v">
@@ -884,13 +883,6 @@
       <div class="form-group" style="margin-top:10px;">
         <label for="end-key" data-i18n="end_key">Optional separate end key</label>
         <input type="text" id="end-key" maxlength="3" placeholder="">
-      </div>
-      <div class="form-group" style="margin-top:10px;">
-        <label for="overlay-enabled" data-i18n="overlay_enabled">Show input overlay</label>
-        <select id="overlay-enabled">
-          <option value="true" data-i18n="overlay_on">On</option>
-          <option value="false" data-i18n="overlay_off">Off</option>
-        </select>
       </div>
       <div class="form-group" style="margin-top:10px;">
         <label for="overlay-style" data-i18n="overlay_style">Input overlay style</label>
@@ -911,38 +903,181 @@
     </div>
   </div>
 
+  <!-- INTERACTION -->
+  <div class="card">
+    <div class="card-header"><span class="card-title" data-i18n="interaction_title">Интерактив NPC</span></div>
+    <div class="card-body">
+      <div class="form-group">
+        <label data-i18n="interaction_dress_up">Одевание через общение</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="interaction-dress-up">
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_dress_up_hint">Фразы вроде «оденься» запускают dress_up.</span>
+        </div>
+        <div class="form-hint" data-i18n="interaction_dress_examples">Примеры: «Оденься, пожалуйста, холодно», «Переоденься в другую одежду», «Смени одежду, эта уже грязная».</div>
+      </div>
+      <div class="form-group" style="margin-top:10px; display:none;">
+        <label for="interaction-dress-terms" data-i18n="interaction_dress_terms">Фразы для одевания</label>
+        <textarea id="interaction-dress-terms" style="min-height:72px;"></textarea>
+        <div class="form-hint" data-i18n="interaction_terms_hint">Через запятую. Сохраняется без перезапуска сервера.</div>
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label data-i18n="interaction_strip">Раздевание через общение</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="interaction-strip">
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_strip_hint">Фразы вроде «разденься» запускают strip_outerwear.</span>
+        </div>
+        <div class="form-hint" data-i18n="interaction_strip_examples">Примеры: «Разденься, пожалуйста, такая жара!», «Сними верхнюю одежду, тебе станет легче», «Можешь снять плащ, здесь безопасно».</div>
+      </div>
+      <div class="form-group" style="margin-top:10px; display:none;">
+        <label for="interaction-strip-terms" data-i18n="interaction_strip_terms">Фразы для раздевания</label>
+        <textarea id="interaction-strip-terms" style="min-height:72px;"></textarea>
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label data-i18n="interaction_action_group">Оружие / поворот / движение</label>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <label class="toggle-switch">
+              <input type="checkbox" id="interaction-draw-weapon">
+              <span class="toggle-slider"></span>
+            </label>
+            <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_draw_weapon">Достать оружие</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <label class="toggle-switch">
+              <input type="checkbox" id="interaction-turn">
+              <span class="toggle-slider"></span>
+            </label>
+            <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_turn_to_player">Повернуться/посмотреть</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <label class="toggle-switch">
+              <input type="checkbox" id="interaction-come-closer">
+              <span class="toggle-slider"></span>
+            </label>
+            <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_come_closer">Подойти</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <label class="toggle-switch">
+              <input type="checkbox" id="interaction-step-back">
+              <span class="toggle-slider"></span>
+            </label>
+            <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_step_back">Отойти</span>
+          </div>
+        </div>
+        <div class="form-hint" data-i18n="interaction_action_examples">Примеры: «Покажи, пожалуйста, оружие», «Достань меч, хочу посмотреть», «Повернись ко мне», «Посмотри на меня», «Подойди поближе», «Иди сюда, я скажу тихо», «Отойди на шаг назад», «Не стой так близко».</div>
+      </div>
+      <div class="form-row" style="margin-top:10px; display:none;">
+        <div class="form-group">
+          <label for="interaction-draw-terms">Фразы оружия</label>
+          <textarea id="interaction-draw-terms" style="min-height:64px;"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="interaction-turn-terms">Фразы поворота</label>
+          <textarea id="interaction-turn-terms" style="min-height:64px;"></textarea>
+        </div>
+      </div>
+      <div class="form-row" style="margin-top:10px; display:none;">
+        <div class="form-group">
+          <label for="interaction-come-terms">Фразы “подойди”</label>
+          <textarea id="interaction-come-terms" style="min-height:64px;"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="interaction-step-terms">Фразы “отойди”</label>
+          <textarea id="interaction-step-terms" style="min-height:64px;"></textarea>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label data-i18n="interaction_collapse_spell">Заклинание падения</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch" style="flex:none;">
+            <input type="checkbox" id="interaction-collapse">
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_collapse_hint">Фразы вроде «фус рода» запускают collapse_spell: NPC пытается упасть/пошатнуться через AI-сигналы и ragdoll/knockdown методы.</span>
+        </div>
+        <div class="form-hint" data-i18n="interaction_collapse_examples">Примеры: «Фус рода!», «Заклинание ветра, падай!», «Силой чар я сбиваю тебя с ног», «Пусть земля уйдёт из-под твоих ног».</div>
+      </div>
+      <div class="form-group" style="margin-top:10px; display:none;">
+        <label for="interaction-collapse-terms">Фразы заклинания</label>
+        <textarea id="interaction-collapse-terms" style="min-height:64px;"></textarea>
+      </div>
+      <div class="form-hint" data-i18n="interaction_roleplay_note">LLM учитывает отыгрыш NPC: просьба может быть выполнена, проигнорирована или вызвать отказ.</div>
+    </div>
+  </div>
+
   <!-- HUD positions -->
   <div class="card">
     <div class="card-header"><span class="card-title" data-i18n="hud_title">&#1054;&#1090;&#1086;&#1073;&#1088;&#1072;&#1078;&#1077;&#1085;&#1080;&#1077; HUD</span></div>
     <div class="card-body">
-      <div class="form-group">
-        <label data-i18n="hud_left_top">&#1057;&#1083;&#1077;&#1074;&#1072;-&#1089;&#1074;&#1077;&#1088;&#1093;&#1091; (&#1087;&#1083;&#1072;&#1096;&#1082;&#1072;)</label>
-        <div style="display:flex; align-items:center; gap:10px;">
-          <label class="toggle-switch">
-            <input type="checkbox" id="hud-left-top" onchange="saveHudFlags()">
-            <span class="toggle-slider"></span>
-          </label>
-          <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_left_top_hint">&#1095;&#1105;&#1088;&#1085;&#1072;&#1103; &#1087;&#1083;&#1072;&#1096;&#1082;&#1072; &#1089; &#1079;&#1086;&#1083;&#1086;&#1090;&#1086;&#1081; &#1088;&#1072;&#1084;&#1082;&#1086;&#1081; (HUD.ShowTutorial)</span>
+      <div class="hud-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:22px;">
+        <div>
+          <div class="form-group">
+            <label data-i18n="hud_ai_text">Текстовые ответы ИИ</label>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label class="toggle-switch">
+                <input type="checkbox" id="hud-ai-text" onchange="setHudAiTextEnabled(this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_ai_text_hint">Показывать текст ответа NPC.</span>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:18px;">
+            <label data-i18n="hud_left_top">&#1057;&#1083;&#1077;&#1074;&#1072;-&#1089;&#1074;&#1077;&#1088;&#1093;&#1091; (&#1087;&#1083;&#1072;&#1096;&#1082;&#1072;)</label>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label class="toggle-switch"><input type="checkbox" id="hud-left-top" onchange="saveHudFlags()"><span class="toggle-slider"></span></label>
+              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_left_top_hint">&#1095;&#1105;&#1088;&#1085;&#1072;&#1103; &#1087;&#1083;&#1072;&#1096;&#1082;&#1072; &#1089; &#1079;&#1086;&#1083;&#1086;&#1090;&#1086;&#1081; &#1088;&#1072;&#1084;&#1082;&#1086;&#1081; (HUD.ShowTutorial)</span>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label data-i18n="hud_right_top">&#1057;&#1087;&#1088;&#1072;&#1074;&#1072;-&#1089;&#1074;&#1077;&#1088;&#1093;&#1091; (&#1091;&#1074;&#1077;&#1076;&#1086;&#1084;&#1083;&#1077;&#1085;&#1080;&#1077;)</label>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label class="toggle-switch"><input type="checkbox" id="hud-right-top" onchange="saveHudFlags()"><span class="toggle-slider"></span></label>
+              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_right_top_hint">quest-style notification (HUD.ShowNotification)</span>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label data-i18n="hud_center">&#1055;&#1086; &#1094;&#1077;&#1085;&#1090;&#1088;&#1091; (&#1089;&#1091;&#1073;&#1090;&#1080;&#1090;&#1088;)</label>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label class="toggle-switch"><input type="checkbox" id="hud-center" onchange="saveHudFlags()"><span class="toggle-slider"></span></label>
+              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_center_hint">&#1079;&#1086;&#1083;&#1086;&#1090;&#1086;&#1081; &#1082;&#1091;&#1088;&#1089;&#1080;&#1074; &#1089; &#1086;&#1088;&#1085;&#1072;&#1084;&#1077;&#1085;&#1090;&#1086;&#1084; (Game.ShowTutorial)</span>
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="form-group" style="margin-top:10px;">
-        <label data-i18n="hud_right_top">&#1057;&#1087;&#1088;&#1072;&#1074;&#1072;-&#1089;&#1074;&#1077;&#1088;&#1093;&#1091; (&#1091;&#1074;&#1077;&#1076;&#1086;&#1084;&#1083;&#1077;&#1085;&#1080;&#1077;)</label>
-        <div style="display:flex; align-items:center; gap:10px;">
-          <label class="toggle-switch">
-            <input type="checkbox" id="hud-right-top" onchange="saveHudFlags()">
-            <span class="toggle-slider"></span>
-          </label>
-          <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_right_top_hint">quest-style notification (HUD.ShowNotification)</span>
-        </div>
-      </div>
-      <div class="form-group" style="margin-top:10px;">
-        <label data-i18n="hud_center">&#1055;&#1086; &#1094;&#1077;&#1085;&#1090;&#1088;&#1091; (&#1089;&#1091;&#1073;&#1090;&#1080;&#1090;&#1088;)</label>
-        <div style="display:flex; align-items:center; gap:10px;">
-          <label class="toggle-switch">
-            <input type="checkbox" id="hud-center" onchange="saveHudFlags()">
-            <span class="toggle-slider"></span>
-          </label>
-          <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_center_hint">&#1079;&#1086;&#1083;&#1086;&#1090;&#1086;&#1081; &#1082;&#1091;&#1088;&#1089;&#1080;&#1074; &#1089; &#1086;&#1088;&#1085;&#1072;&#1084;&#1077;&#1085;&#1090;&#1086;&#1084; (Game.ShowTutorial)</span>
+        <div>
+          <div class="form-group">
+            <label data-i18n="hud_narrator">Текст рассказчика</label>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label class="toggle-switch"><input type="checkbox" id="hud-narrator" onchange="setHudNarratorEnabled(this.checked)"><span class="toggle-slider"></span></label>
+              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_narrator_hint">Показывать описания действий: «Путник делает шаг назад».</span>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:18px;">
+            <label data-i18n="hud_left_top">&#1057;&#1083;&#1077;&#1074;&#1072;-&#1089;&#1074;&#1077;&#1088;&#1093;&#1091; (&#1087;&#1083;&#1072;&#1096;&#1082;&#1072;)</label>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label class="toggle-switch"><input type="checkbox" id="hud-narrator-left" onchange="saveHudFlags()"><span class="toggle-slider"></span></label>
+              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_left_top_hint">&#1095;&#1105;&#1088;&#1085;&#1072;&#1103; &#1087;&#1083;&#1072;&#1096;&#1082;&#1072; &#1089; &#1079;&#1086;&#1083;&#1086;&#1090;&#1086;&#1081; &#1088;&#1072;&#1084;&#1082;&#1086;&#1081; (HUD.ShowTutorial)</span>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label data-i18n="hud_right_top">&#1057;&#1087;&#1088;&#1072;&#1074;&#1072;-&#1089;&#1074;&#1077;&#1088;&#1093;&#1091; (&#1091;&#1074;&#1077;&#1076;&#1086;&#1084;&#1083;&#1077;&#1085;&#1080;&#1077;)</label>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label class="toggle-switch"><input type="checkbox" id="hud-narrator-right" onchange="saveHudFlags()"><span class="toggle-slider"></span></label>
+              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_right_top_hint">quest-style notification (HUD.ShowNotification)</span>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label data-i18n="hud_center">&#1055;&#1086; &#1094;&#1077;&#1085;&#1090;&#1088;&#1091; (&#1089;&#1091;&#1073;&#1090;&#1080;&#1090;&#1088;)</label>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label class="toggle-switch"><input type="checkbox" id="hud-narrator-center" onchange="saveHudFlags()"><span class="toggle-slider"></span></label>
+              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_center_hint">&#1079;&#1086;&#1083;&#1086;&#1090;&#1086;&#1081; &#1082;&#1091;&#1088;&#1089;&#1080;&#1074; &#1089; &#1086;&#1088;&#1085;&#1072;&#1084;&#1077;&#1085;&#1090;&#1086;&#1084; (Game.ShowTutorial)</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -966,8 +1101,11 @@
         <button class="preset-btn" data-prompt-preset="original" data-i18n="prompt_preset_original" onclick="setPromptPreset('original')">Оригинал</button>
         <button class="preset-btn" data-prompt-preset="charming" data-i18n="prompt_preset_charming" onclick="setPromptPreset('charming')">Харизматичный</button>
         <button class="preset-btn" data-prompt-preset="sarcastic" data-i18n="prompt_preset_sarcastic" onclick="setPromptPreset('sarcastic')">Саркастичный</button>
-        <button class="preset-btn" data-prompt-preset="rough" data-i18n="prompt_preset_rough" onclick="setPromptPreset('rough')">Грубиян</button>
-        <button class="preset-btn" data-prompt-preset="laconic" data-i18n="prompt_preset_laconic" onclick="setPromptPreset('laconic')">Краткий</button>
+        <button class="preset-btn" data-prompt-preset="barbed" data-i18n="prompt_preset_barbed" onclick="setPromptPreset('barbed')">Язвительный</button>
+        <button class="preset-btn" data-prompt-preset="barbed_compare" data-i18n="prompt_preset_barbed_compare" onclick="setPromptPreset('barbed_compare')">Язвительный сравнительный</button>
+        <button class="preset-btn" data-prompt-preset="double_barb" data-i18n="prompt_preset_double_barb" onclick="setPromptPreset('double_barb')">Двухслойная язва</button>
+        <button class="preset-btn" data-prompt-preset="venom_compare" data-i18n="prompt_preset_venom_compare" onclick="setPromptPreset('venom_compare')">Сравнительный яд</button>
+        <button class="preset-btn" data-prompt-preset="laconic" data-i18n="prompt_preset_laconic" onclick="setPromptPreset('laconic')">Тарантиновский</button>
         <button class="preset-btn" data-prompt-preset="uncensored" data-i18n="prompt_preset_uncensored" onclick="setPromptPreset('uncensored')">Без цензуры</button>
         <button class="preset-btn" data-prompt-preset="custom" data-i18n="prompt_preset_custom" onclick="setPromptPreset('custom')">Свой</button>
       </div>
@@ -1077,24 +1215,6 @@ Your occupation: {occupation}
 {language_instruction}
 
 REMINDER: charming, brief, human. Max 30 words.`,
-    rough: `You are {name}, {description}.
-Your name: {name}.
-You live in {location} in the Kingdom of Bohemia, in the year 1403.
-
-Your personality: {personality}
-Your occupation: {occupation}
-
-# STYLE
-- Reply in 1-2 short sentences. Hard cap: 25 words total.
-- Sound blunt, streetwise, suspicious, and a little rude.
-- You may grumble, threaten, or mock lightly, but do not become cartoonish.
-- Stay grounded in medieval Bohemia. No modern slang, no asterisk actions.
-- Speak as a {occupation} from this era would.
-- React sharply to insults, theft, violence, or bad reputation.
-{extra_context}
-{language_instruction}
-
-REMINDER: rough, terse, believable. Max 25 words.`,
     sarcastic: `You are {name}, {description}.
 Your name: {name}.
 You live in {location} in the Kingdom of Bohemia, in the year 1403.
@@ -1113,6 +1233,81 @@ Your occupation: {occupation}
 {language_instruction}
 
 REMINDER: sarcastic, cutting, concise. Max 25 words.`,
+    barbed: `You are {name}, {description}.
+Your name: {name}.
+You live in {location} in the Kingdom of Bohemia, in the year 1403.
+
+Your personality: {personality}
+Your occupation: {occupation}
+
+# STYLE
+- Reply in 2-4 sentences.
+- Be sharply sarcastic, needling, and verbally agile, but still useful.
+- Answer the player's actual question or request, then add one pointed jab.
+- The jab should feel personal to the situation, not random.
+- Keep it medieval and grounded: village life, work, mud, ale, animals, priests, markets, carts, tools.
+- No modern slang, memes, pop culture, or asterisk roleplay actions.
+{extra_context}
+{language_instruction}
+
+REMINDER: useful answer first, then a precise medieval barb.`,
+    barbed_compare: `You are {name}, {description}.
+Your name: {name}.
+You live in {location} in the Kingdom of Bohemia, in the year 1403.
+
+Your personality: {personality}
+Your occupation: {occupation}
+
+# STYLE
+- Reply in 2-4 sentences.
+- Use two-level sarcasm: first a direct cutting observation, then a vivid comparison.
+- Always answer the player's actual question or request.
+- Comparisons must come from medieval Bohemia: geese, pigs, mills, mud, wagons, taverns, barns, cheap ale, broken tools, church bells.
+- Make the response feel like a small performance with rhythm, setup, and punchline.
+- Do not become random, too long, or hostile unless the player provokes it.
+- No modern slang, memes, pop culture, or asterisk roleplay actions.
+{extra_context}
+{language_instruction}
+
+REMINDER: direct jab plus medieval comparison, while still answering.`,
+    double_barb: `You are {name}, {description}.
+Your name: {name}.
+You live in {location} in the Kingdom of Bohemia, in the year 1403.
+
+Your personality: {personality}
+Your occupation: {occupation}
+
+# STYLE
+- Reply in 2-4 sentences.
+- Every answer should have two layers: the surface gives the useful answer; the underside mocks the player's judgment, manners, courage, or attention.
+- Use implication and clever phrasing more than blunt insults.
+- Sound like a real medieval Bohemian person, not a modern comedian.
+- Keep metaphors practical: fields, barns, coins, bread, livestock, tools, weather, taverns, clergy.
+- Do not over-explain the joke. Let the second layer sting naturally.
+- No modern slang, memes, pop culture, or asterisk roleplay actions.
+{extra_context}
+{language_instruction}
+
+REMINDER: useful surface, poisonous underside.`,
+    venom_compare: `You are {name}, {description}.
+Your name: {name}.
+You live in {location} in the Kingdom of Bohemia, in the year 1403.
+
+Your personality: {personality}
+Your occupation: {occupation}
+
+# STYLE
+- Reply in 2-5 sentences.
+- Be more aggressive than ordinary sarcasm: biting, vivid, and contemptuous, but still believable.
+- Answer the player's request, then strike with a harsh medieval comparison.
+- Compare the player to broken tools, drunk geese, stubborn pigs, muddy boots, empty barrels, cheap ale, dull knives, or lost children.
+- Keep the insult connected to what the player said or did.
+- Do not use modern profanity, memes, pop culture, or asterisk roleplay actions.
+- Do not escalate to violence unless the player threatens or attacks.
+{extra_context}
+{language_instruction}
+
+REMINDER: answer, then venomous medieval comparison.`,
     laconic: `You are {name}, {description}.
 Your name: {name}.
 You live in {location} in the Kingdom of Bohemia, in the year 1403.
@@ -1121,15 +1316,25 @@ Your personality: {personality}
 Your occupation: {occupation}
 
 # STYLE
-- Reply in ONE short sentence whenever possible.
-- Hard cap: 15 words total.
-- No greetings, no explanations, no filler, no lists.
-- Stay in character as a real medieval Bohemian person.
-- Speak plainly as a {occupation}; answer only what was asked.
+- Speak like a dangerous tavern talker: casual on the surface, tense underneath.
+- Use 3-5 sentences. Do not write essays, lists, lectures, or explanations.
+- Structure the reply like a miniature performance: answer the player, drift into one oddly specific everyday detail, reveal what that detail says about people, then end with a sharp line.
+- Let the NPC accidentally reveal character, status, fear, greed, pride, or suspicion while talking about something ordinary.
+- Use rhythmic speech: short sentence, longer sentence, sudden short sentence. Repeat one key word or image once for effect.
+- Add subtext: what is happening should feel slightly more dangerous or personal than what is being said.
+- Sound spoken, not literary: use conversational turns like "listen", "see", "funny thing", "I'll tell you", but translated naturally into the response language.
+- Do not start every reply with a greeting or a full self-introduction. If asked who you are, answer, then move quickly into attitude.
+- Avoid pretty philosophy unless it hides a threat, suspicion, bargain, or insult.
+- Include one tiny conflict: you doubt the player, test them, bargain with them, warn them, or imply they want more than they say.
+- End with a sting: a suspicious question, a threat wrapped as advice, or a short ironic punchline.
+- Use vivid medieval objects instead of modern references: boots, bread, knives, ale, carts, pigs, mud, candles, coins, church bells, blood on linen.
+- Keep everything grounded in medieval Bohemia, year 1403. No modern pop culture, no film references, no anachronisms.
+- Never copy or mention real modern writers, directors, films, actors, or characters.
+- Stay in character as a real medieval Bohemian person with the occupation {occupation}.
 {extra_context}
 {language_instruction}
 
-REMINDER: one sentence, max 15 words.`,
+REMINDER: spoken rhythm, odd detail, hidden tension, tiny conflict, sharp final sting. 3-5 sentences.`,
     uncensored: `You are {name}, {description}.
 Your name: {name}.
 You live in {location} in the Kingdom of Bohemia, in the year 1403.
@@ -1261,25 +1466,37 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
   function normalizePromptText(text) {
     return (text || '').replace(/\r\n/g, '\n').trim();
   }
+  let activePromptPreset = 'custom';
+  let customPromptText = '';
+
   function detectPromptPreset() {
     const current = normalizePromptText(document.getElementById('prompt-template')?.value || '');
     for (const [name, template] of Object.entries(PROMPT_PRESETS)) {
       if (name !== 'custom' && normalizePromptText(template) === current) {
         markPromptPreset(name);
+        activePromptPreset = name;
         return;
       }
     }
     markPromptPreset('custom');
+    customPromptText = document.getElementById('prompt-template')?.value || '';
+    activePromptPreset = 'custom';
   }
   function resetPrompt() {
     document.getElementById('prompt-template').value = DEFAULT_PROMPT;
     markPromptPreset('default');
+    activePromptPreset = 'default';
   }
   function setPromptPreset(name) {
-    document.getElementById('prompt-template').value = Object.prototype.hasOwnProperty.call(PROMPT_PRESETS, name)
-      ? PROMPT_PRESETS[name]
-      : DEFAULT_PROMPT;
+    const textarea = document.getElementById('prompt-template');
+    if (activePromptPreset === 'custom') {
+      customPromptText = textarea.value;
+    }
+    textarea.value = name === 'custom'
+      ? customPromptText
+      : (Object.prototype.hasOwnProperty.call(PROMPT_PRESETS, name) ? PROMPT_PRESETS[name] : DEFAULT_PROMPT);
     markPromptPreset(name);
+    activePromptPreset = name;
   }
 
   async function loadConfig() {
@@ -1299,12 +1516,31 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       const tts = d.tts || {};
       const input = d.input || {};
       const hud = d.hud || {};
+      const interaction = d.interaction || {};
       document.getElementById('hud-left-top').checked  = hud.show_left_top  === true;
       document.getElementById('hud-right-top').checked = hud.show_right_top !== false;
       document.getElementById('hud-center').checked    = hud.show_center    !== false;
+      document.getElementById('hud-narrator').checked  = hud.show_narrator  !== false;
+      document.getElementById('hud-narrator-left').checked = hud.narrator_left_top === true;
+      document.getElementById('hud-narrator-right').checked = hud.narrator_right_top !== false;
+      document.getElementById('hud-narrator-center').checked = hud.narrator_center === true;
+      updateHudAiTextToggle();
+      document.getElementById('interaction-dress-up').checked = interaction.enable_dress_up_requests !== false;
+      document.getElementById('interaction-strip').checked = interaction.enable_strip_requests !== false;
+      document.getElementById('interaction-draw-weapon').checked = interaction.enable_draw_weapon_requests !== false;
+      document.getElementById('interaction-turn').checked = interaction.enable_turn_to_player_requests !== false;
+      document.getElementById('interaction-come-closer').checked = interaction.enable_come_closer_requests === true;
+      document.getElementById('interaction-step-back').checked = interaction.enable_step_back_requests === true;
+      document.getElementById('interaction-collapse').checked = interaction.enable_collapse_spell_requests === true;
+      document.getElementById('interaction-dress-terms').value = interaction.dress_up_terms || 'оденься, одевайся, одень одежду, надень одежду, надень что-нибудь, прикройся, переоденься, смени одежду, переоденься в другую одежду, надень другую одежду, dress up, get dressed, put clothes on, change clothes, change your clothes, put on different clothes';
+      document.getElementById('interaction-strip-terms').value = interaction.strip_terms || 'разденься, сними одежду, сними верхнюю одежду, strip, undress, take off clothes';
+      document.getElementById('interaction-draw-terms').value = interaction.draw_weapon_terms || 'достань оружие, вынь меч, достань меч, оружие к бою, draw weapon, draw your weapon';
+      document.getElementById('interaction-turn-terms').value = interaction.turn_to_player_terms || 'повернись ко мне, смотри на меня, посмотри на меня, обернись, turn to me, look at me';
+      document.getElementById('interaction-come-terms').value = interaction.come_closer_terms || 'подойди, иди сюда, подойди ко мне, ближе, come closer, come here';
+      document.getElementById('interaction-step-terms').value = interaction.step_back_terms || 'отойди, отойди назад, назад, держись подальше, step back, back off, move away';
+      document.getElementById('interaction-collapse-terms').value = interaction.collapse_spell_terms || 'фус рода, упади, падай, сломайся, abracadabra fall, collapse, fall down';
       document.getElementById('chat-key').value = input.chat_key || 'v';
       document.getElementById('end-key').value = input.end_key || '';
-      document.getElementById('overlay-enabled').value = (input.overlay_enabled === false) ? 'false' : 'true';
       document.getElementById('overlay-style').value = (input.overlay_style === 'plain') ? 'plain' : 'kcd';
       document.getElementById('tap-overlay-enabled').checked = input.tap_overlay_enabled !== false;
       document.getElementById('tap-mode').value = (input.tap_mode === 'lua_command') ? 'lua_command' : 'direct_overlay';
@@ -1393,6 +1629,10 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
         show_left_top:  document.getElementById('hud-left-top').checked,
         show_right_top: document.getElementById('hud-right-top').checked,
         show_center:    document.getElementById('hud-center').checked,
+        show_narrator:  document.getElementById('hud-narrator').checked,
+        narrator_left_top: document.getElementById('hud-narrator-left').checked,
+        narrator_right_top: document.getElementById('hud-narrator-right').checked,
+        narrator_center: document.getElementById('hud-narrator-center').checked,
       }
     };
     try {
@@ -1404,6 +1644,26 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     } catch (e) {
       console.warn('saveHudFlags failed', e);
     }
+  }
+
+  function updateHudAiTextToggle() {
+    const enabled = document.getElementById('hud-left-top').checked || document.getElementById('hud-right-top').checked || document.getElementById('hud-center').checked;
+    document.getElementById('hud-ai-text').checked = enabled;
+  }
+
+  function setHudAiTextEnabled(enabled) {
+    document.getElementById('hud-left-top').checked = false;
+    document.getElementById('hud-right-top').checked = enabled === true;
+    document.getElementById('hud-center').checked = enabled === true;
+    saveHudFlags();
+  }
+
+  function setHudNarratorEnabled(enabled) {
+    document.getElementById('hud-narrator').checked = enabled === true;
+    document.getElementById('hud-narrator-left').checked = false;
+    document.getElementById('hud-narrator-right').checked = enabled === true;
+    document.getElementById('hud-narrator-center').checked = false;
+    saveHudFlags();
   }
 
   function onTtsToggle(enabled) {
@@ -1645,6 +1905,8 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
           model:       document.getElementById('model').value.trim(),
           max_tokens:  parseInt(document.getElementById('max-tokens').value),
           temperature: parseFloat(document.getElementById('temperature').value),
+          language:    document.getElementById('language').value,
+          prompt_template: document.getElementById('prompt-template').value,
         }),
       });
       const d = await res.json();
@@ -1719,7 +1981,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
           input: {
             chat_key: document.getElementById('chat-key').value.trim().toLowerCase(),
             end_key:  document.getElementById('end-key').value.trim().toLowerCase(),
-            overlay_enabled: document.getElementById('overlay-enabled').value === 'true',
+            overlay_enabled: document.getElementById('tap-overlay-enabled').checked,
             overlay_style:   document.getElementById('overlay-style').value,
             tap_overlay_enabled: document.getElementById('tap-overlay-enabled').checked,
             tap_mode:        document.getElementById('tap-mode').value,
@@ -1728,6 +1990,26 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
             show_left_top:  document.getElementById('hud-left-top').checked,
             show_right_top: document.getElementById('hud-right-top').checked,
             show_center:    document.getElementById('hud-center').checked,
+            show_narrator:  document.getElementById('hud-narrator').checked,
+            narrator_left_top: document.getElementById('hud-narrator-left').checked,
+            narrator_right_top: document.getElementById('hud-narrator-right').checked,
+            narrator_center: document.getElementById('hud-narrator-center').checked,
+          },
+          interaction: {
+            enable_dress_up_requests: document.getElementById('interaction-dress-up').checked,
+            enable_strip_requests: document.getElementById('interaction-strip').checked,
+            enable_draw_weapon_requests: document.getElementById('interaction-draw-weapon').checked,
+            enable_turn_to_player_requests: document.getElementById('interaction-turn').checked,
+            enable_come_closer_requests: document.getElementById('interaction-come-closer').checked,
+            enable_step_back_requests: document.getElementById('interaction-step-back').checked,
+            enable_collapse_spell_requests: document.getElementById('interaction-collapse').checked,
+            dress_up_terms: document.getElementById('interaction-dress-terms').value.trim(),
+            strip_terms: document.getElementById('interaction-strip-terms').value.trim(),
+            draw_weapon_terms: document.getElementById('interaction-draw-terms').value.trim(),
+            turn_to_player_terms: document.getElementById('interaction-turn-terms').value.trim(),
+            come_closer_terms: document.getElementById('interaction-come-terms').value.trim(),
+            step_back_terms: document.getElementById('interaction-step-terms').value.trim(),
+            collapse_spell_terms: document.getElementById('interaction-collapse-terms').value.trim(),
           },
           prompt_template: document.getElementById('prompt-template').value,
         }),
@@ -1795,7 +2077,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       max_tokens_sub: '\u043d\u0430 \u043e\u0442\u0432\u0435\u0442',
       temperature: '\u0422\u0435\u043c\u043f\u0435\u0440\u0430\u0442\u0443\u0440\u0430',
       temperature_sub: '\u043a\u0440\u0435\u0430\u0442\u0438\u0432\u043d\u043e\u0441\u0442\u044c \u00b7 0\u20132',
-      general_title: '\u041e\u0431\u0449\u0438\u0435',
+      general_title: '\u042f\u0437\u044b\u043a \u0418\u0418 \u0438 \u0438\u043d\u0442\u0435\u0440\u0444\u0435\u0439\u0441\u0430',
       resp_lang: '\u042f\u0437\u044b\u043a \u043e\u0442\u0432\u0435\u0442\u043e\u0432',
       prompt_title: '\u0428\u0430\u0431\u043b\u043e\u043d \u0441\u0438\u0441\u0442\u0435\u043c\u043d\u043e\u0433\u043e \u043f\u0440\u043e\u043c\u043f\u0442\u0430',
       template: '\u0428\u0430\u0431\u043b\u043e\u043d',
@@ -1803,9 +2085,12 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       prompt_preset_default: '\u0414\u0435\u0444\u043e\u043b\u0442',
       prompt_preset_original: '\u041e\u0440\u0438\u0433\u0438\u043d\u0430\u043b',
       prompt_preset_charming: '\u0425\u0430\u0440\u0438\u0437\u043c\u0430\u0442\u0438\u0447\u043d\u044b\u0439',
-      prompt_preset_rough: '\u0413\u0440\u0443\u0431\u0438\u044f\u043d',
       prompt_preset_sarcastic: '\u0421\u0430\u0440\u043a\u0430\u0441\u0442\u0438\u0447\u043d\u044b\u0439',
-      prompt_preset_laconic: '\u041a\u0440\u0430\u0442\u043a\u0438\u0439',
+      prompt_preset_barbed: '\u042f\u0437\u0432\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0439',
+      prompt_preset_barbed_compare: '\u042f\u0437\u0432\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0439 \u0441\u0440\u0430\u0432\u043d\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0439',
+      prompt_preset_double_barb: '\u0414\u0432\u0443\u0445\u0441\u043b\u043e\u0439\u043d\u0430\u044f \u044f\u0437\u0432\u0430',
+      prompt_preset_venom_compare: '\u0421\u0440\u0430\u0432\u043d\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0439 \u044f\u0434',
+      prompt_preset_laconic: '\u0422\u0430\u0440\u0430\u043d\u0442\u0438\u043d\u043e\u0432\u0441\u043a\u0438\u0439',
       prompt_preset_uncensored: '\u0411\u0435\u0437 \u0446\u0435\u043d\u0437\u0443\u0440\u044b',
       prompt_preset_custom: '\u0421\u0432\u043e\u0439',
       reset: '\u0421\u0431\u0440\u043e\u0441\u0438\u0442\u044c',
@@ -1867,6 +2152,10 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       tts_engine: '\u0414\u0432\u0438\u0436\u043e\u043a',
       tts_voice: '\u041c\u0443\u0436\u0441\u043a\u043e\u0439 \u0433\u043e\u043b\u043e\u0441',
       tts_voice_female: '\u0416\u0435\u043d\u0441\u043a\u0438\u0439 \u0433\u043e\u043b\u043e\u0441',
+      tts_voice_id_male: 'Voice ID (\u043c\u0443\u0436\u0441\u043a\u043e\u0439)',
+      tts_voice_id_female: 'Voice ID (\u0436\u0435\u043d\u0441\u043a\u0438\u0439)',
+      tts_openai_voice_male: 'Voice (\u043c\u0443\u0436\u0441\u043a\u043e\u0439)',
+      tts_openai_voice_female: 'Voice (\u0436\u0435\u043d\u0441\u043a\u0438\u0439)',
       tts_volume: '\u0413\u0440\u043e\u043c\u043a\u043e\u0441\u0442\u044c',
       tts_volume_sub: '0.0\u20131.0',
       tts_voices_hint: '\u0413\u043e\u043b\u043e\u0441\u0430:',
@@ -1874,12 +2163,42 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       tts_on: '\u0432\u043a\u043b\u044e\u0447\u0435\u043d\u0430',
       tts_off: '\u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u0430',
       hud_title: '\u041e\u0442\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435 HUD',
+      hud_ai_text: '\u0422\u0435\u043a\u0441\u0442\u043e\u0432\u044b\u0435 \u043e\u0442\u0432\u0435\u0442\u044b \u0418\u0418',
+      hud_ai_text_hint: '\u041f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0442\u044c \u0442\u0435\u043a\u0441\u0442 \u043e\u0442\u0432\u0435\u0442\u0430 NPC.',
       hud_left_top: '\u0421\u043b\u0435\u0432\u0430-\u0441\u0432\u0435\u0440\u0445\u0443 (\u043f\u043b\u0430\u0448\u043a\u0430)',
       hud_left_top_hint: '\u0447\u0451\u0440\u043d\u0430\u044f \u043f\u043b\u0430\u0448\u043a\u0430 \u0441 \u0437\u043e\u043b\u043e\u0442\u043e\u0439 \u0440\u0430\u043c\u043a\u043e\u0439 (HUD.ShowTutorial)',
       hud_right_top: '\u0421\u043f\u0440\u0430\u0432\u0430-\u0441\u0432\u0435\u0440\u0445\u0443 (\u0443\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u0435)',
       hud_right_top_hint: '\u043f\u043b\u0430\u0448\u043a\u0430 \u0432 \u0441\u0442\u0438\u043b\u0435 quest update (HUD.ShowNotification)',
       hud_center: '\u041f\u043e \u0446\u0435\u043d\u0442\u0440\u0443 (\u0441\u0443\u0431\u0442\u0438\u0442\u0440)',
       hud_center_hint: '\u0437\u043e\u043b\u043e\u0442\u043e\u0439 \u043a\u0443\u0440\u0441\u0438\u0432 \u0441 \u043e\u0440\u043d\u0430\u043c\u0435\u043d\u0442\u043e\u043c (Game.ShowTutorial)',
+      hud_narrator: '\u0422\u0435\u043a\u0441\u0442 \u0440\u0430\u0441\u0441\u043a\u0430\u0437\u0447\u0438\u043a\u0430',
+      hud_narrator_hint: '\u041f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0442\u044c \u043e\u043f\u0438\u0441\u0430\u043d\u0438\u044f \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0439: \u00ab\u041f\u0443\u0442\u043d\u0438\u043a \u0434\u0435\u043b\u0430\u0435\u0442 \u0448\u0430\u0433 \u043d\u0430\u0437\u0430\u0434\u00bb.',
+      hud_narrator_position: '\u0413\u0434\u0435 \u043f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0442\u044c \u0440\u0435\u0447\u044c \u0440\u0430\u0441\u0441\u043a\u0430\u0437\u0447\u0438\u043a\u0430',
+      hud_narrator_pos_all: '\u041f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0442\u044c \u0432\u0435\u0437\u0434\u0435',
+      hud_narrator_pos_enabled: '\u0412\u043e \u0432\u043a\u043b\u044e\u0447\u0435\u043d\u043d\u044b\u0445 HUD',
+      hud_narrator_pos_left: '\u0421\u043b\u0435\u0432\u0430-\u0441\u0432\u0435\u0440\u0445\u0443',
+      hud_narrator_pos_right: '\u0421\u043f\u0440\u0430\u0432\u0430-\u0441\u0432\u0435\u0440\u0445\u0443',
+      hud_narrator_pos_center: '\u041f\u043e \u0446\u0435\u043d\u0442\u0440\u0443',
+      interaction_title: '\u0418\u043d\u0442\u0435\u0440\u0430\u043a\u0442\u0438\u0432 NPC',
+      interaction_dress_up: '\u041e\u0434\u0435\u0432\u0430\u043d\u0438\u0435 \u0447\u0435\u0440\u0435\u0437 \u043e\u0431\u0449\u0435\u043d\u0438\u0435',
+      interaction_dress_up_hint: '\u0424\u0440\u0430\u0437\u044b \u0432\u0440\u043e\u0434\u0435 \u00ab\u043e\u0434\u0435\u043d\u044c\u0441\u044f\u00bb \u0438 \u00ab\u043f\u0435\u0440\u0435\u043e\u0434\u0435\u043d\u044c\u0441\u044f\u00bb \u0437\u0430\u043f\u0443\u0441\u043a\u0430\u044e\u0442 dress_up.',
+      interaction_dress_examples: '\u041f\u0440\u0438\u043c\u0435\u0440\u044b: \u00ab\u041e\u0434\u0435\u043d\u044c\u0441\u044f, \u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u0445\u043e\u043b\u043e\u0434\u043d\u043e\u00bb, \u00ab\u041f\u0435\u0440\u0435\u043e\u0434\u0435\u043d\u044c\u0441\u044f \u0432 \u0434\u0440\u0443\u0433\u0443\u044e \u043e\u0434\u0435\u0436\u0434\u0443\u00bb, \u00ab\u0421\u043c\u0435\u043d\u0438 \u043e\u0434\u0435\u0436\u0434\u0443, \u044d\u0442\u0430 \u0443\u0436\u0435 \u0433\u0440\u044f\u0437\u043d\u0430\u044f\u00bb.',
+      interaction_dress_terms: '\u0424\u0440\u0430\u0437\u044b \u0434\u043b\u044f \u043e\u0434\u0435\u0432\u0430\u043d\u0438\u044f',
+      interaction_terms_hint: '\u0427\u0435\u0440\u0435\u0437 \u0437\u0430\u043f\u044f\u0442\u0443\u044e. \u0421\u043e\u0445\u0440\u0430\u043d\u044f\u0435\u0442\u0441\u044f \u0431\u0435\u0437 \u043f\u0435\u0440\u0435\u0437\u0430\u043f\u0443\u0441\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430.',
+      interaction_strip: '\u0420\u0430\u0437\u0434\u0435\u0432\u0430\u043d\u0438\u0435 \u0447\u0435\u0440\u0435\u0437 \u043e\u0431\u0449\u0435\u043d\u0438\u0435',
+      interaction_strip_hint: '\u0424\u0440\u0430\u0437\u044b \u0432\u0440\u043e\u0434\u0435 \u00ab\u0440\u0430\u0437\u0434\u0435\u043d\u044c\u0441\u044f\u00bb \u0437\u0430\u043f\u0443\u0441\u043a\u0430\u044e\u0442 strip_outerwear.',
+      interaction_strip_examples: '\u041f\u0440\u0438\u043c\u0435\u0440\u044b: \u00ab\u0420\u0430\u0437\u0434\u0435\u043d\u044c\u0441\u044f, \u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u0442\u0430\u043a\u0430\u044f \u0436\u0430\u0440\u0430!\u00bb, \u00ab\u0421\u043d\u0438\u043c\u0438 \u0432\u0435\u0440\u0445\u043d\u044e\u044e \u043e\u0434\u0435\u0436\u0434\u0443, \u0442\u0435\u0431\u0435 \u0441\u0442\u0430\u043d\u0435\u0442 \u043b\u0435\u0433\u0447\u0435\u00bb, \u00ab\u041c\u043e\u0436\u0435\u0448\u044c \u0441\u043d\u044f\u0442\u044c \u043f\u043b\u0430\u0449, \u0437\u0434\u0435\u0441\u044c \u0431\u0435\u0437\u043e\u043f\u0430\u0441\u043d\u043e\u00bb.',
+      interaction_strip_terms: '\u0424\u0440\u0430\u0437\u044b \u0434\u043b\u044f \u0440\u0430\u0437\u0434\u0435\u0432\u0430\u043d\u0438\u044f',
+      interaction_action_group: '\u041e\u0440\u0443\u0436\u0438\u0435 / \u043f\u043e\u0432\u043e\u0440\u043e\u0442 / \u0434\u0432\u0438\u0436\u0435\u043d\u0438\u0435',
+      interaction_draw_weapon: '\u0414\u043e\u0441\u0442\u0430\u0442\u044c \u043e\u0440\u0443\u0436\u0438\u0435',
+      interaction_turn_to_player: '\u041f\u043e\u0432\u0435\u0440\u043d\u0443\u0442\u044c\u0441\u044f/\u043f\u043e\u0441\u043c\u043e\u0442\u0440\u0435\u0442\u044c',
+      interaction_come_closer: '\u041f\u043e\u0434\u043e\u0439\u0442\u0438',
+      interaction_step_back: '\u041e\u0442\u043e\u0439\u0442\u0438',
+      interaction_action_examples: '\u041f\u0440\u0438\u043c\u0435\u0440\u044b: \u00ab\u041f\u043e\u043a\u0430\u0436\u0438, \u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u043e\u0440\u0443\u0436\u0438\u0435\u00bb, \u00ab\u0414\u043e\u0441\u0442\u0430\u043d\u044c \u043c\u0435\u0447, \u0445\u043e\u0447\u0443 \u043f\u043e\u0441\u043c\u043e\u0442\u0440\u0435\u0442\u044c\u00bb, \u00ab\u041f\u043e\u0432\u0435\u0440\u043d\u0438\u0441\u044c \u043a\u043e \u043c\u043d\u0435\u00bb, \u00ab\u041f\u043e\u0441\u043c\u043e\u0442\u0440\u0438 \u043d\u0430 \u043c\u0435\u043d\u044f\u00bb, \u00ab\u041f\u043e\u0434\u043e\u0439\u0434\u0438 \u043f\u043e\u0431\u043b\u0438\u0436\u0435\u00bb, \u00ab\u0418\u0434\u0438 \u0441\u044e\u0434\u0430, \u044f \u0441\u043a\u0430\u0436\u0443 \u0442\u0438\u0445\u043e\u00bb, \u00ab\u041e\u0442\u043e\u0439\u0434\u0438 \u043d\u0430 \u0448\u0430\u0433 \u043d\u0430\u0437\u0430\u0434\u00bb, \u00ab\u041d\u0435 \u0441\u0442\u043e\u0439 \u0442\u0430\u043a \u0431\u043b\u0438\u0437\u043a\u043e\u00bb.',
+      interaction_collapse_spell: '\u0417\u0430\u043a\u043b\u0438\u043d\u0430\u043d\u0438\u0435 \u043f\u0430\u0434\u0435\u043d\u0438\u044f',
+      interaction_collapse_hint: '\u0424\u0440\u0430\u0437\u044b \u0432\u0440\u043e\u0434\u0435 \u00ab\u0444\u0443\u0441 \u0440\u043e\u0434\u0430\u00bb \u0437\u0430\u043f\u0443\u0441\u043a\u0430\u044e\u0442 collapse_spell.',
+      interaction_collapse_examples: '\u041f\u0440\u0438\u043c\u0435\u0440\u044b: \u00ab\u0424\u0443\u0441 \u0440\u043e\u0434\u0430!\u00bb, \u00ab\u0417\u0430\u043a\u043b\u0438\u043d\u0430\u043d\u0438\u0435 \u0432\u0435\u0442\u0440\u0430, \u043f\u0430\u0434\u0430\u0439!\u00bb, \u00ab\u0421\u0438\u043b\u043e\u0439 \u0447\u0430\u0440 \u044f \u0441\u0431\u0438\u0432\u0430\u044e \u0442\u0435\u0431\u044f \u0441 \u043d\u043e\u0433\u00bb, \u00ab\u041f\u0443\u0441\u0442\u044c \u0437\u0435\u043c\u043b\u044f \u0443\u0439\u0434\u0451\u0442 \u0438\u0437-\u043f\u043e\u0434 \u0442\u0432\u043e\u0438\u0445 \u043d\u043e\u0433\u00bb.',
+      interaction_roleplay_note: 'LLM \u0443\u0447\u0438\u0442\u044b\u0432\u0430\u0435\u0442 \u043e\u0442\u044b\u0433\u0440\u044b\u0448 NPC: \u043f\u0440\u043e\u0441\u044c\u0431\u0430 \u043c\u043e\u0436\u0435\u0442 \u0431\u044b\u0442\u044c \u0432\u044b\u043f\u043e\u043b\u043d\u0435\u043d\u0430, \u043f\u0440\u043e\u0438\u0433\u043d\u043e\u0440\u0438\u0440\u043e\u0432\u0430\u043d\u0430 \u0438\u043b\u0438 \u0432\u044b\u0437\u0432\u0430\u0442\u044c \u043e\u0442\u043a\u0430\u0437.',
       input_title: '\u0412\u0432\u043e\u0434 / \u043a\u043b\u0430\u0432\u0438\u0448\u0438',
       chat_key: '\u041a\u043b\u0430\u0432\u0438\u0448\u0430 AI-\u0447\u0430\u0442\u0430',
       chat_key_hint: '\u041f\u043e \u0443\u043c\u043e\u043b\u0447\u0430\u043d\u0438\u044e: v. \u042d\u0442\u0430 \u043a\u043b\u0430\u0432\u0438\u0448\u0430 \u043e\u0442\u043a\u0440\u044b\u0432\u0430\u0435\u0442 \u0438 \u0437\u0430\u043a\u0440\u044b\u0432\u0430\u0435\u0442 AI-\u0447\u0430\u0442. \u041f\u0440\u0438\u043c\u0435\u0440\u044b:',
@@ -1914,7 +2233,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       max_tokens_sub: 'per response',
       temperature: 'Temperature',
       temperature_sub: 'creativity \u00b7 0\u20132',
-      general_title: 'General',
+      general_title: 'AI and interface language',
       resp_lang: 'Response Language',
       prompt_title: 'System Prompt Template',
       template: 'Template',
@@ -1922,9 +2241,12 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       prompt_preset_default: 'Default',
       prompt_preset_original: 'Original',
       prompt_preset_charming: 'Charming',
-      prompt_preset_rough: 'Rough',
       prompt_preset_sarcastic: 'Sarcastic',
-      prompt_preset_laconic: 'Laconic',
+      prompt_preset_barbed: 'Barbed',
+      prompt_preset_barbed_compare: 'Barbed comparative',
+      prompt_preset_double_barb: 'Double-layer barb',
+      prompt_preset_venom_compare: 'Comparative venom',
+      prompt_preset_laconic: 'Tarantino-style',
       prompt_preset_uncensored: 'Uncensored',
       prompt_preset_custom: 'Custom',
       reset: 'Reset',
@@ -1986,6 +2308,10 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       tts_engine: 'Engine',
       tts_voice: 'Male voice',
       tts_voice_female: 'Female voice',
+      tts_voice_id_male: 'Voice ID (male)',
+      tts_voice_id_female: 'Voice ID (female)',
+      tts_openai_voice_male: 'Voice (male)',
+      tts_openai_voice_female: 'Voice (female)',
       tts_volume: 'Volume',
       tts_volume_sub: '0.0\u20131.0',
       tts_voices_hint: 'Voices:',
@@ -1993,12 +2319,42 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       tts_on: 'enabled',
       tts_off: 'disabled',
       hud_title: 'HUD display',
+      hud_ai_text: 'AI text responses',
+      hud_ai_text_hint: 'Show NPC response text.',
       hud_left_top: 'Top-left (plaque)',
       hud_left_top_hint: 'black plaque with gold border (HUD.ShowTutorial)',
       hud_right_top: 'Top-right (notification)',
       hud_right_top_hint: 'quest-style notification (HUD.ShowNotification)',
       hud_center: 'Center (subtitle)',
       hud_center_hint: 'gold italic with ornament (Game.ShowTutorial)',
+      hud_narrator: 'Narrator text',
+      hud_narrator_hint: 'Show action descriptions: “The traveler steps back”.',
+      hud_narrator_position: 'Where to show narrator speech',
+      hud_narrator_pos_all: 'Show everywhere',
+      hud_narrator_pos_enabled: 'In enabled HUDs',
+      hud_narrator_pos_left: 'Top-left',
+      hud_narrator_pos_right: 'Top-right',
+      hud_narrator_pos_center: 'Center',
+      interaction_title: 'NPC interaction',
+      interaction_dress_up: 'Dress up via chat',
+      interaction_dress_up_hint: 'Phrases like “get dressed” and “change clothes” trigger dress_up.',
+      interaction_dress_examples: 'Examples: “Please get dressed, it is cold”, “Change into different clothes”, “Change your clothes, those are dirty”.',
+      interaction_dress_terms: 'Dress-up phrases',
+      interaction_terms_hint: 'Comma-separated. Saved live without server restart.',
+      interaction_strip: 'Strip via chat',
+      interaction_strip_hint: 'Phrases like “undress” trigger strip_outerwear.',
+      interaction_strip_examples: 'Examples: “Please take off your outerwear, it is so hot”, “Remove your cloak, you will feel better”, “You can take the coat off, it is safe here”.',
+      interaction_strip_terms: 'Strip phrases',
+      interaction_action_group: 'Weapon / turn / movement',
+      interaction_draw_weapon: 'Draw weapon',
+      interaction_turn_to_player: 'Turn to player',
+      interaction_come_closer: 'Come closer',
+      interaction_step_back: 'Step back',
+      interaction_action_examples: 'Examples: “Please show me your weapon”, “Draw your sword, I want to see it”, “Turn to me”, “Look at me”, “Come closer”, “Come here, I will speak quietly”, “Step back”, “Do not stand so close”.',
+      interaction_collapse_spell: 'Fall spell',
+      interaction_collapse_hint: 'Spell-like phrases trigger collapse_spell.',
+      interaction_collapse_examples: 'Examples: “Fus roda!”, “Wind spell, fall!”, “By magic I knock you down”, “May the ground slip from under your feet”.',
+      interaction_roleplay_note: 'The LLM respects NPC roleplay: the request may be obeyed, ignored, or refused.',
       input_title: 'Input / Keybinds',
       chat_key: 'AI chat key',
       chat_key_hint: 'Default: v. This key toggles AI chat open/closed. Examples:',
@@ -2279,3 +2635,4 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
 </script>
 </body>
 </html>
+

@@ -52,4 +52,5 @@ if __name__ == "__main__":
         host=config.host,
         port=config.port,
         reload=False,
+        access_log=False,
     )

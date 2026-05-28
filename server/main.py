@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import random
 import re
 import subprocess
 import sys
@@ -18,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from server.config import HUDConfig, InputConfig, LLMConfig, STTConfig, TTSConfig, ServerConfig
+from server.config import HUDConfig, InputConfig, InteractionConfig, LLMConfig, STTConfig, TTSConfig, ServerConfig
 from server.conversation import ConversationManager
 from server.llm_client import LLMClient
 from server.npc_context import (
@@ -46,6 +47,7 @@ logger = logging.getLogger(__name__)
 CONFIG_PATH = Path(__file__).parent.parent / "config.json"
 EXAMPLE_CONFIG_PATH = Path(__file__).parent.parent / "config.example.json"
 STATIC_DIR = Path(__file__).parent / "static"
+RELATIONSHIPS_PATH = Path(__file__).parent.parent / "memory" / "npc_relationships.json"
 
 
 def load_config() -> ServerConfig:
@@ -68,6 +70,19 @@ tts_client = TTSClient(config.tts)
 stt_client = STTClient(config.stt)
 conversations = ConversationManager()
 input_overlay = InputOverlay(style=config.input.overlay_style)
+HOSTILE_EVENTS = {"Pickpocketing", "StealthKill", "Knockout", "Loot", "GrabCorpse", "MercyKill", "Hit"}
+VIOLENT_THREAT_TERMS = {
+    "зареж", "убью", "убить", "прибью", "приреж", "перереж", "разреж", "забью", "изобью",
+    "драться", "драку", "драка", "меч", "нож", "топор", "оруж", "кровь", "свинью",
+    "kill", "cut you", "stab", "slit", "fight", "weapon", "sword", "knife", "axe",
+}
+PLAYER_PROVOCATION_TERMS = {
+    "ничего не можешь", "не умеешь драться", "давай попробуем", "слабак", "трус",
+    "заткнись", "молчи", "пошел", "пошёл", "идиот", "дурак", "педрик",
+    "coward", "weak", "shut up", "fight me",
+}
+def _split_terms(value: str) -> set[str]:
+    return {part.strip().lower() for part in str(value or "").split(",") if part.strip()}
 # Server-side V-key monitor — see server/key_monitor.py for the rationale
 # (CryEngine "+/-" prefix fires both events on key-down in this build, so we
 # poll the keyboard directly and route taps/holds to the right pipeline).
@@ -80,6 +95,7 @@ key_monitor = KeyMonitor(
 _main_loop: asyncio.AbstractEventLoop | None = None
 _overlay_request_counter = 0
 _ptt_request_counter = 0
+_scene_cooldowns: dict[str, dict[str, float | int | str]] = {}
 
 def detect_game_root() -> Path | None:
     candidates: list[Path] = []
@@ -304,6 +320,15 @@ def write_action_map(chat_key: str, end_key: str) -> None:
     logger.info(f"ActionMap updated: chat={chat_key}, end={end_key}")
 
 
+def _decode_kcd_log_chunk(data: bytes) -> str:
+    for encoding in ("utf-8-sig", "utf-8", "cp1251"):
+        try:
+            return data.decode(encoding)
+        except UnicodeDecodeError:
+            pass
+    return data.decode("utf-8", errors="replace")
+
+
 async def file_ipc_watcher() -> None:
     """Poll kcd.log for structured request lines written by the Lua mod, process them, write resp.lua."""
     if KCD_LOG_PATH is None:
@@ -323,9 +348,9 @@ async def file_ipc_watcher() -> None:
                 last_pos = 0
             if current_size == last_pos:
                 continue
-            with KCD_LOG_PATH.open("r", encoding="utf-8", errors="ignore") as f:
+            with KCD_LOG_PATH.open("rb") as f:
                 f.seek(last_pos)
-                chunk = f.read()
+                chunk = _decode_kcd_log_chunk(f.read())
                 last_pos = f.tell()
         except Exception as e:
             logger.warning(f"Log IPC: failed to read kcd.log: {e}")
@@ -598,10 +623,6 @@ def format_recent_player_actions(
         "Follow":        "asked to follow",
         "Hit":           "beat up",
     }
-    # Events that are hostile/criminal acts against the target NPC.
-    HOSTILE_EVENTS = {"Pickpocketing", "StealthKill", "Knockout", "Loot",
-                      "GrabCorpse", "MercyKill", "Hit"}
-
     def humanize_age(seconds: int) -> str:
         if seconds < 60:
             return f"{seconds}s ago"
@@ -665,10 +686,490 @@ def _merge_action_context(req: "ChatRequest") -> str:
     return base + addendum
 
 
+SCENE_LAYER_PROMPT = """
+
+# AI NPC Scene Layer
+You may respond either as plain speech or as a compact JSON object:
+{"speech":"what the NPC says aloud","mood":"neutral|friendly|suspicious|angry|afraid|respectful|annoyed","intent":"continue|end|refuse|warn|call_help","suggested_action":"none|look_at_player|turn_to_player|come_closer|step_back|walk_away|draw_weapon|call_help|laugh|strip_outerwear|dress_up|collapse_spell"}
+If you use JSON, speech must still follow the length/language rules. Do not wrap JSON in markdown.
+Recognize player intent in any language, not only English/Russian. If the player asks the NPC to get dressed, use suggested_action="dress_up". If the player asks the NPC to undress/remove outer clothing, use "strip_outerwear". If the player asks the NPC to draw a weapon, use "draw_weapon". If the player asks the NPC to turn/look at the player, use "turn_to_player". If the player asks the NPC to come closer, use "come_closer". If the player asks the NPC to move away/back off, use "step_back". If the player says a magic/spell-like phrase intended to make the NPC fall/collapse, use "collapse_spell".
+"""
+
+
+def _relationship_key(npc_id: str, npc_name: str) -> str:
+    raw = (npc_id or npc_name or "unknown_npc").strip()
+    return "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in raw)[:120]
+
+
+def _load_relationships() -> dict:
+    if not RELATIONSHIPS_PATH.exists():
+        return {}
+    try:
+        data = json.loads(RELATIONSHIPS_PATH.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception as exc:
+        logger.warning(f"[relationships] failed to load: {exc}")
+        return {}
+
+
+def _save_relationships(data: dict) -> None:
+    try:
+        RELATIONSHIPS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        RELATIONSHIPS_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception as exc:
+        logger.warning(f"[relationships] failed to save: {exc}")
+
+
+def _relationship_context(req: "ChatRequest") -> str:
+    data = _load_relationships()
+    key = _relationship_key(req.npc_id, req.npc_name)
+    rel = data.get(key)
+    if not isinstance(rel, dict):
+        return ""
+    trust = int(rel.get("trust", 0))
+    fear = int(rel.get("fear", 0))
+    annoyance = int(rel.get("annoyance", 0))
+    familiarity = int(rel.get("familiarity", 0))
+    guidance: list[str] = []
+    if annoyance >= 8:
+        guidance.append("This NPC is deeply annoyed with Henry: be terse, hostile, and likely to warn or refuse unless Henry de-escalates.")
+    elif annoyance >= 4:
+        guidance.append("This NPC is annoyed with Henry: be guarded, impatient, and do not become friendly too quickly.")
+    if fear >= 8:
+        guidance.append("This NPC is afraid of Henry: keep distance verbally, avoid risky cooperation, and consider calling for help or ending the talk.")
+    elif fear >= 4:
+        guidance.append("This NPC is wary or intimidated: be cautious and suspicious.")
+    if trust >= 5 and annoyance < 4:
+        guidance.append("This NPC has some trust in Henry: they may be warmer or more helpful, but still stay in character.")
+    if familiarity >= 5:
+        guidance.append("This NPC recognizes Henry from previous interactions; they may refer to that familiarity naturally, without quoting numbers.")
+    if not guidance:
+        guidance.append("Use this subtly. Do not mention these numbers.")
+    return (
+        "Relationship memory for this NPC:\n"
+        f"- trust: {trust}\n"
+        f"- fear: {fear}\n"
+        f"- annoyance: {annoyance}\n"
+        f"- familiarity: {familiarity}\n"
+        "Behavior guidance:\n"
+        + "\n".join(f"- {line}" for line in guidance)
+    )
+
+
+def _get_relationship(req: "ChatRequest") -> dict:
+    data = _load_relationships()
+    key = _relationship_key(req.npc_id, req.npc_name)
+    rel = data.get(key)
+    return rel if isinstance(rel, dict) else {}
+
+
+def _scene_cooldown_key(req: "ChatRequest") -> str:
+    return _relationship_key(req.npc_id, req.npc_name)
+
+
+def _get_scene_cooldown(req: "ChatRequest") -> dict[str, float | int | str]:
+    key = _scene_cooldown_key(req)
+    item = _scene_cooldowns.get(key)
+    if not isinstance(item, dict):
+        item = {"refused_until": 0.0, "warning_count": 0, "npc_name": req.npc_name}
+        _scene_cooldowns[key] = item
+    return item
+
+
+def _scene_refusal_message(req: "ChatRequest", item: dict[str, float | int | str]) -> str:
+    warnings = int(item.get("warning_count") or 0)
+    rel = _get_relationship(req)
+    fear = int(rel.get("fear", 0)) if rel else 0
+    annoyance = int(rel.get("annoyance", 0)) if rel else 0
+    npc_class = (req.npc_class or "").lower()
+    if "guard" in npc_class or "soldier" in npc_class:
+        if warnings >= 4 or annoyance >= 10:
+            return "Я предупреждал тебя. Отойди, или я позову стражу."
+        return "Не сейчас. И следи за собой."
+    if fear >= 10:
+        return "Не подходи. Я не хочу неприятностей."
+    if annoyance >= 10:
+        return "Хватит. Я больше не стану с тобой говорить."
+    if warnings >= 4:
+        return "Я уже сказал — отойди, пока не стало хуже."
+    if annoyance >= 6:
+        return "Нет. Говори с кем-нибудь другим."
+    return "Я не хочу сейчас с тобой говорить."
+
+
+def _scene_refusal_active(req: "ChatRequest") -> str | None:
+    item = _get_scene_cooldown(req)
+    if float(item.get("refused_until") or 0.0) > time.time():
+        return _scene_refusal_message(req, item)
+    return None
+
+
+def _is_apology_attempt(text: str) -> bool:
+    value = (text or "").lower()
+    apology_terms = (
+        "извини",
+        "извините",
+        "прости",
+        "простите",
+        "прошу прощения",
+        "виноват",
+        "моя вина",
+        "не хотел",
+        "не буду",
+        "sorry",
+        "apolog",
+        "forgive",
+    )
+    return any(term in value for term in apology_terms)
+
+
+def _apply_apology_context(req: "ChatRequest", item: dict[str, float | int | str]) -> None:
+    item["refused_until"] = min(float(item.get("refused_until") or 0.0), time.time() + 8)
+    data = _load_relationships()
+    key = _relationship_key(req.npc_id, req.npc_name)
+    rel = data.get(key)
+    if isinstance(rel, dict):
+        rel["annoyance"] = max(0, int(rel.get("annoyance", 0)) - 3)
+        rel["fear"] = max(0, int(rel.get("fear", 0)) - 2)
+        rel["updated_at"] = time.time()
+        data[key] = rel
+        _save_relationships(data)
+        logger.info(
+            f"[relationships] apology from Henry to {req.npc_name}: "
+            f"fear={rel.get('fear')} annoyance={rel.get('annoyance')}"
+        )
+
+
+def _update_scene_cooldown(req: "ChatRequest", scene: dict[str, str]) -> None:
+    item = _get_scene_cooldown(req)
+    intent = scene.get("intent", "continue")
+    action = scene.get("suggested_action", "none")
+    apology_attempt = scene.get("apology_attempt") == "true"
+    if intent == "warn" and not apology_attempt:
+        item["warning_count"] = int(item.get("warning_count") or 0) + 1
+    if intent == "refuse":
+        item["refused_until"] = time.time() + (4 if apology_attempt else 8)
+    if intent == "end" or action == "walk_away":
+        item["refused_until"] = time.time() + (8 if apology_attempt else 24)
+    if intent == "warn" and int(item.get("warning_count") or 0) >= 4:
+        item["refused_until"] = time.time() + (6 if apology_attempt else 15)
+    if apology_attempt and intent in {"continue", "warn"}:
+        item["refused_until"] = min(float(item.get("refused_until") or 0.0), time.time() + 5)
+    if intent == "call_help" or action in {"draw_weapon", "call_help"}:
+        item["refused_until"] = time.time() + (8 if apology_attempt else 18)
+    logger.info(
+        f"[scene_cooldown] {req.npc_name}: warnings={item.get('warning_count')} "
+        f"refused_until={item.get('refused_until')}"
+    )
+
+
+def _update_relationship_memory(req: "ChatRequest", scene: dict[str, str]) -> None:
+    data = _load_relationships()
+    key = _relationship_key(req.npc_id, req.npc_name)
+    rel = data.get(key)
+    if not isinstance(rel, dict):
+        rel = {
+            "npc_id": req.npc_id,
+            "npc_name": req.npc_name,
+            "trust": 0,
+            "fear": 0,
+            "annoyance": 0,
+            "familiarity": 0,
+            "last_mood": "neutral",
+            "last_intent": "continue",
+            "last_action": "none",
+            "updated_at": 0.0,
+        }
+    mood = scene.get("mood", "neutral")
+    intent = scene.get("intent", "continue")
+    action = scene.get("suggested_action", "none")
+    apology_attempt = scene.get("apology_attempt") == "true"
+    rel["familiarity"] = int(rel.get("familiarity", 0)) + 1
+    if mood in {"friendly", "respectful"}:
+        rel["trust"] = int(rel.get("trust", 0)) + 1
+        rel["annoyance"] = max(0, int(rel.get("annoyance", 0)) - 1)
+    if apology_attempt and intent in {"continue", "warn"}:
+        rel["annoyance"] = max(0, int(rel.get("annoyance", 0)) - 1)
+        rel["fear"] = max(0, int(rel.get("fear", 0)) - 1)
+    if (mood in {"angry", "annoyed"} or intent in {"refuse", "warn"}) and not apology_attempt:
+        rel["annoyance"] = int(rel.get("annoyance", 0)) + 1
+    if intent in {"refuse", "end"} and apology_attempt:
+        rel["annoyance"] = int(rel.get("annoyance", 0)) + 1
+    elif intent in {"refuse", "end"}:
+        rel["annoyance"] = int(rel.get("annoyance", 0)) + 2
+    if (mood == "afraid" or intent == "call_help" or action in {"draw_weapon", "call_help", "walk_away"}) and not apology_attempt:
+        rel["fear"] = int(rel.get("fear", 0)) + 1
+    if intent == "call_help" or action in {"draw_weapon", "call_help"}:
+        rel["fear"] = int(rel.get("fear", 0)) + 2
+        rel["annoyance"] = int(rel.get("annoyance", 0)) + 1
+    if action == "walk_away" and not apology_attempt:
+        rel["annoyance"] = int(rel.get("annoyance", 0)) + 1
+    for recent in req.recent_player_actions:
+        if recent.same_npc and recent.event in HOSTILE_EVENTS:
+            rel["fear"] = int(rel.get("fear", 0)) + 2
+            rel["annoyance"] = int(rel.get("annoyance", 0)) + 2
+    rel["last_mood"] = mood
+    rel["last_intent"] = intent
+    rel["last_action"] = action
+    rel["updated_at"] = time.time()
+    data[key] = rel
+    _save_relationships(data)
+    logger.info(
+        f"[relationships] {req.npc_name}: trust={rel['trust']} fear={rel['fear']} "
+        f"annoyance={rel['annoyance']} familiarity={rel['familiarity']}"
+    )
+
+
+def _parse_scene_response(raw_text: str) -> dict[str, str]:
+    text = (raw_text or "").strip()
+    scene = {
+        "speech": text,
+        "mood": "neutral",
+        "intent": "continue",
+        "suggested_action": "none",
+    }
+    if not text:
+        return scene
+    candidate = text
+    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, flags=re.IGNORECASE | re.DOTALL)
+    if fenced:
+        candidate = fenced.group(1).strip()
+    elif "{" in text and "}" in text:
+        candidate = text[text.find("{"): text.rfind("}") + 1].strip()
+    if not candidate.startswith("{"):
+        return scene
+    try:
+        data = json.loads(candidate)
+    except Exception:
+        return scene
+    if not isinstance(data, dict):
+        return scene
+    speech = str(data.get("speech") or data.get("say") or data.get("response") or "").strip()
+    if speech:
+        scene["speech"] = speech
+    for key in ("mood", "intent", "suggested_action"):
+        value = str(data.get(key) or "").strip().lower()
+        if value:
+            scene[key] = value[:80]
+    return scene
+
+
+def _contains_any_term(text: str, terms: set[str]) -> bool:
+    lowered = (text or "").lower()
+    return any(term in lowered for term in terms)
+
+
+def _player_requested_action(message: str, enabled: bool, terms: str) -> bool:
+    return bool(enabled) and _contains_any_term(message, _split_terms(terms))
+
+
+def _player_requested_draw_weapon(message: str) -> bool:
+    value = (message or "").lower()
+    if _player_requested_action(value, config.interaction.enable_draw_weapon_requests, config.interaction.draw_weapon_terms):
+        return True
+    if not config.interaction.enable_draw_weapon_requests:
+        return False
+    weapon_terms = (
+        "оруж", "меч", "клинок", "нож", "топор", "булав", "сабл", "секир",
+        "вытащи", "вынимай", "достань", "доставай", "обнажи", "держи",
+        "draw weapon", "draw your weapon", "take out weapon", "take out your weapon",
+        "pull weapon", "pull out weapon", "unsheathe", "weapon in hand", "sword in hand",
+    )
+    has_weapon = any(term in value for term in weapon_terms[:8]) or any(term in value for term in weapon_terms[14:])
+    has_command = any(term in value for term in weapon_terms[8:14])
+    return has_weapon and has_command
+
+
+def _npc_implies_draw_weapon(text: str) -> bool:
+    value = (text or "").lower()
+    weapon_terms = (
+        "оруж", "меч", "клинок", "нож", "топор", "булав", "сабл", "секир",
+        "weapon", "sword", "blade", "knife", "axe", "mace",
+    )
+    action_terms = (
+        "достал", "достаю", "достану", "вытащил", "вытащу", "вынимаю",
+        "вынул", "обнажил", "обнажу", "держу", "в руке", "наготове",
+        "draw", "drawn", "take out", "pull out", "unsheathe", "in hand",
+    )
+    return any(term in value for term in weapon_terms) and any(term in value for term in action_terms)
+
+
+def _apply_scene_context(req: "ChatRequest", scene: dict[str, str], apology_attempt: bool = False) -> dict[str, str]:
+    extra = (req.extra_context or "").lower()
+    mood = scene.get("mood", "neutral")
+    intent = scene.get("intent", "continue")
+    action = scene.get("suggested_action", "none")
+    speech = scene.get("speech", "")
+    npc_violent_threat = _contains_any_term(speech, VIOLENT_THREAT_TERMS)
+    npc_draw_weapon_implied = _npc_implies_draw_weapon(speech)
+    player_provocation = _contains_any_term(req.player_message, PLAYER_PROVOCATION_TERMS)
+    player_dress_up_request = _player_requested_action(req.player_message, config.interaction.enable_dress_up_requests, config.interaction.dress_up_terms)
+    player_strip_request = _player_requested_action(req.player_message, config.interaction.enable_strip_requests, config.interaction.strip_terms)
+    player_draw_weapon_request = _player_requested_draw_weapon(req.player_message)
+    player_turn_request = _player_requested_action(req.player_message, config.interaction.enable_turn_to_player_requests, config.interaction.turn_to_player_terms)
+    player_come_closer_request = _player_requested_action(req.player_message, config.interaction.enable_come_closer_requests, config.interaction.come_closer_terms)
+    player_step_back_request = _player_requested_action(req.player_message, config.interaction.enable_step_back_requests, config.interaction.step_back_terms)
+    player_collapse_spell_request = _player_requested_action(req.player_message, config.interaction.enable_collapse_spell_requests, config.interaction.collapse_spell_terms)
+    rel = _get_relationship(req)
+    annoyance = int(rel.get("annoyance", 0)) if rel else 0
+    fear = int(rel.get("fear", 0)) if rel else 0
+    same_npc_hostile = any(
+        recent.same_npc and recent.event in HOSTILE_EVENTS
+        for recent in req.recent_player_actions
+    )
+    nearby_crime = any(recent.event in HOSTILE_EVENTS for recent in req.recent_player_actions)
+    hostile_context = (
+        "disposition toward player: hostile" in extra
+        or "faction hostility hint: hostile" in extra
+        or "_enemies_" in extra
+        or "> enemies >" in extra
+    )
+    guard_context = (
+        "social class: guard" in extra
+        or "soldiers" in extra
+        or "guards" in extra
+    )
+    refuses_context = (
+        "unwilling to talk" in extra
+        or "refuses_dialog" in extra
+    )
+    animal_context = "entity kind: animal" in extra
+    if player_dress_up_request and not animal_context:
+        if mood == "neutral":
+            mood = "annoyed" if annoyance >= 4 else "suspicious"
+        if intent in {"end", "refuse", "call_help"} and annoyance < 8 and fear < 8:
+            intent = "continue"
+        action = "dress_up"
+    elif player_strip_request and not animal_context:
+        if mood == "neutral":
+            mood = "annoyed" if annoyance >= 4 else "suspicious"
+        if intent in {"end", "refuse", "call_help"} and annoyance < 8 and fear < 8:
+            intent = "continue"
+        action = "strip_outerwear"
+    elif player_draw_weapon_request and not animal_context:
+        mood = "angry" if mood == "neutral" else mood
+        intent = "warn" if intent == "continue" else intent
+        action = "draw_weapon"
+    elif player_turn_request and not animal_context:
+        action = "turn_to_player"
+    elif player_come_closer_request and not animal_context:
+        action = "come_closer"
+    elif player_step_back_request and not animal_context:
+        action = "step_back"
+    elif player_collapse_spell_request and not animal_context:
+        mood = "afraid" if mood == "neutral" else mood
+        intent = "warn" if intent == "continue" else intent
+        action = "collapse_spell"
+    if intent == "end" and action in {"none", "look_at_player", "step_back"} and annoyance < 8 and fear < 8:
+        intent = "warn" if mood in {"angry", "annoyed", "suspicious"} else "continue"
+    if intent == "refuse" and action in {"none", "look_at_player", "step_back"} and annoyance < 6 and fear < 6 and not refuses_context:
+        intent = "warn" if mood in {"angry", "annoyed", "suspicious"} else "continue"
+    if same_npc_hostile:
+        if mood == "neutral":
+            mood = "angry"
+        if intent == "continue":
+            intent = "warn"
+        if action == "none" and not animal_context:
+            action = "step_back"
+    elif guard_context and nearby_crime:
+        if mood == "neutral":
+            mood = "suspicious"
+        if intent == "continue":
+            intent = "warn"
+        if action == "none":
+            action = "step_back"
+    elif refuses_context:
+        if mood == "neutral":
+            mood = "annoyed"
+        if intent == "continue":
+            intent = "refuse"
+    elif hostile_context:
+        if mood == "neutral":
+            mood = "suspicious"
+        if intent == "continue":
+            intent = "warn"
+    elif npc_violent_threat:
+        if mood in {"neutral", "friendly", "respectful"}:
+            mood = "angry"
+        if intent == "continue":
+            intent = "warn"
+        if action == "none" and not animal_context:
+            action = "draw_weapon" if guard_context or hostile_context else "step_back"
+    elif player_provocation:
+        if mood == "neutral":
+            mood = "annoyed"
+        if intent == "continue":
+            intent = "warn"
+        if action == "none" and not animal_context:
+            action = "step_back"
+    elif annoyance >= 4:
+        if mood == "neutral":
+            mood = "suspicious"
+        if intent == "continue" and annoyance >= 6:
+            intent = "warn"
+    if apology_attempt and intent in {"continue", "warn", "refuse"}:
+        mood = "suspicious" if mood in {"neutral", "annoyed"} else mood
+        intent = "warn" if intent == "refuse" else intent
+        if action in {"walk_away", "call_help"}:
+            action = "none"
+    elif npc_draw_weapon_implied and action in {"none", "step_back", "look_at_player"} and not animal_context:
+        mood = "angry" if mood == "neutral" else mood
+        intent = "warn" if intent == "continue" else intent
+        action = "draw_weapon"
+        logger.info(f"[scene_context] forced draw_weapon from NPC speech for {req.npc_name}")
+    elif intent == "warn" and action == "none" and mood in {"angry", "annoyed", "suspicious"} and not animal_context:
+        action = "step_back"
+    elif annoyance >= 10 and intent in {"continue", "warn"}:
+        mood = "annoyed"
+        intent = "refuse"
+        if action == "none":
+            action = "walk_away"
+    elif fear >= 10 and intent in {"continue", "warn"}:
+        mood = "afraid"
+        intent = "call_help"
+        if action == "none":
+            action = "call_help"
+    scene["mood"] = mood
+    scene["intent"] = intent
+    scene["suggested_action"] = action
+    return scene
+
+
 async def _process_chat_request(req: "ChatRequest", source: str = "log") -> str | None:
     """Shared LLM+TTS+resp.lua path used by log IPC, /chat and overlay submit."""
     clear_response_lua()
+    cooldown_item = _get_scene_cooldown(req)
+    cooldown_active = float(cooldown_item.get("refused_until") or 0.0) > time.time()
+    apology_attempt = cooldown_active and _is_apology_attempt(req.player_message)
+    if cooldown_active and not apology_attempt:
+        refusal_text = _scene_refusal_message(req, cooldown_item)
+        scene = {
+            "speech": refusal_text,
+            "mood": "annoyed",
+            "intent": "refuse",
+            "suggested_action": "none",
+            "npc_id": req.npc_id,
+        }
+        logger.info(f"[scene_cooldown] blocked {source} request for {req.npc_name}: {refusal_text}")
+        write_response_lua(req.npc_name, refusal_text, req.request_id, scene)
+        return refusal_text
     merged_extra = _merge_action_context(req)
+    if apology_attempt:
+        _apply_apology_context(req, cooldown_item)
+        apology_context = (
+            "Henry is trying to apologize after annoying or frightening this NPC.\n"
+            "The NPC may soften slightly, but should remain cautious and should not become friendly immediately.\n"
+            "If the apology is weak or manipulative, the NPC may still refuse."
+        )
+        if merged_extra and not merged_extra.endswith("\n"):
+            merged_extra += "\n"
+        merged_extra += apology_context
+        logger.info(f"[scene_cooldown] apology escape allowed for {req.npc_name} (source={source})")
+    rel_context = _relationship_context(req)
+    if rel_context:
+        if merged_extra and not merged_extra.endswith("\n"):
+            merged_extra += "\n"
+        merged_extra += rel_context
     if req.recent_player_actions:
         formatted = format_recent_player_actions(
             req.recent_player_actions, current_npc_name=req.npc_name
@@ -688,24 +1189,40 @@ async def _process_chat_request(req: "ChatRequest", source: str = "log") -> str 
     t_llm = time.perf_counter()
     try:
         response_text = await llm_client.generate(
-            system_prompt=conv.system_prompt,
+            system_prompt=conv.system_prompt + SCENE_LAYER_PROMPT,
             messages=conv.get_messages(),
         )
     except Exception as e:
         logger.error(f"[{source}] LLM generate failed: {e}")
-        write_response_lua(resolved_name, f"[error: {e}]", req.request_id)
+        write_response_lua(
+            resolved_name,
+            f"[error: {e}]",
+            req.request_id,
+            {"mood": "neutral", "intent": "continue", "suggested_action": "none", "npc_id": req.npc_id},
+        )
         return None
     llm_ms = (time.perf_counter() - t_llm) * 1000
 
-    conv.add_assistant_message(response_text)
+    scene = _apply_scene_context(req, _parse_scene_response(response_text), apology_attempt=apology_attempt)
+    scene["npc_id"] = req.npc_id
+    if apology_attempt:
+        scene["apology_attempt"] = "true"
+    speech_text = scene["speech"]
+    _update_scene_cooldown(req, scene)
+    _update_relationship_memory(req, scene)
+    conv.add_assistant_message(speech_text)
     conversations.save(req.npc_id)
     logger.info(f"[{resolved_name}] Player: {req.player_message}")
-    logger.info(f"[{resolved_name}] NPC: {response_text}")
-    logger.info(f"[{resolved_name}] LLM gen in {llm_ms:.0f} ms, chars={len(response_text)} (source={source})")
+    logger.info(f"[{resolved_name}] NPC: {speech_text}")
+    logger.info(
+        f"[{resolved_name}] Scene: mood={scene['mood']} intent={scene['intent']} "
+        f"action={scene['suggested_action']}"
+    )
+    logger.info(f"[{resolved_name}] LLM gen in {llm_ms:.0f} ms, chars={len(speech_text)} (source={source})")
     if config.tts.enabled:
-        asyncio.create_task(tts_client.speak(response_text, req.npc_gender))
-    write_response_lua(resolved_name, response_text, req.request_id)
-    return response_text
+        asyncio.create_task(tts_client.speak(speech_text, req.npc_gender))
+    write_response_lua(resolved_name, speech_text, req.request_id, scene)
+    return speech_text
 
 
 @asynccontextmanager
@@ -803,16 +1320,82 @@ def _lua_bool(v) -> str:
     return "true" if bool(v) else "false"
 
 
-def write_response_lua(npc_name: str, response_text: str, request_id: int) -> None:
-    def lua_esc(s: str) -> str:
-        return s.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "")
+SCENE_MOODS = {"neutral", "friendly", "suspicious", "angry", "afraid", "respectful", "annoyed"}
+SCENE_INTENTS = {"continue", "end", "refuse", "warn", "call_help"}
+SCENE_ACTIONS = {"none", "look_at_player", "turn_to_player", "come_closer", "step_back", "walk_away", "draw_weapon", "call_help", "laugh", "strip_outerwear", "dress_up", "collapse_spell"}
+
+
+def lua_string_literal(value: object) -> str:
+    text = str(value or "")
+    out = ['"']
+    for ch in text:
+        code = ord(ch)
+        if ch == "\\":
+            out.append("\\\\")
+        elif ch == '"':
+            out.append('\\"')
+        elif ch == "\n":
+            out.append("\\n")
+        elif ch == "\r":
+            out.append("\\r")
+        elif ch == "\t":
+            out.append("\\t")
+        elif code < 32:
+            out.append(f"\\{code:03d}")
+        else:
+            out.append(ch)
+    out.append('"')
+    return "".join(out)
+
+
+def _clamp_scene_value(value: object, allowed: set[str], default: str) -> str:
+    text = str(value or "").strip().lower()
+    return text if text in allowed else default
+
+
+def normalize_scene_for_lua(scene: dict[str, str] | None) -> dict[str, str]:
+    scene = scene or {}
+    return {
+        "mood": _clamp_scene_value(scene.get("mood"), SCENE_MOODS, "neutral"),
+        "intent": _clamp_scene_value(scene.get("intent"), SCENE_INTENTS, "continue"),
+        "suggested_action": _clamp_scene_value(scene.get("suggested_action"), SCENE_ACTIONS, "none"),
+        "npc_id": str(scene.get("npc_id") or ""),
+        "npc_name": str(scene.get("npc_name") or ""),
+        "apology_attempt": "true" if str(scene.get("apology_attempt") or "false").strip().lower() == "true" else "false",
+    }
+
+
+def lua_scene_literal(scene: dict[str, str] | None) -> str:
+    safe = normalize_scene_for_lua(scene)
+    return (
+        "{"
+        f"mood={lua_string_literal(safe['mood'])},"
+        f"intent={lua_string_literal(safe['intent'])},"
+        f"suggested_action={lua_string_literal(safe['suggested_action'])},"
+        f"npc_id={lua_string_literal(safe['npc_id'])},"
+        f"npc_name={lua_string_literal(safe['npc_name'])},"
+        f"apology_attempt={lua_string_literal(safe['apology_attempt'])}"
+        "}"
+    )
+
+
+def write_response_lua(npc_name: str, response_text: str, request_id: int, scene: dict[str, str] | None = None) -> None:
     hud = config.hud
+    scene_lua = lua_scene_literal(scene)
     hud_prefix = (
         f"_G.__ai_npc_hud_left = {_lua_bool(hud.show_left_top)}\n"
         f"_G.__ai_npc_hud_right = {_lua_bool(hud.show_right_top)}\n"
         f"_G.__ai_npc_hud_center = {_lua_bool(hud.show_center)}\n"
+        f"_G.__ai_npc_hud_narrator = {_lua_bool(hud.show_narrator)}\n"
+        f"_G.__ai_npc_hud_narrator_left = {_lua_bool(hud.narrator_left_top)}\n"
+        f"_G.__ai_npc_hud_narrator_right = {_lua_bool(hud.narrator_right_top)}\n"
+        f"_G.__ai_npc_hud_narrator_center = {_lua_bool(hud.narrator_center)}\n"
     )
-    content = hud_prefix + f"AI_NPC_HandleResponse('{lua_esc(npc_name)}', '{lua_esc(response_text)}', {request_id})\n"
+    content = (
+        hud_prefix
+        + f"AI_NPC_HandleResponse({lua_string_literal(npc_name)}, "
+        + f"{lua_string_literal(response_text)}, {int(request_id or 0)}, {scene_lua})\n"
+    )
     if RESP_LUA_PATH is not None:
         try:
             RESP_LUA_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -1064,6 +1647,8 @@ class LLMUpdateRequest(BaseModel):
     model: str | None = None
     max_tokens: int | None = None
     temperature: float | None = None
+    language: str | None = None
+    prompt_template: str | None = None
 
 
 class TTSUpdateRequest(BaseModel):
@@ -1093,6 +1678,10 @@ class HUDUpdateRequest(BaseModel):
     show_left_top: bool | None = None
     show_right_top: bool | None = None
     show_center: bool | None = None
+    show_narrator: bool | None = None
+    narrator_left_top: bool | None = None
+    narrator_right_top: bool | None = None
+    narrator_center: bool | None = None
 
 
 class STTUpdateRequest(BaseModel):
@@ -1117,6 +1706,7 @@ class ConfigUpdateRequest(BaseModel):
     stt: STTUpdateRequest | None = None
     input: InputUpdateRequest | None = None
     hud: HUDUpdateRequest | None = None
+    interaction: InteractionConfig | None = None
     prompt_template: str | None = None
 
 
@@ -1133,6 +1723,11 @@ async def chat(req: ChatRequest):
     if normalized_extra:
         logger.info(f"[{req.npc_name}] Context(normalized): {normalized_extra.replace(chr(10), ' | ')}")
     merged_extra = _merge_action_context(req)
+    rel_context = _relationship_context(req)
+    if rel_context:
+        if merged_extra and not merged_extra.endswith("\n"):
+            merged_extra += "\n"
+        merged_extra += rel_context
     if req.recent_player_actions:
         logger.info(
             f"[{req.npc_name}] recent_player_actions ({len(req.recent_player_actions)}): "
@@ -1153,27 +1748,34 @@ async def chat(req: ChatRequest):
 
     try:
         response_text = await llm_client.generate(
-            system_prompt=conv.system_prompt,
+            system_prompt=conv.system_prompt + SCENE_LAYER_PROMPT,
             messages=conv.get_messages(),
         )
     except Exception as e:
         logger.error(f"LLM generate failed: {e}")
         raise HTTPException(status_code=502, detail=str(e))
 
-    conv.add_assistant_message(response_text)
+    scene = _apply_scene_context(req, _parse_scene_response(response_text))
+    speech_text = scene["speech"]
+    _update_relationship_memory(req, scene)
+    conv.add_assistant_message(speech_text)
     conversations.save(req.npc_id)
 
     logger.info(f"[{resolved_name}] Player: {req.player_message}")
-    logger.info(f"[{resolved_name}] NPC: {response_text}")
+    logger.info(f"[{resolved_name}] NPC: {speech_text}")
+    logger.info(
+        f"[{resolved_name}] Scene: mood={scene['mood']} intent={scene['intent']} "
+        f"action={scene['suggested_action']}"
+    )
 
     if config.tts.enabled:
-        asyncio.create_task(tts_client.speak(response_text, req.npc_gender))
+        asyncio.create_task(tts_client.speak(speech_text, req.npc_gender))
 
-    write_response_lua(resolved_name, response_text, req.request_id)
+    write_response_lua(resolved_name, speech_text, req.request_id, scene)
 
     return ChatResponse(
         npc_name=resolved_name,
-        response=response_text,
+        response=speech_text,
         request_id=req.request_id,
         audio_url=None,
     )
@@ -1199,28 +1801,51 @@ async def overlay_send(req: WebChatRequest):
     extra_context = npc.get("extra_context") or ""
     if extra_context:
         logger.info(f"[overlay] extra_context: {extra_context.replace(chr(10), ' | ')}")
+    overlay_req = ChatRequest(
+        npc_id=npc_id,
+        npc_name=npc_name,
+        npc_class=npc_class,
+        npc_location=npc_location,
+        player_message=message,
+        extra_context=extra_context,
+        recent_player_actions=[],
+        request_id=0,
+    )
+    rel_context = _relationship_context(overlay_req)
+    merged_extra = extra_context
+    if rel_context:
+        if merged_extra and not merged_extra.endswith("\n"):
+            merged_extra += "\n"
+        merged_extra += rel_context
     system_prompt, resolved_name = build_system_prompt(
         npc_name=npc_name,
         npc_class=npc_class,
         npc_location=npc_location,
         language=config.language,
-        extra_context=extra_context,
+        extra_context=merged_extra,
     )
     conv = conversations.get_or_create(npc_id, resolved_name, system_prompt)
     conv.add_user_message(message)
     try:
         response_text = await llm_client.generate(
-            system_prompt=conv.system_prompt,
+            system_prompt=conv.system_prompt + SCENE_LAYER_PROMPT,
             messages=conv.get_messages(),
         )
     except Exception as e:
         logger.error(f"overlay_send LLM failed: {e}")
         raise HTTPException(status_code=502, detail=str(e))
-    conv.add_assistant_message(response_text)
+    scene = _apply_scene_context(overlay_req, _parse_scene_response(response_text))
+    speech_text = scene["speech"]
+    _update_relationship_memory(overlay_req, scene)
+    conv.add_assistant_message(speech_text)
     conversations.save(npc_id)
     logger.info(f"[overlay {resolved_name}] Player: {message}")
-    logger.info(f"[overlay {resolved_name}] NPC: {response_text}")
-    return {"npc_name": resolved_name, "response": response_text}
+    logger.info(f"[overlay {resolved_name}] NPC: {speech_text}")
+    logger.info(
+        f"[overlay {resolved_name}] Scene: mood={scene['mood']} intent={scene['intent']} "
+        f"action={scene['suggested_action']}"
+    )
+    return {"npc_name": resolved_name, "response": speech_text}
 
 
 @app.get("/game_chat/status")
@@ -1247,8 +1872,19 @@ async def reload_characters():
 async def clear_history():
     """Wipe all NPC conversation memory (in-RAM + on-disk JSON files)."""
     deleted = conversations.clear_all()
-    logger.info(f"[clear_history] wiped {deleted} conversation files")
-    return {"status": "ok", "deleted": deleted}
+    _scene_cooldowns.clear()
+    relationships_deleted = 0
+    try:
+        if RELATIONSHIPS_PATH.exists():
+            RELATIONSHIPS_PATH.unlink()
+            relationships_deleted = 1
+    except Exception as exc:
+        logger.warning(f"[clear_history] failed to delete relationship memory: {exc}")
+    logger.info(
+        f"[clear_history] wiped {deleted} conversation files, "
+        f"relationship_files={relationships_deleted}, scene_cooldowns=cleared"
+    )
+    return {"status": "ok", "deleted": deleted, "relationships_deleted": relationships_deleted}
 
 
 @app.post("/ptt/start")
@@ -1364,25 +2000,57 @@ async def shutdown_server():
 
 @app.post("/llm/test")
 async def test_llm(req: LLMUpdateRequest):
+    language_names = {
+        "ru": "Russian",
+        "en": "English",
+        "cs": "Czech",
+        "de": "German",
+        "fr": "French",
+        "es": "Spanish",
+        "pl": "Polish",
+        "zh": "Chinese",
+    }
+    language = language_names.get((req.language or config.language or "en").split("-")[0].lower(), req.language or config.language or "English")
     test_cfg = LLMConfig(
         api_url=req.api_url or config.llm.api_url,
         api_key=req.api_key or config.llm.api_key,
         model=req.model or config.llm.model,
-        max_tokens=min(req.max_tokens or 120, 120),
+        max_tokens=min(req.max_tokens or 220, 220),
         temperature=req.temperature if req.temperature is not None else config.llm.temperature,
     )
     test_client = LLMClient(test_cfg)
+    previous_template = config.prompt_template or ""
     try:
-        reply = await test_client.generate(
-            system_prompt=(
-                "You are a medieval villager from Bohemia, year 1403. "
-                "Speak naturally in 1-2 sentences. Never reply with just one word or dots."
+        set_prompt_template(req.prompt_template if req.prompt_template is not None else previous_template)
+        test_npc = random.choice([
+            ("Villager", "peasant", "a village in Bohemia", "Social class: commoner"),
+            ("Guard", "town guard", "a town gate in Bohemia", "Social class: guard"),
+            ("Merchant", "merchant", "a market square in Bohemia", "Social class: burgher"),
+            ("Maidservant", "maidservant", "a busy tavern in Bohemia", "Social class: servant"),
+            ("Craftsman", "craftsman", "a workshop street in Bohemia", "Social class: artisan"),
+            ("Beggar", "beggar", "a churchyard in Bohemia", "Social class: poor"),
+            ("Stablehand", "stablehand", "a muddy stable yard in Bohemia", "Social class: servant"),
+            ("Bailiff", "bailiff", "a town hall in Bohemia", "Social class: official"),
+        ])
+        system_prompt, _ = build_system_prompt(
+            npc_name=test_npc[0],
+            npc_class=test_npc[1],
+            npc_location=test_npc[2],
+            language=req.language or config.language or "en",
+            extra_context=(
+                f"{test_npc[3]}\n"
+                "The player is testing the current prompt preset and expects the NPC style to be obvious."
             ),
-            messages=[{"role": "user", "content": "Good day! Who are you and what do you do here?"}],
+        )
+        reply = await test_client.generate(
+            system_prompt=system_prompt,
+            messages=[{"role": "user", "content": f"Good day! Who are you and what do you do here? Reply only in {language}."}],
         )
         return {"status": "ok", "response": reply.strip()}
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
+    finally:
+        set_prompt_template(previous_template)
 
 
 @app.get("/config")
@@ -1482,7 +2150,19 @@ async def update_config(req: ConfigUpdateRequest):
         config.hud = HUDConfig(**data["hud"])
         logger.info(
             f"HUD reloaded: left={config.hud.show_left_top} "
-            f"right={config.hud.show_right_top} center={config.hud.show_center}"
+            f"right={config.hud.show_right_top} center={config.hud.show_center} "
+            f"narrator={config.hud.show_narrator} narrator_left={config.hud.narrator_left_top} "
+            f"narrator_right={config.hud.narrator_right_top} narrator_center={config.hud.narrator_center}"
+        )
+
+    if req.interaction is not None:
+        interaction_patch = req.interaction.model_dump(exclude_none=True)
+        data.setdefault("interaction", {})
+        data["interaction"].update(interaction_patch)
+        config.interaction = InteractionConfig(**data["interaction"])
+        logger.info(
+            f"Interaction reloaded: dress_up={config.interaction.enable_dress_up_requests} "
+            f"strip={config.interaction.enable_strip_requests}"
         )
 
     if req.prompt_template is not None:
@@ -1499,4 +2179,4 @@ async def update_config(req: ConfigUpdateRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host=config.host, port=config.port)
+    uvicorn.run(app, host=config.host, port=config.port, access_log=False)

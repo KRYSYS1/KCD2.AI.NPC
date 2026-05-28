@@ -131,6 +131,33 @@ class HUDConfig(BaseModel):
     show_left_top: bool = Field(default=False, description="Black tooltip plaque with gold border in the top-left (HUD.ShowTutorial UIAction).")
     show_right_top: bool = Field(default=True, description="Quest-update style notification in the top-right (HUD.ShowNotification).")
     show_center: bool = Field(default=True, description="Italic gold subtitle with ornament at the bottom-center (Game.ShowTutorial).")
+    show_narrator: bool = Field(default=True, description="Show narrator-style descriptions of NPC scene actions, e.g. 'The shepherd steps back'.")
+    narrator_left_top: bool = Field(default=False, description="Show narrator-style scene action descriptions in the top-left HUD.")
+    narrator_right_top: bool = Field(default=True, description="Show narrator-style scene action descriptions in the top-right HUD.")
+    narrator_center: bool = Field(default=False, description="Show narrator-style scene action descriptions in the center HUD.")
+
+
+class InteractionConfig(BaseModel):
+    enable_dress_up_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC dress_up scene action.")
+    enable_strip_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC strip_outerwear scene action.")
+    enable_draw_weapon_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC draw_weapon scene action.")
+    enable_turn_to_player_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC turn_to_player scene action.")
+    enable_come_closer_requests: bool = Field(default=False, description="Enable chat phrases that trigger NPC come_closer scene action.")
+    enable_step_back_requests: bool = Field(default=False, description="Enable chat phrases that trigger NPC step_back scene action.")
+    enable_collapse_spell_requests: bool = Field(default=False, description="Enable chat phrases that trigger NPC collapse_spell scene action.")
+    dress_up_terms: str = Field(
+        default="оденься, одевайся, одень одежду, надень одежду, надень что-нибудь, прикройся, переоденься, смени одежду, переоденься в другую одежду, надень другую одежду, одеться, оделся, оделась, одень его, одень её, одень ее, dress up, get dressed, put clothes on, put your clothes on, wear clothes, change clothes, change your clothes, put on different clothes",
+        description="Comma-separated player phrases that trigger dress_up.",
+    )
+    strip_terms: str = Field(
+        default="разденься, сними одежду, сними верхнюю одежду, раздеться, strip, undress, take off clothes, take your clothes off",
+        description="Comma-separated player phrases that trigger strip_outerwear.",
+    )
+    draw_weapon_terms: str = Field(default="достань оружие, вынь меч, достань меч, оружие к бою, draw weapon, draw your weapon", description="Comma-separated player phrases that trigger draw_weapon.")
+    turn_to_player_terms: str = Field(default="повернись ко мне, смотри на меня, посмотри на меня, обернись, turn to me, look at me", description="Comma-separated player phrases that trigger turn_to_player.")
+    come_closer_terms: str = Field(default="подойди, иди сюда, подойди ко мне, ближе, come closer, come here", description="Comma-separated player phrases that trigger come_closer.")
+    step_back_terms: str = Field(default="отойди, отойди назад, назад, держись подальше, step back, back off, move away", description="Comma-separated player phrases that trigger step_back.")
+    collapse_spell_terms: str = Field(default="фус рода, упади, падай, сломайся, abracadabra fall, collapse, fall down", description="Comma-separated player phrases that trigger collapse_spell.")
 
 
 class ServerConfig(BaseModel):
@@ -149,6 +176,7 @@ class ServerConfig(BaseModel):
     stt: STTConfig = Field(default_factory=STTConfig)
     input: InputConfig = Field(default_factory=InputConfig)
     hud: HUDConfig = Field(default_factory=HUDConfig)
+    interaction: InteractionConfig = Field(default_factory=InteractionConfig)
     prompt_template: str = Field(
         default=ORIGINAL_PROMPT_TEMPLATE,
         description="Custom system prompt template.",
