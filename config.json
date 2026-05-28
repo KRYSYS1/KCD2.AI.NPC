@@ -2,7 +2,7 @@
   "host": "127.0.0.1",
   "port": 4999,
   "game_path": "",
-  "language": "en",
+  "language": "ru",
   "llm": {
     "api_url": "https://api.groq.com/openai/v1",
     "api_key": "",
@@ -15,13 +15,13 @@
     "engine": "edge",
     "piper_model": "en_US-lessac-medium",
     "output_dir": "./audio_cache",
-    "voice": "en-US-GuyNeural",
+    "voice": "ru-RU-DmitryNeural",
     "volume": 1.0,
     "elevenlabs_api_key": "",
     "elevenlabs_voice": "FGY2WhTYpPnrIDTdsKH5",
     "openai_voice": "onyx",
     "openai_api_key": "",
-    "voice_female": "en-US-JennyNeural",
+    "voice_female": "ru-RU-SvetlanaNeural",
     "elevenlabs_voice_female": "21m00Tcm4TlvDq8ikWAM",
     "openai_voice_female": "nova"
   },
@@ -30,7 +30,7 @@
     "engine": "whisper",
     "model": "whisper-large-v3-turbo",
     "provider": "groq",
-    "language": "auto",
+    "language": "ru",
     "api_url": "https://api.groq.com/openai/v1",
     "api_key": "",
     "device": "cpu",
@@ -43,15 +43,35 @@
   "input": {
     "chat_key": "v",
     "end_key": "",
-    "overlay_enabled": true,
+    "overlay_enabled": false,
     "overlay_style": "plain",
-    "tap_overlay_enabled": true,
-    "tap_mode": "direct_overlay"
+    "tap_overlay_enabled": false,
+    "tap_mode": "lua_command"
   },
   "prompt_template": "You are {name}, {description}.\nYou live in {location} in the Kingdom of Bohemia, in the year 1403.\n\nYour personality: {personality}\nYour occupation: {occupation}\n\nRULES:\n- Stay in character at all times. You are a real person in medieval Bohemia, not an AI.\n- Speak naturally as a {occupation} from this era would.\n- You have no knowledge of anything after the 15th century.\n- Keep responses concise (1-3 sentences for casual talk, more for important topics).\n- React to the player based on your personality and their reputation/appearance.\n- If asked about topics you wouldn't know about, respond with confusion or dismiss it.\n- Use appropriate medieval speech patterns without being overly theatrical.\n- You may reference local events, rumors, and daily life in {location}.\n{extra_context}\n{language_instruction}",
   "hud": {
     "show_left_top": false,
     "show_right_top": true,
-    "show_center": true
+    "show_center": true,
+    "show_narrator": true,
+    "narrator_left_top": false,
+    "narrator_right_top": true,
+    "narrator_center": false
+  },
+  "interaction": {
+    "enable_dress_up_requests": true,
+    "enable_strip_requests": true,
+    "enable_draw_weapon_requests": true,
+    "enable_turn_to_player_requests": true,
+    "enable_come_closer_requests": true,
+    "enable_step_back_requests": true,
+    "enable_collapse_spell_requests": true,
+    "dress_up_terms": "оденься, одевайся, одень одежду, надень одежду, надень что-нибудь, прикройся, переоденься, смени одежду, переоденься в другую одежду, надень другую одежду, одеться, оделся, оделась, одень его, одень её, одень ее, dress up, get dressed, put clothes on, put your clothes on, wear clothes, change clothes, change your clothes, put on different clothes",
+    "strip_terms": "разденься, сними одежду, сними верхнюю одежду, раздеться, strip, undress, take off clothes, take your clothes off",
+    "draw_weapon_terms": "достань оружие, вынь меч, достань меч, оружие к бою, draw weapon, draw your weapon",
+    "turn_to_player_terms": "повернись ко мне, смотри на меня, посмотри на меня, обернись, turn to me, look at me",
+    "come_closer_terms": "подойди, иди сюда, подойди ко мне, ближе, come closer, come here",
+    "step_back_terms": "отойди, отойди назад, назад, держись подальше, step back, back off, move away",
+    "collapse_spell_terms": "фус рода, упади, падай, сломайся, abracadabra fall, collapse, fall down"
   }
 }
