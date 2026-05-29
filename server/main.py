@@ -692,7 +692,12 @@ SCENE_LAYER_PROMPT = """
 You may respond either as plain speech or as a compact JSON object:
 {"speech":"what the NPC says aloud","mood":"neutral|friendly|suspicious|angry|afraid|respectful|annoyed","intent":"continue|end|refuse|warn|call_help","suggested_action":"none|look_at_player|turn_to_player|come_closer|step_back|walk_away|draw_weapon|call_help|laugh|strip_outerwear|dress_up|collapse_spell"}
 If you use JSON, speech must still follow the length/language rules. Do not wrap JSON in markdown.
-Recognize player intent in any language, not only English/Russian. If the player asks the NPC to get dressed, use suggested_action="dress_up". If the player asks the NPC to undress/remove outer clothing, use "strip_outerwear". If the player asks the NPC to draw a weapon, use "draw_weapon". If the player asks the NPC to turn/look at the player, use "turn_to_player". If the player asks the NPC to come closer, use "come_closer". If the player asks the NPC to move away/back off, use "step_back". If the player says a magic/spell-like phrase intended to make the NPC fall/collapse, use "collapse_spell".
+Recognize player intent in ANY language, not only English/Russian. Map requests to actions:
+- Get dressed → suggested_action="dress_up"; undress/remove outer clothing → "strip_outerwear".
+- Put on / take off specific clothing slots → "headwear_on|off", "footwear_on|off", "legwear_on|off", "armwear_on|off", "neckwear_on|off", "bodywear_on|off" (hats/hoods/caps/headwear; boots/shoes; pants/trousers/legwear; gloves/bracers/armwear; necklace/collar/neckwear; jacket/armor/vest/bodywear). Use slot actions instead of full dress_up.
+- Draw weapon → "draw_weapon"; holster/put away weapon → "holster_weapon".
+- Turn/look at the player → "turn_to_player"; come closer → "come_closer"; back off → "step_back".
+- Magic/spell-like phrase to make the NPC fall/collapse → "collapse_spell".
 """
 
 
@@ -955,8 +960,27 @@ def _parse_scene_response(raw_text: str) -> dict[str, str]:
 
 
 def _contains_any_term(text: str, terms: set[str]) -> bool:
+    """Return True if any term matches the text.
+
+    Rules:
+    - Multi-word terms (with spaces) use simple substring search.
+    - Single-token terms are treated as stems: match word-start + any suffix (\w*),
+      so "шляп" ловит "шляпку", "hat" не цепляет "what".
+    - Unicode-aware (\w covers letters/digits/underscore in all languages).
+    """
     lowered = (text or "").lower()
-    return any(term in lowered for term in terms)
+    for term in terms:
+        if not term:
+            continue
+        # Phrases: keep simple contains to allow spaces/punctuation
+        if " " in term:
+            if term in lowered:
+                return True
+            continue
+        # Single-token stems: match from word boundary with optional suffix
+        if re.search(rf"\b{re.escape(term)}\w*", lowered, flags=re.IGNORECASE):
+            return True
+    return False
 
 
 def _player_requested_action(message: str, enabled: bool, terms: str) -> bool:
@@ -1005,7 +1029,20 @@ def _apply_scene_context(req: "ChatRequest", scene: dict[str, str], apology_atte
     player_provocation = _contains_any_term(req.player_message, PLAYER_PROVOCATION_TERMS)
     player_dress_up_request = _player_requested_action(req.player_message, config.interaction.enable_dress_up_requests, config.interaction.dress_up_terms)
     player_strip_request = _player_requested_action(req.player_message, config.interaction.enable_strip_requests, config.interaction.strip_terms)
+    player_headwear_on_request = _player_requested_action(req.player_message, config.interaction.enable_headwear_on_requests, config.interaction.headwear_on_terms)
+    player_headwear_off_request = _player_requested_action(req.player_message, config.interaction.enable_headwear_off_requests, config.interaction.headwear_off_terms)
+    player_footwear_on_request = _player_requested_action(req.player_message, config.interaction.enable_footwear_on_requests, config.interaction.footwear_on_terms)
+    player_footwear_off_request = _player_requested_action(req.player_message, config.interaction.enable_footwear_off_requests, config.interaction.footwear_off_terms)
+    player_legwear_on_request = _player_requested_action(req.player_message, config.interaction.enable_legwear_on_requests, config.interaction.legwear_on_terms)
+    player_legwear_off_request = _player_requested_action(req.player_message, config.interaction.enable_legwear_off_requests, config.interaction.legwear_off_terms)
+    player_armwear_on_request = _player_requested_action(req.player_message, config.interaction.enable_armwear_on_requests, config.interaction.armwear_on_terms)
+    player_armwear_off_request = _player_requested_action(req.player_message, config.interaction.enable_armwear_off_requests, config.interaction.armwear_off_terms)
+    player_neckwear_on_request = _player_requested_action(req.player_message, config.interaction.enable_neckwear_on_requests, config.interaction.neckwear_on_terms)
+    player_neckwear_off_request = _player_requested_action(req.player_message, config.interaction.enable_neckwear_off_requests, config.interaction.neckwear_off_terms)
+    player_bodywear_on_request = _player_requested_action(req.player_message, config.interaction.enable_bodywear_on_requests, config.interaction.bodywear_on_terms)
+    player_bodywear_off_request = _player_requested_action(req.player_message, config.interaction.enable_bodywear_off_requests, config.interaction.bodywear_off_terms)
     player_draw_weapon_request = _player_requested_draw_weapon(req.player_message)
+    player_holster_weapon_request = _player_requested_action(req.player_message, config.interaction.enable_holster_weapon_requests, config.interaction.holster_weapon_terms)
     player_turn_request = _player_requested_action(req.player_message, config.interaction.enable_turn_to_player_requests, config.interaction.turn_to_player_terms)
     player_come_closer_request = _player_requested_action(req.player_message, config.interaction.enable_come_closer_requests, config.interaction.come_closer_terms)
     player_step_back_request = _player_requested_action(req.player_message, config.interaction.enable_step_back_requests, config.interaction.step_back_terms)
@@ -1046,10 +1083,36 @@ def _apply_scene_context(req: "ChatRequest", scene: dict[str, str], apology_atte
         if intent in {"end", "refuse", "call_help"} and annoyance < 8 and fear < 8:
             intent = "continue"
         action = "strip_outerwear"
+    elif player_headwear_on_request and not animal_context:
+        action = "headwear_on"
+    elif player_headwear_off_request and not animal_context:
+        action = "headwear_off"
+    elif player_footwear_on_request and not animal_context:
+        action = "footwear_on"
+    elif player_footwear_off_request and not animal_context:
+        action = "footwear_off"
+    elif player_legwear_on_request and not animal_context:
+        action = "legwear_on"
+    elif player_legwear_off_request and not animal_context:
+        action = "legwear_off"
+    elif player_armwear_on_request and not animal_context:
+        action = "armwear_on"
+    elif player_armwear_off_request and not animal_context:
+        action = "armwear_off"
+    elif player_neckwear_on_request and not animal_context:
+        action = "neckwear_on"
+    elif player_neckwear_off_request and not animal_context:
+        action = "neckwear_off"
+    elif player_bodywear_on_request and not animal_context:
+        action = "bodywear_on"
+    elif player_bodywear_off_request and not animal_context:
+        action = "bodywear_off"
     elif player_draw_weapon_request and not animal_context:
         mood = "angry" if mood == "neutral" else mood
         intent = "warn" if intent == "continue" else intent
         action = "draw_weapon"
+    elif player_holster_weapon_request and not animal_context:
+        action = "holster_weapon"
     elif player_turn_request and not animal_context:
         action = "turn_to_player"
     elif player_come_closer_request and not animal_context:
@@ -1322,7 +1385,33 @@ def _lua_bool(v) -> str:
 
 SCENE_MOODS = {"neutral", "friendly", "suspicious", "angry", "afraid", "respectful", "annoyed"}
 SCENE_INTENTS = {"continue", "end", "refuse", "warn", "call_help"}
-SCENE_ACTIONS = {"none", "look_at_player", "turn_to_player", "come_closer", "step_back", "walk_away", "draw_weapon", "call_help", "laugh", "strip_outerwear", "dress_up", "collapse_spell"}
+SCENE_ACTIONS = {
+    "none",
+    "look_at_player",
+    "turn_to_player",
+    "come_closer",
+    "step_back",
+    "walk_away",
+    "draw_weapon",
+    "holster_weapon",
+    "call_help",
+    "laugh",
+    "strip_outerwear",
+    "dress_up",
+    "collapse_spell",
+    "headwear_on",
+    "headwear_off",
+    "footwear_on",
+    "footwear_off",
+    "legwear_on",
+    "legwear_off",
+    "armwear_on",
+    "armwear_off",
+    "neckwear_on",
+    "neckwear_off",
+    "bodywear_on",
+    "bodywear_off",
+}
 
 
 def lua_string_literal(value: object) -> str:

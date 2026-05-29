@@ -1465,6 +1465,57 @@ local function scene_strip_outerwear(ent)
     return ok == true
 end
 
+local function scene_unequip_slot(ent, slot)
+    if not ent or type(ent.actor) ~= "table" or type(ent.actor.UnequipInventoryItem) ~= "function" then return false end
+    if type(ent.inventory) ~= "table" or type(ent.inventory.GetInventoryTable) ~= "function" then return false end
+    if not ItemManager or type(ItemManager.GetItem) ~= "function" then return false end
+    local ok_table, inv_table = pcall(function() return ent.inventory:GetInventoryTable() end)
+    if not ok_table or type(inv_table) ~= "table" then return false end
+    local matches = {}
+    for idx, handle in pairs(inv_table) do
+        local ok_item, item = pcall(function() return ItemManager.GetItem(handle) end)
+        if ok_item and type(item) == "table" then
+            local info = ai_npc_item_class_info(item.class)
+            if info and tostring(info.slot or "") == slot then
+                table.insert(matches, { idx = idx, handle = handle, class = item.class, armor_type = tostring(info.armor_type or "") })
+            end
+        end
+    end
+    table.sort(matches, function(a, b) return tostring(a.idx) < tostring(b.idx) end)
+    local removed = 0
+    for _, m in ipairs(matches) do
+        local ok_rm = pcall(function() return ent.actor:UnequipInventoryItem(m.handle) end)
+        System.LogAlways("[AI NPC] SCENE_ACTION unequip slot=" .. tostring(slot) .. " index=" .. tostring(m.idx) .. " class=" .. tostring(m.class) .. " armor_type=" .. tostring(m.armor_type) .. " ok=" .. tostring(ok_rm))
+        if ok_rm then removed = removed + 1 end
+    end
+    return removed > 0
+end
+
+local function scene_equip_first_in_slot(ent, slot)
+    if not ent or type(ent.actor) ~= "table" or type(ent.actor.EquipInventoryItem) ~= "function" then return false end
+    if type(ent.inventory) ~= "table" or type(ent.inventory.GetInventoryTable) ~= "function" then return false end
+    if not ItemManager or type(ItemManager.GetItem) ~= "function" then return false end
+    local ok_table, inv_table = pcall(function() return ent.inventory:GetInventoryTable() end)
+    if not ok_table or type(inv_table) ~= "table" then return false end
+    local candidates = {}
+    for idx, handle in pairs(inv_table) do
+        local ok_item, item = pcall(function() return ItemManager.GetItem(handle) end)
+        if ok_item and type(item) == "table" then
+            local info = ai_npc_item_class_info(item.class)
+            if info and tostring(info.slot or "") == slot then
+                table.insert(candidates, { idx = idx, handle = handle, class = item.class })
+            end
+        end
+    end
+    table.sort(candidates, function(a, b) return tostring(a.idx) < tostring(b.idx) end)
+    for _, c in ipairs(candidates) do
+        local ok_eq, result = pcall(function() return ent.actor:EquipInventoryItem(c.handle) end)
+        System.LogAlways("[AI NPC] SCENE_ACTION equip slot=" .. tostring(slot) .. " index=" .. tostring(c.idx) .. " class=" .. tostring(c.class) .. " ok=" .. tostring(ok_eq) .. " result=" .. tostring(result))
+        if ok_eq then return true end
+    end
+    return false
+end
+
 local function scene_equip_inventory_armor(ent)
     if not ent or type(ent.actor) ~= "table" or type(ent.actor.EquipInventoryItem) ~= "function" then return false end
     if type(ent.inventory) ~= "table" or type(ent.inventory.GetInventoryTable) ~= "function" then return false end
@@ -1617,10 +1668,42 @@ local function scene_execute_game_action(scene, action, intent)
         ok = scene_look_at_player(ent) or ok
     elseif action == "draw_weapon" then
         ok = scene_draw_weapon(ent) or scene_send_ai_signal(ent, "DrawWeapon") or scene_send_ai_signal(ent, "OnEnemySeen") or ok
+    elseif action == "holster_weapon" then
+        if ent and type(ent.human) == "table" and type(ent.human.HolsterWeapon) == "function" then
+            local ok_holster, result = pcall(function() return ent.human:HolsterWeapon() end)
+            System.LogAlways("[AI NPC] SCENE_ACTION holster_weapon ok=" .. tostring(ok_holster) .. " result=" .. tostring(result))
+            ok = ok_holster or ok
+        else
+            System.LogAlways("[AI NPC] SCENE_ACTION holster_weapon unavailable")
+        end
     elseif action == "strip_outerwear" then
         ok = scene_strip_outerwear(ent) or ok
     elseif action == "dress_up" then
         ok = scene_dress_up(ent) or ok
+    elseif action == "headwear_off" then
+        ok = scene_unequip_slot(ent, "head") or ok
+    elseif action == "headwear_on" then
+        ok = scene_equip_first_in_slot(ent, "head") or ok
+    elseif action == "footwear_off" then
+        ok = scene_unequip_slot(ent, "feet") or ok
+    elseif action == "footwear_on" then
+        ok = scene_equip_first_in_slot(ent, "feet") or ok
+    elseif action == "legwear_off" then
+        ok = scene_unequip_slot(ent, "legs") or ok
+    elseif action == "legwear_on" then
+        ok = scene_equip_first_in_slot(ent, "legs") or ok
+    elseif action == "armwear_off" then
+        ok = scene_unequip_slot(ent, "arms") or ok
+    elseif action == "armwear_on" then
+        ok = scene_equip_first_in_slot(ent, "arms") or ok
+    elseif action == "neckwear_off" then
+        ok = scene_unequip_slot(ent, "neck") or ok
+    elseif action == "neckwear_on" then
+        ok = scene_equip_first_in_slot(ent, "neck") or ok
+    elseif action == "bodywear_off" then
+        ok = scene_unequip_slot(ent, "body") or ok
+    elseif action == "bodywear_on" then
+        ok = scene_equip_first_in_slot(ent, "body") or ok
     elseif action == "collapse_spell" then
         ok = scene_collapse_spell(ent) or ok
     elseif action == "call_help" or intent == "call_help" then
@@ -3239,6 +3322,51 @@ function AI_NPC_TestUnequipSlot(line)
     end
 end
 
+function AI_NPC_TestEquipSlot(line)
+    local slot = tostring(line or ""):gsub("^%s+", ""):gsub("%s+$", ""):lower()
+    if slot == "" then
+        System.LogAlways("[AI NPC] DIAG equip_slot usage: ai_npc_test_equip_slot <head|body|legs|feet|arms|neck>")
+        return
+    end
+    local ent = ai_npc_diag_target()
+    if not ent then return end
+    if type(ent.actor) ~= "table" or type(ent.actor.EquipInventoryItem) ~= "function" then
+        System.LogAlways("[AI NPC] DIAG equip_slot unavailable: actor.EquipInventoryItem missing")
+        return
+    end
+    if type(ent.inventory) ~= "table" or type(ent.inventory.GetInventoryTable) ~= "function" then
+        System.LogAlways("[AI NPC] DIAG equip_slot unavailable: inventory/GetInventoryTable missing")
+        return
+    end
+    if not ItemManager or type(ItemManager.GetItem) ~= "function" then
+        System.LogAlways("[AI NPC] DIAG equip_slot unavailable: ItemManager.GetItem missing")
+        return
+    end
+    local ok_table, inv_table = pcall(function() return ent.inventory:GetInventoryTable() end)
+    if not ok_table or type(inv_table) ~= "table" then
+        System.LogAlways("[AI NPC] DIAG equip_slot GetInventoryTable failed ok=" .. tostring(ok_table) .. " type=" .. type(inv_table))
+        return
+    end
+    local candidates = {}
+    for idx, handle in pairs(inv_table) do
+        local ok_item, item = pcall(function() return ItemManager.GetItem(handle) end)
+        if ok_item and type(item) == "table" then
+            local info = ai_npc_item_class_info(item.class)
+            if info and tostring(info.slot or "") == slot then
+                table.insert(candidates, { idx = idx, handle = handle, class = item.class })
+            end
+        end
+    end
+    table.sort(candidates, function(a, b) return tostring(a.idx) < tostring(b.idx) end)
+    if #candidates == 0 then
+        System.LogAlways("[AI NPC] DIAG equip_slot slot=" .. slot .. " no matching armor item")
+        return
+    end
+    local chosen = candidates[1]
+    local ok_eq, result = pcall(function() return ent.actor:EquipInventoryItem(chosen.handle) end)
+    System.LogAlways("[AI NPC] DIAG equip_slot slot=" .. slot .. " index=" .. tostring(chosen.idx) .. " class=" .. tostring(chosen.class) .. " ok=" .. tostring(ok_eq) .. " result=" .. tostring(result))
+end
+
 function AI_NPC_TestClothingPreset(line)
     local preset = tostring(line or ""):gsub("^%s+", ""):gsub("%s+$", ""):lower()
     if preset == "" then preset = "light" end
@@ -3519,6 +3647,7 @@ if System and System.AddCCommand then
     local ok_diag_unequip = pcall(System.AddCCommand, "ai_npc_test_unequip", "AI_NPC_TestUnequip(%line)", "Test actor:UnequipInventoryItem on targeted NPC")
     local ok_diag_unequip_index = pcall(System.AddCCommand, "ai_npc_test_unequip_index", "AI_NPC_TestUnequipIndex(%line)", "Test actor:UnequipInventoryItem by inventory index")
     local ok_diag_unequip_slot = pcall(System.AddCCommand, "ai_npc_test_unequip_slot", "AI_NPC_TestUnequipSlot(%line)", "Test actor:UnequipInventoryItem by classified armor slot")
+    local ok_diag_equip_slot = pcall(System.AddCCommand, "ai_npc_test_equip_slot", "AI_NPC_TestEquipSlot(%line)", "Test actor:EquipInventoryItem by classified armor slot")
     local ok_diag_clothing_preset = pcall(System.AddCCommand, "ai_npc_test_clothing_preset", "AI_NPC_TestClothingPreset(%line)", "Test actor:EquipClothingPreset on targeted NPC")
     local ok_diag_dress_up = pcall(System.AddCCommand, "ai_npc_test_dress_up", "AI_NPC_TestDressUp()", "Test actor:EquipClothingPreset dress/normal on targeted NPC")
     local ok_diag_clothing_reset = pcall(System.AddCCommand, "ai_npc_test_clothing_reset", "AI_NPC_TestClothingReset()", "Try known clothing presets and safe inventory refresh on targeted NPC")
@@ -3555,6 +3684,7 @@ if System and System.AddCCommand then
     System.LogAlways("[AI NPC] Register ai_npc_test_unequip: " .. tostring(ok_diag_unequip))
     System.LogAlways("[AI NPC] Register ai_npc_test_unequip_index: " .. tostring(ok_diag_unequip_index))
     System.LogAlways("[AI NPC] Register ai_npc_test_unequip_slot: " .. tostring(ok_diag_unequip_slot))
+    System.LogAlways("[AI NPC] Register ai_npc_test_equip_slot: " .. tostring(ok_diag_equip_slot))
     System.LogAlways("[AI NPC] Register ai_npc_test_clothing_preset: " .. tostring(ok_diag_clothing_preset))
     System.LogAlways("[AI NPC] Register ai_npc_test_dress_up: " .. tostring(ok_diag_dress_up))
     System.LogAlways("[AI NPC] Register ai_npc_test_clothing_reset: " .. tostring(ok_diag_clothing_reset))

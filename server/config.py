@@ -140,7 +140,20 @@ class HUDConfig(BaseModel):
 class InteractionConfig(BaseModel):
     enable_dress_up_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC dress_up scene action.")
     enable_strip_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC strip_outerwear scene action.")
+    enable_headwear_on_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC headwear on scene action.")
+    enable_headwear_off_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC headwear off scene action.")
+    enable_footwear_on_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC footwear on scene action.")
+    enable_footwear_off_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC footwear off scene action.")
+    enable_legwear_on_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC legwear on scene action.")
+    enable_legwear_off_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC legwear off scene action.")
+    enable_armwear_on_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC armwear on scene action.")
+    enable_armwear_off_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC armwear off scene action.")
+    enable_neckwear_on_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC neckwear on scene action.")
+    enable_neckwear_off_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC neckwear off scene action.")
+    enable_bodywear_on_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC bodywear on scene action.")
+    enable_bodywear_off_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC bodywear off scene action.")
     enable_draw_weapon_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC draw_weapon scene action.")
+    enable_holster_weapon_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC holster_weapon scene action.")
     enable_turn_to_player_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC turn_to_player scene action.")
     enable_come_closer_requests: bool = Field(default=False, description="Enable chat phrases that trigger NPC come_closer scene action.")
     enable_step_back_requests: bool = Field(default=False, description="Enable chat phrases that trigger NPC step_back scene action.")
@@ -149,11 +162,60 @@ class InteractionConfig(BaseModel):
         default="оденься, одевайся, одень одежду, надень одежду, надень что-нибудь, прикройся, переоденься, смени одежду, переоденься в другую одежду, надень другую одежду, одеться, оделся, оделась, одень его, одень её, одень ее, dress up, get dressed, put clothes on, put your clothes on, wear clothes, change clothes, change your clothes, put on different clothes",
         description="Comma-separated player phrases that trigger dress_up.",
     )
+    headwear_on_terms: str = Field(
+        default="надень шляпу, надень шляпк, надень капюшон, надень головной убор, одень шапку, надень шапку, put on your hat, wear your hat, put on headwear",
+        description="Comma-separated player phrases that trigger headwear_on.",
+    )
+    headwear_off_terms: str = Field(
+        default="сними шляпу, сними шляпк, сними капюшон, сними головной убор, сними шапку, без шапки, take off your hat, remove your hat, take off headwear",
+        description="Comma-separated player phrases that trigger headwear_off.",
+    )
+    footwear_on_terms: str = Field(
+        default="надень ботинки, надень обувь, обуйся, put on your boots, wear your boots, put on footwear",
+        description="Comma-separated player phrases that trigger footwear_on.",
+    )
+    footwear_off_terms: str = Field(
+        default="сними ботинки, сними обувь, разуйся, take off your boots, remove your boots, take off footwear",
+        description="Comma-separated player phrases that trigger footwear_off.",
+    )
+    legwear_on_terms: str = Field(
+        default="надень штаны, надень штан, надень брюки, надень портки, put on your pants, put on trousers, wear pants",
+        description="Comma-separated player phrases that trigger legwear_on.",
+    )
+    legwear_off_terms: str = Field(
+        default="сними штаны, сними штан, сними брюки, сними портки, take off your pants, remove your trousers, take off pants",
+        description="Comma-separated player phrases that trigger legwear_off.",
+    )
+    armwear_on_terms: str = Field(
+        default="надень перчатки, надень наручи, put on your gloves, wear your gloves",
+        description="Comma-separated player phrases that trigger armwear_on.",
+    )
+    armwear_off_terms: str = Field(
+        default="сними перчатки, сними наручи, take off your gloves, remove your gloves",
+        description="Comma-separated player phrases that trigger armwear_off.",
+    )
+    neckwear_on_terms: str = Field(
+        default="надень ожерелье, надень воротник, put on your necklace, wear your necklace",
+        description="Comma-separated player phrases that trigger neckwear_on.",
+    )
+    neckwear_off_terms: str = Field(
+        default="сними ожерелье, сними воротник, take off your necklace, remove your necklace",
+        description="Comma-separated player phrases that trigger neckwear_off.",
+    )
+    bodywear_on_terms: str = Field(
+        default="надень куртку, надень броню, надень жилет, put on your jacket, put on your armor, wear your vest",
+        description="Comma-separated player phrases that trigger bodywear_on.",
+    )
+    bodywear_off_terms: str = Field(
+        default="сними куртку, сними броню, сними жилет, take off your jacket, take off your armor, remove your vest",
+        description="Comma-separated player phrases that trigger bodywear_off.",
+    )
     strip_terms: str = Field(
         default="разденься, сними одежду, сними верхнюю одежду, раздеться, strip, undress, take off clothes, take your clothes off",
         description="Comma-separated player phrases that trigger strip_outerwear.",
     )
     draw_weapon_terms: str = Field(default="достань оружие, вынь меч, достань меч, оружие к бою, draw weapon, draw your weapon", description="Comma-separated player phrases that trigger draw_weapon.")
+    holster_weapon_terms: str = Field(default="убери оружие, спрячь меч, убери меч, put your weapon away, holster your weapon", description="Comma-separated player phrases that trigger holster_weapon.")
     turn_to_player_terms: str = Field(default="повернись ко мне, смотри на меня, посмотри на меня, обернись, turn to me, look at me", description="Comma-separated player phrases that trigger turn_to_player.")
     come_closer_terms: str = Field(default="подойди, иди сюда, подойди ко мне, ближе, come closer, come here", description="Comma-separated player phrases that trigger come_closer.")
     step_back_terms: str = Field(default="отойди, отойди назад, назад, держись подальше, step back, back off, move away", description="Comma-separated player phrases that trigger step_back.")
