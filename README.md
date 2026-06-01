@@ -177,9 +177,9 @@ kcd2-ai-npc/
 - [x] Web UI for configuration
 - [x] Steam Workshop distribution
 - [x] Multi-language UI and speech support
-- [ ] Voice cloning for individual NPCs
+- [x] Voice cloning for individual NPCs
 - [ ] Native dialogue system integration
-- [ ] NPC memory persistence (save/load)
+- [x] NPC memory persistence (save/load)
 - [ ] Lip sync via CryEngine animation system
 
 ## Tech Stack
