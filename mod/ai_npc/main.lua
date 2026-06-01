@@ -2136,7 +2136,7 @@ end
 function AI_NPC_PollWebCommand()
     __ai_npc_poll_ticks = __ai_npc_poll_ticks + 1
     if __ai_npc_poll_ticks == 1 or __ai_npc_poll_ticks % 20 == 0 then
-        System.LogAlways("[AI NPC] Poll tick #" .. tostring(__ai_npc_poll_ticks))
+        -- System.LogAlways("[AI NPC] Poll tick #" .. tostring(__ai_npc_poll_ticks))
     end
 
     poll_step("sync_binds", function() sync_binds_from_actionmap() end)
