@@ -25,7 +25,7 @@ RULES:
 class LLMConfig(BaseModel):
     api_url: str = Field(
         default="https://api.groq.com/openai/v1",
-        description="OpenAI-compatible API URL. Groq: https://api.groq.com/openai/v1, Ollama: http://localhost:11434/v1, OpenAI: https://api.openai.com/v1",
+        description="OpenAI-compatible API URL. Groq: https://api.groq.com/openai/v1, Ollama: http://localhost:11434/v1, OpenAI: https://api.openai.com/v1, NVIDIA NIM: https://integrate.api.nvidia.com/v1, Google AI Studio: https://generativelanguage.googleapis.com/v1beta/openai/, GitHub Models: https://models.inference.ai.azure.com, Cohere: https://api.cohere.ai/v1, Cerebras: https://api.cerebras.ai/v1, Mistral: https://api.mistral.ai/v1",
     )
     api_key: str = Field(
         default="",
@@ -33,7 +33,7 @@ class LLMConfig(BaseModel):
     )
     model: str = Field(
         default="llama-3.3-70b-versatile",
-        description="Model name. Groq: llama-3.3-70b-versatile, Ollama: llama3.1:8b, OpenAI: gpt-4o-mini",
+        description="Model name. Groq: llama-3.3-70b-versatile, Ollama: llama3.1:8b, OpenAI: gpt-4o-mini, NVIDIA: meta/llama3-70b-instruct, Google AI Studio: gemini-1.5-flash, GitHub Models: gpt-4o-mini, Cohere: command-r, Cerebras: llama-3.3-70b, Mistral: mistral-large-latest",
     )
     max_tokens: int = Field(default=200, description="Max tokens per response.")
     temperature: float = Field(default=0.8, description="Sampling temperature.")
@@ -69,6 +69,10 @@ class TTSConfig(BaseModel):
     output_dir: str = Field(
         default="./audio_cache",
         description="Directory for generated audio files.",
+    )
+    npc_voices: dict[str, dict[str, str]] = Field(
+        default_factory=dict,
+        description="Per-NPC voice overrides. Key = NPC name or ID. Value = dict mapping engine name to voice ID. Example: {'Henry': {'elevenlabs': 'abc123', 'edge': 'en-GB-RyanNeural'}, 'Theresa': {'elevenlabs': 'def456', 'openai': 'nova'}}. Falls back to gender default if NPC not listed.",
     )
 
 
@@ -140,6 +144,11 @@ class HUDConfig(BaseModel):
 class InteractionConfig(BaseModel):
     enable_dress_up_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC dress_up scene action.")
     enable_strip_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC strip_outerwear scene action.")
+    intermediate_strip: bool = Field(default=False, description="When true, strip_outerwear removes upper slots first (head/neck/arms/feet), leaving body+legs. A second strip removes body+legs. Useful with nude-body mods so the NPC is not instantly fully nude.")
+    enable_strip_partial_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC partial strip (upper clothes only).")
+    enable_strip_full_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC full strip (all clothes).")
+    enable_dress_partial_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC partial dress (underwear/lower clothes only).")
+    enable_dress_full_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC full dress (complete outfit).")
     enable_headwear_on_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC headwear on scene action.")
     enable_headwear_off_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC headwear off scene action.")
     enable_footwear_on_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC footwear on scene action.")
@@ -158,68 +167,110 @@ class InteractionConfig(BaseModel):
     enable_come_closer_requests: bool = Field(default=False, description="Enable chat phrases that trigger NPC come_closer scene action.")
     enable_step_back_requests: bool = Field(default=False, description="Enable chat phrases that trigger NPC step_back scene action.")
     enable_collapse_spell_requests: bool = Field(default=False, description="Enable chat phrases that trigger NPC collapse_spell scene action.")
+    enable_sit_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC sit_down scene action.")
+    enable_stand_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC stand_up scene action.")
+    enable_wave_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC gesture_wave scene action.")
+    enable_bow_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC gesture_bow scene action.")
     dress_up_terms: str = Field(
         default="оденься, одевайся, одень одежду, надень одежду, надень что-нибудь, прикройся, переоденься, смени одежду, переоденься в другую одежду, надень другую одежду, одеться, оделся, оделась, одень его, одень её, одень ее, dress up, get dressed, put clothes on, put your clothes on, wear clothes, change clothes, change your clothes, put on different clothes",
         description="Comma-separated player phrases that trigger dress_up.",
     )
     headwear_on_terms: str = Field(
-        default="надень шляпу, надень шляпк, надень капюшон, надень головной убор, одень шапку, надень шапку, put on your hat, wear your hat, put on headwear",
+        default="надень шляпу, надень шляпк, надень капюшон, надень головной убор, одень шапку, надень шапку, put on your hat, wear your hat, put on headwear, 戴上帽子, 戴帽子, 戴头巾, załóż kapelusz, załóż czapkę, zaloz kapelusz, zaloz czapke, nasaď si klobúk, nasaď čiapku, setz deinen hut auf, hut aufsetzen, setz deine mütze auf, mets ton chapeau, mets ta casquette, pon el sombrero, ponte el sombrero, ponte el gorro, pon la capucha, pon el gorro, 帽子をかぶれ, 帽子をかぶって",
         description="Comma-separated player phrases that trigger headwear_on.",
     )
     headwear_off_terms: str = Field(
-        default="сними шляпу, сними шляпк, сними капюшон, сними головной убор, сними шапку, без шапки, take off your hat, remove your hat, take off headwear",
+        default="сними шляпу, сними шляпк, сними капюшон, сними головной убор, сними шапку, без шапки, take off your hat, remove your hat, take off headwear, 摘下帽子, 脱帽, zdejmij kapelusz, zdejmij czapkę, zdejmij cap, sund klobouk, sund hatt, zlož klobúk, zlož čiapku, nimm deinen hut ab, hut abnehmen, nimm deine mütze ab, enlève ton chapeau, enlève ta casquette, quítate el sombrero, quítate el gorro, quita el gorro, 帽子を脱げ, 帽子を取れ",
         description="Comma-separated player phrases that trigger headwear_off.",
     )
     footwear_on_terms: str = Field(
-        default="надень ботинки, надень обувь, обуйся, put on your boots, wear your boots, put on footwear",
+        default="надень ботинки, надень обувь, обуйся, put on your boots, wear your boots, put on footwear, 穿上靴子, 穿鞋, 穿靴子, załóż buty, zaloz buty, załóż obuwie, zaloz obuwie, nasaď si topánky, nasaď si čižmy, setz deine stiefel an, stiefel anziehen, setz deine schuhe an, mets tes bottes, mets tes chaussures, pon las botas, ponte las botas, pon los zapatos, ponte los zapatos, 靴を履け, ブーツを履け, 靴を履いて",
         description="Comma-separated player phrases that trigger footwear_on.",
     )
     footwear_off_terms: str = Field(
-        default="сними ботинки, сними обувь, разуйся, take off your boots, remove your boots, take off footwear",
+        default="сними ботинки, сними обувь, разуйся, take off your boots, remove your boots, take off footwear, 脱靴, 脱鞋, zdejmij buty, zdejmij obuwie, sund boty, sund obuv, zlož topánky, zlož čižmy, zieh deine stiefel aus, stiefel ausziehen, zieh deine schuhe aus, enlève tes bottes, enlève tes chaussures, quítate las botas, quítate los zapatos, quita los zapatos, 靴を脱げ, ブーツを脱げ, 靴を脱いで",
         description="Comma-separated player phrases that trigger footwear_off.",
     )
     legwear_on_terms: str = Field(
-        default="надень штаны, надень штан, надень брюки, надень портки, put on your pants, put on trousers, wear pants",
+        default="надень штаны, надень штан, надень брюки, надень портки, put on your pants, put on trousers, wear pants, 穿裤子, 穿上裤子, załóż spodnie, zaloz spodnie, załóż portki, nasaď si nohavice, nasaď si gate, zieh deine hose an, hose anziehen, zieh deine hosen an, mets ton pantalon, mets ton froc, pon los pantalones, ponte los pantalones, pon los calzones, ズボンを履け, パンツを履け, ズボンをはけ",
         description="Comma-separated player phrases that trigger legwear_on.",
     )
     legwear_off_terms: str = Field(
-        default="сними штаны, сними штан, сними брюки, сними портки, take off your pants, remove your trousers, take off pants",
+        default="сними штаны, сними штан, сними брюки, сними портки, take off your pants, remove your trousers, take off pants, 脱裤子, 脱下裤子, zdejmij spodnie, zdejmij portki, sund kalhoty, sund gate, zlož nohavice, zlož gate, zieh deine hose aus, hose ausziehen, zieh deine hosen aus, enlève ton pantalon, enlève ton froc, quítate los pantalones, quítate los calzones, quita los pantalones, ズボンを脱げ, パンツを脱げ, ズボンをぬげ",
         description="Comma-separated player phrases that trigger legwear_off.",
     )
     armwear_on_terms: str = Field(
-        default="надень перчатки, надень наручи, put on your gloves, wear your gloves",
+        default="надень перчатки, надень наручи, put on your gloves, wear your gloves, 戴上手套, 戴手套, załóż rękawiczki, zaloz rekawiczki, załóż rękawice, nasaď si rukavice, zieh deine handschuhe an, handschuhe anziehen, mets tes gants, pon los guantes, ponte los guantes, pon las manoplas, ponte las manoplas, 手袋をはめろ, 手袋をはめて, グローブをつけろ",
         description="Comma-separated player phrases that trigger armwear_on.",
     )
     armwear_off_terms: str = Field(
-        default="сними перчатки, сними наручи, take off your gloves, remove your gloves",
+        default="сними перчатки, сними наручи, take off your gloves, remove your gloves, 脱手套, 摘手套, zdejmij rękawiczki, zdejmij rekawiczki, zdejmij rękawice, sund rukavice, zlož rukavice, zieh deine handschuhe aus, handschuhe ausziehen, enlève tes gants, quítate los guantes, quítate los guantes, quita los guantes, quita las manoplas, 手袋を外せ, 手袋をはずせ, グローブを外せ",
         description="Comma-separated player phrases that trigger armwear_off.",
     )
     neckwear_on_terms: str = Field(
-        default="надень ожерелье, надень воротник, put on your necklace, wear your necklace",
+        default="надень ожерелье, надень воротник, put on your necklace, wear your necklace, 戴上项链, 戴项链, załóż naszyjnik, zaloz naszyjnik, nasaď si náhrdelník, nasaď si retiazku, setz deine halskette an, halskette anlegen, mets ton collier, pon el collar, ponte el collar, pon el gargantilla, ponte el gargantilla, ネックレスをつけろ, ネックレスを付けて, 首飾りをつけろ",
         description="Comma-separated player phrases that trigger neckwear_on.",
     )
     neckwear_off_terms: str = Field(
-        default="сними ожерелье, сними воротник, take off your necklace, remove your necklace",
+        default="сними ожерелье, сними воротник, take off your necklace, remove your necklace, 摘项链, 取下项链, zdejmij naszyjnik, zdejmij retiazku, sund náhrdelník, sund retiazku, zlož náhrdelník, zlož retiazku, nimm deine halskette ab, halskette abnehmen, enlève ton collier, quítate el collar, quita el collar, quita el gargantilla, ネックレスを外せ, 首飾りを外せ",
         description="Comma-separated player phrases that trigger neckwear_off.",
     )
     bodywear_on_terms: str = Field(
-        default="надень куртку, надень броню, надень жилет, put on your jacket, put on your armor, wear your vest",
+        default="надень куртку, надень броню, надень жилет, put on your jacket, put on your armor, wear your vest, 穿上夹克, 穿夹克, 穿上盔甲, załóż kurtkę, zaloz kurtke, załóż zbroję, zaloz zbroje, nasaď si kabát, nasaď si vestu, nasaď si brnenie, zieh deine jacke an, jacke anziehen, zieh deine rüstung an, rüstung anlegen, mets ta veste, mets ton armure, mets ton gilet, pon la chaqueta, ponte la chaqueta, pon la armadura, ponte el chaleco, ジャケットを着ろ, 鎧を着ろ, ベストを着ろ, ジャケットを着て",
         description="Comma-separated player phrases that trigger bodywear_on.",
     )
     bodywear_off_terms: str = Field(
-        default="сними куртку, сними броню, сними жилет, take off your jacket, take off your armor, remove your vest",
+        default="сними куртку, сними броню, сними жилет, take off your jacket, take off your armor, remove your vest, 脱掉夹克, 脱夹克, 脱盔甲, zdejmij kurtkę, zdejmij kurtke, zdejmij zbroję, zdejmij zbroje, sund kabát, sund vestu, sund brnenie, zlož kabát, zlož vestu, zlož brnenie, zieh deine jacke aus, jacke ausziehen, zieh deine rüstung aus, rüstung ablegen, enlève ta veste, enlève ton armure, enlève ton gilet, quítate la chaqueta, quítate la armadura, quítate el chaleco, quita el chaleco, ジャケットを脱げ, 鎧を脱げ, ベストを脱げ",
         description="Comma-separated player phrases that trigger bodywear_off.",
     )
     strip_terms: str = Field(
         default="разденься, сними одежду, сними верхнюю одежду, раздеться, strip, undress, take off clothes, take your clothes off",
         description="Comma-separated player phrases that trigger strip_outerwear.",
     )
+    strip_partial_terms: str = Field(
+        default="сними верхнюю одежду, сними куртку, сними плащ, разденься до нижнего, сними всё сверху, strip upper, take off upper clothes, remove outerwear",
+        description="Comma-separated player phrases that trigger partial strip (upper clothes only).",
+    )
+    strip_full_terms: str = Field(
+        default="сними нижнюю одежду, оголись, разденься полностью, сними всё, strip completely, get fully naked, take off everything, get nude",
+        description="Comma-separated player phrases that trigger full strip (all clothes).",
+    )
+    dress_partial_terms: str = Field(
+        default="одень нижнюю одежду, прикройся, надень нижнее, одень трусы, dress lower, put on underwear, cover yourself, put on lower clothes",
+        description="Comma-separated player phrases that trigger partial dress (underwear/lower clothes only).",
+    )
+    dress_full_terms: str = Field(
+        default="одень верхнюю одежду, надень куртку, оденься полностью, dress fully, put on upper clothes, get fully dressed, dress up completely, put on all clothes",
+        description="Comma-separated player phrases that trigger full dress (complete outfit).",
+    )
     draw_weapon_terms: str = Field(default="достань оружие, вынь меч, достань меч, оружие к бою, draw weapon, draw your weapon", description="Comma-separated player phrases that trigger draw_weapon.")
-    holster_weapon_terms: str = Field(default="убери оружие, спрячь меч, убери меч, put your weapon away, holster your weapon", description="Comma-separated player phrases that trigger holster_weapon.")
+    holster_weapon_terms: str = Field(
+        default="убери оружие, спрячь меч, убери меч, put your weapon away, holster your weapon, 收起武器, 放下武器, 收刀, schowaj broń, włóż miecz, schowaj miecz, schovej zbraň, dej zbraň pryč, schovej meč, steck deine waffe weg, waffe wegstecken, steck dein schwert weg, range ton arme, range ton épée, fourre ton épée, range ton epee, guarda tu arma, guarda tu espada, envaina tu espada, guarda tu espada, 武器を仕舞え, 刀を収めろ, 武器をしまえ, broń na plecy",
+        description="Comma-separated player phrases that trigger holster_weapon.",
+    )
     turn_to_player_terms: str = Field(default="повернись ко мне, смотри на меня, посмотри на меня, обернись, turn to me, look at me", description="Comma-separated player phrases that trigger turn_to_player.")
     come_closer_terms: str = Field(default="подойди, иди сюда, подойди ко мне, ближе, come closer, come here", description="Comma-separated player phrases that trigger come_closer.")
     step_back_terms: str = Field(default="отойди, отойди назад, назад, держись подальше, step back, back off, move away", description="Comma-separated player phrases that trigger step_back.")
-    collapse_spell_terms: str = Field(default="фус рода, упади, падай, сломайся, abracadabra fall, collapse, fall down", description="Comma-separated player phrases that trigger collapse_spell.")
+    collapse_spell_terms: str = Field(
+        default="фус рода, упади, падай, сломайся, abracadabra fall, collapse, fall down, 倒下, 趴下, padnij, przewróć się, przewroc sie, padni, sval se, fall um, tombe, cáete",
+        description="Comma-separated player phrases that trigger collapse_spell.",
+    )
+    sit_terms: str = Field(
+        default="сядь, сядьте, присядь, присаживайся, садись, садитесь, sit down, take a seat, have a seat",
+        description="Comma-separated player phrases that trigger sit_down.",
+    )
+    stand_terms: str = Field(
+        default="встань, встаньте, поднимись, поднимитесь, вставай, get up, stand up, on your feet",
+        description="Comma-separated player phrases that trigger stand_up.",
+    )
+    wave_terms: str = Field(
+        default="помаши, помаши рукой, помашите, махни, wave, wave your hand, give a wave",
+        description="Comma-separated player phrases that trigger gesture_wave.",
+    )
+    bow_terms: str = Field(
+        default="поклонись, поклонись мне, поклонись ему, сделай поклон, кивни, bow, take a bow, give a bow, bow to",
+        description="Comma-separated player phrases that trigger gesture_bow.",
+    )
 
 
 class ServerConfig(BaseModel):

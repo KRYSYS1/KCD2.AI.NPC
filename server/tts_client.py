@@ -98,34 +98,93 @@ class TTSClient:
     def _is_female(self, gender: int | None) -> bool:
         return gender == 2
 
-    async def speak(self, text: str, gender: int | None = None) -> None:
+    def _resolve_voice(self, engine: str, npc_id: str | None, npc_name: str | None, gender: int | None, npc_name_resolved: str | None = None) -> str:
+        """Look up per-NPC voice override, fall back to gender default."""
+        npc_voices = getattr(self.config, "npc_voices", {}) or {}
+        if not npc_voices:
+            return ""
+        # Try npc_name first, then npc_name_resolved, then npc_id
+        voice_map = None
+        for key in ((npc_name or "").strip(), (npc_name_resolved or "").strip(), (npc_id or "").strip()):
+            if key:
+                voice_map = npc_voices.get(key)
+                if voice_map is not None:
+                    break
+        if isinstance(voice_map, dict):
+            voice = voice_map.get(engine, "")
+            if voice:
+                return voice
+        # Fall back to gender default (caller handles empty string)
+        return ""
+
+    def _resolve_engine(self, npc_id: str | None, npc_name: str | None, npc_name_resolved: str | None = None) -> str:
+        """Pick TTS engine for this NPC. Global engine wins if NPC has a voice
+        for it; otherwise fallback to any engine the NPC has a voice for."""
+        default = self.config.engine
+        npc_voices = getattr(self.config, "npc_voices", {}) or {}
+        if not npc_voices:
+            return default
+        vm = None
+        for key in ((npc_name or "").strip(), (npc_name_resolved or "").strip(), (npc_id or "").strip()):
+            if key:
+                vm = npc_voices.get(key)
+                if vm is not None:
+                    break
+        if not isinstance(vm, dict) or not vm:
+            return default
+        # If NPC has an explicit voice for the default engine, use it.
+        if vm.get(default):
+            return default
+        # Otherwise pick the first configured engine this NPC has a voice for.
+        for eng in ("elevenlabs", "openai", "edge"):
+            if eng == default:
+                continue
+            if not vm.get(eng):
+                continue
+            if eng == "elevenlabs" and not self.config.elevenlabs_api_key:
+                continue
+            if eng == "openai" and not self.config.openai_api_key:
+                continue
+            return eng
+        return default
+
+    async def speak(self, text: str, gender: int | None = None, npc_id: str | None = None, npc_name: str | None = None, npc_name_resolved: str | None = None) -> None:
         """Fire-and-forget speak: swallows engine errors after logging
         so a failing TTS does not crash chat handling."""
         try:
-            await self._synth_and_play(text, gender)
+            await self._synth_and_play(text, gender, npc_id, npc_name, npc_name_resolved)
         except Exception as e:
-            logger.error(f"TTS speak failed [{self.config.engine}]: {e}")
+            engine = self._resolve_engine(npc_id, npc_name, npc_name_resolved)
+            logger.error(f"TTS speak failed [{engine}]: {e}")
 
-    async def _synth_and_play(self, text: str, gender: int | None = None) -> None:
+    async def _synth_and_play(self, text: str, gender: int | None = None, npc_id: str | None = None, npc_name: str | None = None, npc_name_resolved: str | None = None) -> None:
         """Engine dispatch that propagates errors to the caller."""
         if not self.config.enabled or not text.strip():
             return
-        if self.config.engine == "edge":
-            await self._speak_edge(text, gender)
-        elif self.config.engine == "elevenlabs":
-            await self._speak_elevenlabs(text, gender)
-        elif self.config.engine == "openai":
-            await self._speak_openai(text, gender)
+        engine = self._resolve_engine(npc_id, npc_name, npc_name_resolved)
+        if engine == "edge":
+            await self._speak_edge(text, gender, npc_id, npc_name, npc_name_resolved)
+        elif engine == "elevenlabs":
+            await self._speak_elevenlabs(text, gender, npc_id, npc_name, npc_name_resolved)
+        elif engine == "openai":
+            await self._speak_openai(text, gender, npc_id, npc_name, npc_name_resolved)
         else:
-            raise RuntimeError(f"Unknown TTS engine: {self.config.engine}")
+            raise RuntimeError(f"Unknown TTS engine: {engine}")
 
-    async def _speak_edge(self, text: str, gender: int | None = None) -> None:
+    async def _speak_edge(self, text: str, gender: int | None = None, npc_id: str | None = None, npc_name: str | None = None, npc_name_resolved: str | None = None) -> None:
         try:
             import edge_tts
         except ImportError as e:
             raise RuntimeError("edge-tts not installed. Run: pip install edge-tts") from e
         is_female = self._is_female(gender)
-        voice = (self.config.voice_female if is_female and self.config.voice_female else self.config.voice)
+        voice = self._resolve_voice("edge", npc_id, npc_name, gender, npc_name_resolved)
+        if not voice:
+            if is_female and self.config.voice_female:
+                voice = self.config.voice_female
+            elif self.config.voice:
+                voice = self.config.voice
+            elif self.config.voice_female:
+                voice = self.config.voice_female
         if not (voice or "").strip():
             raise RuntimeError("Edge TTS voice is empty")
         tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
@@ -160,12 +219,21 @@ class TTSClient:
         )
         thread.start()
 
-    async def _speak_elevenlabs(self, text: str, gender: int | None = None) -> None:
+    async def _speak_elevenlabs(self, text: str, gender: int | None = None, npc_id: str | None = None, npc_name: str | None = None, npc_name_resolved: str | None = None) -> None:
         api_key = self.config.elevenlabs_api_key
         if not api_key:
             raise RuntimeError("ElevenLabs API key not set")
-        is_female = self._is_female(gender)
-        voice_id = (self.config.elevenlabs_voice_female if is_female and self.config.elevenlabs_voice_female else self.config.elevenlabs_voice) or "21m00Tcm4TlvDq8ikWAM"
+        voice_id = self._resolve_voice("elevenlabs", npc_id, npc_name, gender, npc_name_resolved)
+        if not voice_id:
+            is_female = self._is_female(gender)
+            if is_female and self.config.elevenlabs_voice_female:
+                voice_id = self.config.elevenlabs_voice_female
+            elif self.config.elevenlabs_voice:
+                voice_id = self.config.elevenlabs_voice
+            elif self.config.elevenlabs_voice_female:
+                voice_id = self.config.elevenlabs_voice_female
+            else:
+                voice_id = "21m00Tcm4TlvDq8ikWAM"
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
         payload = {
             "text": text,
@@ -194,13 +262,22 @@ class TTSClient:
         )
         thread.start()
 
-    async def _speak_openai(self, text: str, gender: int | None = None) -> None:
+    async def _speak_openai(self, text: str, gender: int | None = None, npc_id: str | None = None, npc_name: str | None = None, npc_name_resolved: str | None = None) -> None:
         api_key = self.config.openai_api_key
         if not api_key:
             raise RuntimeError("OpenAI TTS API key not set")
         url = "https://api.openai.com/v1/audio/speech"
-        is_female = self._is_female(gender)
-        voice = (self.config.openai_voice_female if is_female and self.config.openai_voice_female else self.config.openai_voice) or "onyx"
+        voice = self._resolve_voice("openai", npc_id, npc_name, gender, npc_name_resolved)
+        if not voice:
+            is_female = self._is_female(gender)
+            if is_female and self.config.openai_voice_female:
+                voice = self.config.openai_voice_female
+            elif self.config.openai_voice:
+                voice = self.config.openai_voice
+            elif self.config.openai_voice_female:
+                voice = self.config.openai_voice_female
+            else:
+                voice = "onyx"
         payload = {
             "model": "tts-1",
             "input": text,

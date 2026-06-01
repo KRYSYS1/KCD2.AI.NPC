@@ -540,7 +540,7 @@
     /* When a card contains an open combobox, lift it above sibling cards so
        the dropdown is never covered by the next card's stacking context
        (each .card forms its own context due to backdrop-filter). */
-    .card.combo-open { z-index: 50; }
+    .card.combo-open { z-index: 20; }
     .combo-item {
       padding: 8px 14px; cursor: pointer; font-size: 13px;
       color: var(--text-body); transition: background .1s;
@@ -615,6 +615,12 @@
           <button class="preset-btn" data-preset="ollama"      onclick="setPreset('ollama')">Ollama</button>
           <button class="preset-btn" data-preset="openai"      onclick="setPreset('openai')">OpenAI</button>
           <button class="preset-btn" data-preset="groq"        onclick="setPreset('groq')">Groq</button>
+          <button class="preset-btn" data-preset="nvidia"      onclick="setPreset('nvidia')">NVIDIA</button>
+          <button class="preset-btn" data-preset="google"      onclick="setPreset('google')">Google AI Studio</button>
+          <button class="preset-btn" data-preset="github"      onclick="setPreset('github')">GitHub Models</button>
+          <button class="preset-btn" data-preset="cohere"      onclick="setPreset('cohere')">Cohere</button>
+          <button class="preset-btn" data-preset="cerebras"    onclick="setPreset('cerebras')">Cerebras</button>
+          <button class="preset-btn" data-preset="mistral"     onclick="setPreset('mistral')">Mistral</button>
           <button class="preset-btn" data-preset="openrouter"  onclick="setPreset('openrouter')">OpenRouter</button>
           <button class="preset-btn" data-preset="lmstudio"    onclick="setPreset('lmstudio')">LM Studio</button>
           <button class="preset-btn" data-preset="custom" data-i18n="custom" onclick="setPreset('custom')">&#1057;&#1074;&#1086;&#1081;</button>
@@ -746,6 +752,206 @@
           <span class="slider-value" id="tts-vol-val">1.00</span>
         </div>
       </div>
+
+      <!-- Per-NPC voice assignments -->
+      <datalist id="npc-ids-list">
+        <option value="henry">
+        <option value="katerina">
+        <option value="ptacek">
+        <option value="hans">
+        <option value="bohuta">
+        <option value="brabant">
+        <option value="musa">
+        <option value="roza">
+        <option value="kozlik">
+        <option value="komar">
+        <option value="pista">
+        <option value="samuel">
+        <option value="podkoni">
+        <option value="rychtar">
+        <option value="jan">
+        <option value="michal">
+        <option value="hejtman">
+        <option value="petr">
+        <option value="procek">
+        <option value="francek">
+        <option value="bolek">
+        <option value="kona">
+        <option value="olbram">
+        <option value="anton">
+        <option value="erik">
+        <option value="aulitz">
+        <option value="dcera">
+        <option value="kubenka">
+        <option value="jindrichu">
+        <option value="zizka">
+        <option value="tomlin">
+        <option value="mlada">
+        <option value="marketa">
+        <option value="komori">
+        <option value="vajda">
+        <option value="markrabe">
+        <option value="jost">
+        <option value="arne">
+        <option value="kozeluh">
+        <option value="obchodnic">
+        <option value="ota">
+        <option value="stepan">
+        <option value="vazoun">
+        <option value="hanus">
+        <option value="pan">
+        <option value="cenek">
+        <option value="lichtenst">
+        <option value="kristian">
+        <option value="leopold">
+        <option value="bonka">
+        <option value="bures">
+        <option value="marian">
+        <option value="lovci">
+        <option value="hajny">
+        <option value="pavlena">
+        <option value="herman">
+        <option value="bocek">
+        <option value="bozena">
+        <option value="svatava">
+        <option value="kutnohors">
+        <option value="menhart">
+        <option value="sluzebna">
+        <option value="sluzka">
+        <option value="hospodyne">
+        <option value="kovar">
+        <option value="stajmistr">
+        <option value="kucharka">
+      </datalist>
+      <datalist id="npc-names-list">
+        <option value="Henry"><option value="Генри">
+        <option value="Theresa"><option value="Тереза">
+        <option value="Sir Radzig Kobyla"><option value="Сэр Радзиг Кобыла">
+        <option value="Hans Capon"><option value="Ганс"><option value="Ганс Капон">
+        <option value="Father Godwin"><option value="Отец Годвин">
+        <option value="Istvan Toth"><option value="Иштван Тот">
+        <option value="Markvart von Aulitz"><option value="Аулиц">
+        <option value="Katherine"><option value="Катерина">
+        <option value="Bianca"><option value="Бьянка">
+        <option value="Kunesh"><option value="Кунеш">
+        <option value="Deutsch"><option value="Дойч">
+        <option value="Roman"><option value="Роман">
+        <option value="Matthew"><option value="Матвей">
+        <option value="Fritz"><option value="Фриц">
+        <option value="Samuel"><option value="Самуэль">
+        <option value="Peshek"><option value="Пешек">
+        <option value="Miller"><option value="Мельник">
+        <option value="Captain Bernard"><option value="Капитан Бернард">
+        <option value="Robard"><option value="Робард">
+        <option value="Ulrich"><option value="Ульрих">
+        <option value="Zbyshek"><option value="Збышек">
+        <option value="Vanyek"><option value="Ванек">
+        <option value="Shepherd Nechuta"><option value="Пастушок Нехута">
+        <option value="Guard"><option value="Стражник">
+        <option value="Soldier"><option value="Солдат">
+        <option value="Bandit"><option value="Бандит">
+        <option value="Cuman"><option value="Куман">
+        <option value="Peasant"><option value="Крестьянин">
+        <option value="Farmer"><option value="Фермер">
+        <option value="Hunter"><option value="Охотники">
+        <option value="Fisherman"><option value="Рыбак">
+        <option value="Shepherd"><option value="Пастух">
+        <option value="Innkeeper"><option value="Трактирщица"><option value="Хозяйка">
+        <option value="Trader"><option value="Торговец">
+        <option value="Tailor"><option value="Портной">
+        <option value="Armorer"><option value="Оружейник">
+        <option value="Blacksmith"><option value="Кузнец">
+        <option value="Butcher"><option value="Мясник">
+        <option value="Baker"><option value="Пекарь">
+        <option value="Alchemist"><option value="Алхимик">
+        <option value="Herbalist"><option value="Травник">
+        <option value="Monk"><option value="Монах">
+        <option value="Priest"><option value="Священник">
+        <option value="Maid"><option value="Служанка"><option value="Служка"><option value="Служанка из корчмы"><option value="Служанка из Корчмы">
+        <option value="Lady"><option value="Леди">
+        <option value="Lord"><option value="Лорд">
+        <option value="Drunkard"><option value="Пьяница">
+        <option value="Beggar"><option value="Нищий">
+        <option value="Gambler"><option value="Игрок">
+        <option value="Jeweler"><option value="Ювелир">
+        <option value="Cobbler"><option value="Сапожник">
+        <option value="Locksmith"><option value="Замочник">
+        <option value="Stablemaster"><option value="Стаимистр">
+        <option value="Executioner"><option value="Палач">
+        <option value="Bohuta"><option value="Богута">
+        <option value="Brabant"><option value="Брабант">
+        <option value="Musa"><option value="Муса">
+        <option value="Roza"><option value="Роза">
+        <option value="Kozlik"><option value="Козлик">
+        <option value="Komar"><option value="Комар">
+        <option value="Pista"><option value="Писта">
+        <option value="Podkoni"><option value="Подконный">
+        <option value="Rychtar"><option value="Рихтар">
+        <option value="Jan"><option value="Ян">
+        <option value="Michal"><option value="Михал">
+        <option value="Hejtman"><option value="Гейтман">
+        <option value="Petr"><option value="Петр">
+        <option value="Procek"><option value="Процек">
+        <option value="Francek"><option value="Францек">
+        <option value="Bolek"><option value="Болек">
+        <option value="Kona"><option value="Кона">
+        <option value="Olbram"><option value="Олбрам">
+        <option value="Anton"><option value="Антон">
+        <option value="Erik"><option value="Эрик">
+        <option value="Dcera"><option value="Дочь">
+        <option value="Kubenka"><option value="Кубенка">
+        <option value="Jindrichu"><option value="Йиндржиху">
+        <option value="Zizka"><option value="Жижка">
+        <option value="Tomlin"><option value="Томлин">
+        <option value="Mlada"><option value="Млада">
+        <option value="Marketa"><option value="Маркета">
+        <option value="Komori"><option value="Комори">
+        <option value="Vajda"><option value="Вайда">
+        <option value="Markrabe"><option value="Маркрабе">
+        <option value="Jost"><option value="Йост">
+        <option value="Arne"><option value="Арне">
+        <option value="Kozeluh"><option value="Козелух">
+        <option value="Obchodnic"><option value="Обходник"><option value="Торговец">
+        <option value="Ota"><option value="Ота">
+        <option value="Stepan"><option value="Степан">
+        <option value="Vazoun"><option value="Вазоун">
+        <option value="Hanus"><option value="Ганус">
+        <option value="Pan"><option value="Пан">
+        <option value="Cenek"><option value="Ценек">
+        <option value="Lichtenst"><option value="Лихтенштейн">
+        <option value="Kristian"><option value="Кристиан">
+        <option value="Leopold"><option value="Леопольд">
+        <option value="Bonka"><option value="Бонка">
+        <option value="Bures"><option value="Бурес">
+        <option value="Marian"><option value="Мариан">
+        <option value="Lovci"><option value="Охотники">
+        <option value="Hajny"><option value="Гайны">
+        <option value="Pavlena"><option value="Павлена">
+        <option value="Herman"><option value="Герман">
+        <option value="Bocek"><option value="Бочек">
+        <option value="Bozena"><option value="Божена">
+        <option value="Svatava"><option value="Сватава">
+        <option value="Kutnohors"><option value="Кутногорск">
+        <option value="Menhart"><option value="Менхарт">
+        <option value="Hospodyne"><option value="Хозяйка"><option value="Трактирщица">
+        <option value="Kovar"><option value="Кузнец">
+        <option value="Stajmistr"><option value="Стаимистр">
+        <option value="Kucharka"><option value="Кухарка">
+        <option value="Ptacek"><option value="Птачек">
+      </datalist>
+      <div class="form-group" style="margin-top:14px;">
+        <label data-i18n="tts_npc_voices">Голоса NPC (по имени)</label>
+        <div style="display:flex; gap:6px; margin-bottom:4px; font-size:11px; color:var(--text-secondary);">
+          <span style="flex:1 1 140px;">NPC Name</span>
+          <span style="flex:0 0 120px;">Provider</span>
+          <span style="flex:1 1 140px;">Voice / ID</span>
+        </div>
+        <div id="npc-voices-list" style="display:flex; flex-direction:column; gap:6px;">
+          <!-- rows injected by JS -->
+        </div>
+        <button class="btn" type="button" style="margin-top:6px; font-size:12px; padding:4px 10px;" onclick="addNpcVoiceRow()" data-i18n="tts_add_npc_voice">+ Добавить NPC</button>
+        <div class="form-hint" data-i18n="tts_npc_voices_hint">Для каждого NPC выберите провайдера и голос. Если поле пустое — используется голос по умолчанию (по полу).</div>
+      </div>
     </div>
   </div>
 
@@ -780,14 +986,17 @@
         <label for="stt-api-url" data-i18n="stt_api_url">API URL</label>
         <input type="text" id="stt-api-url" placeholder="https://api.openai.com/v1">
       </div>
-      <div class="form-group" id="stt-row-key" style="margin-top:10px; display:none;">
-        <label for="stt-api-key" data-i18n="stt_api_key">API ключ</label>
-        <input type="password" id="stt-api-key" placeholder="sk-...">
+      <div class="form-row" style="margin-top:10px;">
+        <div class="form-group" id="stt-row-key" style="display:none;">
+          <label for="stt-api-key" data-i18n="stt_api_key">API ключ</label>
+          <input type="password" id="stt-api-key" placeholder="sk-...">
+        </div>
+        <div class="form-group">
+          <label for="stt-model" data-i18n="stt_model">Модель</label>
+          <input type="text" id="stt-model" placeholder="base">
+        </div>
       </div>
-
-      <div class="form-group" style="margin-top:10px;">
-        <label for="stt-model" data-i18n="stt_model">Модель</label>
-        <input type="text" id="stt-model" placeholder="base">
+      <div class="form-group" style="margin-top:6px;">
         <div class="form-hint" id="stt-model-hint">
           faster-whisper: <code>tiny</code> <code>base</code> <code>small</code> <code>medium</code> <code>large-v3</code>.
           OpenAI: <code>whisper-1</code>.
@@ -879,6 +1088,7 @@
         <label for="chat-key" data-i18n="chat_key">AI chat key</label>
         <input type="text" id="chat-key" maxlength="3" placeholder="v">
         <div class="form-hint"><span data-i18n="chat_key_hint">Default: v. This key toggles AI chat open/closed. Examples:</span> <code>v</code> <code>y</code> <code>g</code> <code>f5</code>. <span data-i18n="chat_key_hint_2">Saved to Data\Libs\Config\ai_npc_actions.xml. Restart/reload game scripts after changing.</span></div>
+        <div class="form-hint" style="color:var(--accent-gold);margin-top:4px;" data-i18n="chat_key_english_note">Enter the key in English (Latin) letters only. Do not use Russian/Cyrillic characters.</div>
       </div>
       <div class="form-group" style="margin-top:10px;">
         <label for="end-key" data-i18n="end_key">Optional separate end key</label>
@@ -918,7 +1128,7 @@
         </div>
         <div class="form-hint" data-i18n="interaction_dress_examples">Примеры: «Оденься, пожалуйста, холодно», «Переоденься в другую одежду», «Смени одежду, эта уже грязная».</div>
       </div>
-      <div class="form-group" style="margin-top:10px; display:none;">
+      <div class="form-group" style="margin-top:10px;">
         <label for="interaction-dress-terms" data-i18n="interaction_dress_terms">Фразы для одевания</label>
         <textarea id="interaction-dress-terms" style="min-height:72px;"></textarea>
         <div class="form-hint" data-i18n="interaction_terms_hint">Через запятую. Сохраняется без перезапуска сервера.</div>
@@ -934,7 +1144,7 @@
         </div>
         <div class="form-hint" data-i18n="interaction_strip_examples">Примеры: «Разденься, пожалуйста, такая жара!», «Сними верхнюю одежду, тебе станет легче», «Можешь снять плащ, здесь безопасно».</div>
       </div>
-      <div class="form-group" style="margin-top:10px; display:none;">
+      <div class="form-group" style="margin-top:10px;">
         <label for="interaction-strip-terms" data-i18n="interaction_strip_terms">Фразы для раздевания</label>
         <textarea id="interaction-strip-terms" style="min-height:72px;"></textarea>
       </div>
@@ -972,7 +1182,7 @@
         </div>
         <div class="form-hint" data-i18n="interaction_action_examples">Примеры: «Покажи, пожалуйста, оружие», «Достань меч, хочу посмотреть», «Повернись ко мне», «Посмотри на меня», «Подойди поближе», «Иди сюда, я скажу тихо», «Отойди на шаг назад», «Не стой так близко».</div>
       </div>
-      <div class="form-row" style="margin-top:10px; display:none;">
+      <div class="form-row" style="margin-top:10px;">
         <div class="form-group">
           <label for="interaction-draw-terms">Фразы оружия</label>
           <textarea id="interaction-draw-terms" style="min-height:64px;"></textarea>
@@ -982,7 +1192,7 @@
           <textarea id="interaction-turn-terms" style="min-height:64px;"></textarea>
         </div>
       </div>
-      <div class="form-row" style="margin-top:10px; display:none;">
+      <div class="form-row" style="margin-top:10px;">
         <div class="form-group">
           <label for="interaction-come-terms">Фразы “подойди”</label>
           <textarea id="interaction-come-terms" style="min-height:64px;"></textarea>
@@ -1003,7 +1213,7 @@
         </div>
         <div class="form-hint" data-i18n="interaction_collapse_examples">Примеры: «Фус рода!», «Заклинание ветра, падай!», «Силой чар я сбиваю тебя с ног», «Пусть земля уйдёт из-под твоих ног».</div>
       </div>
-      <div class="form-group" style="margin-top:10px; display:none;">
+      <div class="form-group" style="margin-top:10px;">
         <label for="interaction-collapse-terms">Фразы заклинания</label>
         <textarea id="interaction-collapse-terms" style="min-height:64px;"></textarea>
       </div>
@@ -1361,6 +1571,12 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     ollama:     { url: 'http://localhost:11434/v1',       key: 'ollama',    model: 'llama3.1:8b',                        keyHint: 'ollama'            },
     openai:     { url: 'https://api.openai.com/v1',       key: '',          model: 'gpt-4o-mini',                        keyHint: 'sk-...'            },
     groq:       { url: 'https://api.groq.com/openai/v1',  key: '',          model: 'llama-3.3-70b-versatile',            keyHint: 'gsk_...'           },
+    nvidia:     { url: 'https://integrate.api.nvidia.com/v1', key: '',      model: 'meta/llama3-70b-instruct',           keyHint: 'nvapi-...'         },
+    google:     { url: 'https://generativelanguage.googleapis.com/v1beta/openai/', key: '', model: 'gemini-1.5-flash',  keyHint: 'AIza...'           },
+    github:     { url: 'https://models.inference.ai.azure.com', key: '',    model: 'gpt-4o-mini',                        keyHint: 'ghp_... / github_pat' },
+    cohere:     { url: 'https://api.cohere.ai/v1',          key: '',        model: 'command-r',                          keyHint: 'Cohere API key'    },
+    cerebras:   { url: 'https://api.cerebras.ai/v1',        key: '',          model: 'llama-3.3-70b',                      keyHint: 'Cerebras API key'  },
+    mistral:    { url: 'https://api.mistral.ai/v1',         key: '',          model: 'mistral-large-latest',               keyHint: 'Mistral API key'   },
     openrouter: { url: 'https://openrouter.ai/api/v1',    key: '',          model: 'meta-llama/llama-3.3-8b-instruct:free', keyHint: 'sk-or-...'     },
     lmstudio:   { url: 'http://localhost:1234/v1',        key: 'lm-studio', model: '',                                   keyHint: 'lm-studio'         },
     custom:     { url: '',                                key: '',          model: '',                                   keyHint: 'API key'           },
@@ -1562,6 +1778,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       document.getElementById('tts-oai-key').value   = tts.openai_api_key || '';
       setOaiVoice(tts.openai_voice || 'onyx');
       setOaiVoiceFemale(tts.openai_voice_female || 'nova');
+      loadNpcVoices(tts.npc_voices);
       document.getElementById('prompt-template').value = d.prompt_template || PROMPT_PRESETS.original;
       detectPromptPreset();
 
@@ -1621,6 +1838,251 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     document.getElementById('tts-fields-edge').style.display       = engine === 'edge'        ? '' : 'none';
     document.getElementById('tts-fields-elevenlabs').style.display = engine === 'elevenlabs'  ? '' : 'none';
     document.getElementById('tts-fields-openai').style.display     = engine === 'openai'      ? '' : 'none';
+  }
+
+  const NPC_NAME_TO_ID = {
+    "Henry":"henry","Генри":"henry",
+    "Theresa":"theresa","Тереза":"theresa",
+    "Sir Radzig Kobyla":"sir_radzig_kobyla","Сэр Радзиг Кобыла":"sir_radzig_kobyla",
+    "Hans Capon":"hans","Hans":"hans","Ганс":"hans","Ганс Капон":"hans",
+    "Father Godwin":"father_godwin","Отец Годвин":"father_godwin",
+    "Istvan Toth":"istvan_toth","Иштван Тот":"istvan_toth",
+    "Markvart von Aulitz":"aulitz","Аулиц":"aulitz",
+    "Katherine":"katerina","Katerina":"katerina","Катерина":"katerina",
+    "Bianca":"bianca","Бьянка":"bianca",
+    "Kunesh":"kunesh","Кунеш":"kunesh",
+    "Deutsch":"deutsch","Дойч":"deutsch",
+    "Roman":"roman","Роман":"roman",
+    "Matthew":"matthew","Матвей":"matthew",
+    "Fritz":"fritz","Фриц":"fritz",
+    "Ptacek":"ptacek","Птачек":"ptacek",
+    "Samuel":"samuel","Самуэль":"samuel",
+    "Peshek":"peshek","Пешек":"peshek",
+    "Miller":"miller","Мельник":"miller",
+    "Captain Bernard":"captain_bernard","Капитан Бернард":"captain_bernard",
+    "Robard":"robard","Робард":"robard",
+    "Ulrich":"ulrich","Ульрих":"ulrich",
+    "Zbyshek":"zbyshek","Збышек":"zbyshek",
+    "Vanyek":"vanyek","Ванек":"vanyek",
+    "Shepherd Nechuta":"nechuta","Пастушок Нехута":"nechuta",
+    "Guard":"guard","Стражник":"guard",
+    "Soldier":"soldier","Солдат":"soldier",
+    "Bandit":"bandit","Бандит":"bandit",
+    "Cuman":"cuman","Куман":"cuman",
+    "Peasant":"peasant","Крестьянин":"peasant",
+    "Farmer":"farmer","Фермер":"farmer",
+    "Hunter":"hunter","Охотники":"hunter",
+    "Fisherman":"fisherman","Рыбак":"fisherman",
+    "Shepherd":"shepherd","Пастух":"shepherd",
+    "Innkeeper":"innkeeper","Трактирщица":"innkeeper","Хозяйка":"innkeeper",
+    "Trader":"trader","Торговец":"trader",
+    "Tailor":"tailor","Портной":"tailor",
+    "Armorer":"armorer","Оружейник":"armorer",
+    "Blacksmith":"blacksmith","Кузнец":"blacksmith",
+    "Butcher":"butcher","Мясник":"butcher",
+    "Baker":"baker","Пекарь":"baker",
+    "Alchemist":"alchemist","Алхимик":"alchemist",
+    "Herbalist":"herbalist","Травник":"herbalist",
+    "Monk":"monk","Монах":"monk",
+    "Priest":"priest","Священник":"priest",
+    "Maid":"maid","Служанка":"maid","Служка":"maid","Служанка из корчмы":"maid","Служанка из Корчмы":"maid",
+    "Lady":"lady","Леди":"lady",
+    "Lord":"lord","Лорд":"lord",
+    "Drunkard":"drunkard","Пьяница":"drunkard",
+    "Beggar":"beggar","Нищий":"beggar",
+    "Gambler":"gambler","Игрок":"gambler",
+    "Jeweler":"jeweler","Ювелир":"jeweler",
+    "Cobbler":"cobbler","Сапожник":"cobbler",
+    "Locksmith":"locksmith","Замочник":"locksmith",
+    "Stablemaster":"stablemaster","Стаимистр":"stablemaster",
+    "Executioner":"executioner","Палач":"executioner",
+    "Bohuta":"bohuta","Богута":"bohuta",
+    "Brabant":"brabant","Брабант":"brabant",
+    "Musa":"musa","Муса":"musa",
+    "Roza":"roza","Роза":"roza",
+    "Kozlik":"kozlik","Козлик":"kozlik",
+    "Komar":"komar","Комар":"komar",
+    "Pista":"pista","Писта":"pista",
+    "Podkoni":"podkoni","Подконный":"podkoni",
+    "Rychtar":"rychtar","Рихтар":"rychtar",
+    "Jan":"jan","Ян":"jan",
+    "Michal":"michal","Михал":"michal",
+    "Hejtman":"hejtman","Гейтман":"hejtman",
+    "Petr":"petr","Петр":"petr",
+    "Procek":"procek","Процек":"procek",
+    "Francek":"francek","Францек":"francek",
+    "Bolek":"bolek","Болек":"bolek",
+    "Kona":"kona","Кона":"kona",
+    "Olbram":"olbram","Олбрам":"olbram",
+    "Anton":"anton","Антон":"anton",
+    "Erik":"erik","Эрик":"erik",
+    "Dcera":"dcera","Дочь":"dcera",
+    "Kubenka":"kubenka","Кубенка":"kubenka",
+    "Jindrichu":"jindrichu","Йиндржиху":"jindrichu",
+    "Zizka":"zizka","Жижка":"zizka",
+    "Tomlin":"tomlin","Томлин":"tomlin",
+    "Mlada":"mlada","Млада":"mlada",
+    "Marketa":"marketa","Маркета":"marketa",
+    "Komori":"komori","Комори":"komori",
+    "Vajda":"vajda","Вайда":"vajda",
+    "Markrabe":"markrabe","Маркрабе":"markrabe",
+    "Jost":"jost","Йост":"jost",
+    "Arne":"arne","Арне":"arne",
+    "Kozeluh":"kozeluh","Козелух":"kozeluh",
+    "Obchodnic":"obchodnic","Обходник":"obchodnic","Торговец":"obchodnic",
+    "Ota":"ota","Ота":"ota",
+    "Stepan":"stepan","Степан":"stepan",
+    "Vazoun":"vazoun","Вазоун":"vazoun",
+    "Hanus":"hanus","Ганус":"hanus",
+    "Pan":"pan","Пан":"pan",
+    "Cenek":"cenek","Ценек":"cenek",
+    "Lichtenst":"lichtenst","Лихтенштейн":"lichtenst",
+    "Kristian":"kristian","Кристиан":"kristian",
+    "Leopold":"leopold","Леопольд":"leopold",
+    "Bonka":"bonka","Бонка":"bonka",
+    "Bures":"bures","Бурес":"bures",
+    "Marian":"marian","Мариан":"marian",
+    "Lovci":"lovci","Охотники":"lovci",
+    "Hajny":"hajny","Гайны":"hajny",
+    "Pavlena":"pavlena","Павлена":"pavlena",
+    "Herman":"herman","Герман":"herman",
+    "Bocek":"bocek","Бочек":"bocek",
+    "Bozena":"bozena","Божена":"bozena",
+    "Svatava":"svatava","Сватава":"svatava",
+    "Kutnohors":"kutnohors","Кутногорск":"kutnohors",
+    "Menhart":"menhart","Менхарт":"menhart",
+    "Hospodyne":"hospodyne","Хозяйка":"hospodyne","Трактирщица":"hospodyne",
+    "Kovar":"kovar","Кузнец":"kovar",
+    "Stajmistr":"stajmistr","Стаимистр":"stajmistr",
+    "Kucharka":"kucharka","Кухарка":"kucharka"
+  };
+  const NPC_ID_TO_NAME = {};
+  for (const [name, id] of Object.entries(NPC_NAME_TO_ID)) {
+    if (!NPC_ID_TO_NAME[id]) NPC_ID_TO_NAME[id] = name;
+  }
+
+  const _allNames = Array.from(document.querySelectorAll('#npc-names-list option')).map(o => o.value);
+  _allNames.sort((a,b) => {
+    const aCyr = /[а-яА-ЯЁё]/.test(a);
+    const bCyr = /[а-яА-ЯЁё]/.test(b);
+    return bCyr - aCyr;
+  });
+  const NPC_NAME_OPTIONS = [];
+  const _seenIds = new Set();
+  for (const name of _allNames) {
+    const id = NPC_NAME_TO_ID[name];
+    if (id && !_seenIds.has(id)) { _seenIds.add(id); NPC_NAME_OPTIONS.push(name); }
+    else if (!id && !_seenIds.has(name)) { _seenIds.add(name); NPC_NAME_OPTIONS.push(name); }
+  }
+  let _npcComboId = 0;
+
+  // --- Per-NPC voice assignments ---
+  function addNpcVoiceRow(npcName='', provider='elevenlabs', voice='', npcId='') {
+    const container = document.getElementById('npc-voices-list');
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; gap:6px; align-items:center; flex-wrap:wrap;';
+    row.className = 'npc-voice-row';
+    const comboId = 'npc-name-' + (_npcComboId++);
+    row.innerHTML = `
+      <div style="flex:1 1 140px; min-width:100px;">
+        <input type="text" id="${comboId}" class="npc-name" placeholder="NPC name" value="${escapeHtml(npcName)}" autocomplete="off" oninput="onNpcNameChange(this)">
+        <input type="hidden" class="npc-id" value="${escapeHtml(npcId)}">
+      </div>
+      <select class="npc-provider" onchange="onNpcProviderChange(this)" style="flex:0 0 120px;">
+        <option value="edge" ${provider==='edge'?'selected':''}>Edge</option>
+        <option value="elevenlabs" ${provider==='elevenlabs'?'selected':''}>ElevenLabs</option>
+        <option value="openai" ${provider==='openai'?'selected':''}>OpenAI</option>
+      </select>
+      <div class="npc-voice-wrap" style="flex:1 1 140px; min-width:100px;">
+        ${buildVoiceInput(provider, voice)}
+      </div>
+      <button type="button" class="btn btn-sm icon-btn" onclick="this.closest('.npc-voice-row').remove()" title="Remove" style="width:34px; min-width:34px; padding:4px 0;"><span style="display:inline-block; font-size:18px; line-height:1;">×</span></button>
+    `;
+    container.appendChild(row);
+    makeCombo(comboId, NPC_NAME_OPTIONS);
+    if (npcName && !npcId) {
+      onNpcNameChange(row.querySelector('.npc-name'));
+    }
+  }
+
+  function onNpcNameChange(input) {
+    const row = input.closest('.npc-voice-row');
+    const idField = row.querySelector('.npc-id');
+    const name = input.value.trim();
+    idField.value = NPC_NAME_TO_ID[name] || name;
+  }
+
+  function buildVoiceInput(provider, voice) {
+    if (provider === 'edge') {
+      return `<select class="npc-voice-input" style="width:100%;">
+          <option value="">-- Edge voice --</option>
+          <option value="ru-RU-DmitryNeural" ${voice==='ru-RU-DmitryNeural'?'selected':''}>ru-RU-DmitryNeural (М)</option>
+          <option value="ru-RU-SvetlanaNeural" ${voice==='ru-RU-SvetlanaNeural'?'selected':''}>ru-RU-SvetlanaNeural (Ж)</option>
+          <option value="en-GB-RyanNeural" ${voice==='en-GB-RyanNeural'?'selected':''}>en-GB-RyanNeural (М)</option>
+          <option value="en-GB-SoniaNeural" ${voice==='en-GB-SoniaNeural'?'selected':''}>en-GB-SoniaNeural (Ж)</option>
+          <option value="en-US-GuyNeural" ${voice==='en-US-GuyNeural'?'selected':''}>en-US-GuyNeural (М)</option>
+          <option value="en-US-JennyNeural" ${voice==='en-US-JennyNeural'?'selected':''}>en-US-JennyNeural (Ж)</option>
+          <option value="cs-CZ-AntoninNeural" ${voice==='cs-CZ-AntoninNeural'?'selected':''}>cs-CZ-AntoninNeural (М)</option>
+          <option value="de-DE-ConradNeural" ${voice==='de-DE-ConradNeural'?'selected':''}>de-DE-ConradNeural (М)</option>
+          <option value="pl-PL-MarekNeural" ${voice==='pl-PL-MarekNeural'?'selected':''}>pl-PL-MarekNeural (М)</option>
+        </select>`;
+    } else if (provider === 'openai') {
+      return `<select class="npc-voice-input" style="width:100%;">
+          <option value="">-- OpenAI voice --</option>
+          <option value="alloy" ${voice==='alloy'?'selected':''}>alloy</option>
+          <option value="echo" ${voice==='echo'?'selected':''}>echo</option>
+          <option value="fable" ${voice==='fable'?'selected':''}>fable</option>
+          <option value="onyx" ${voice==='onyx'?'selected':''}>onyx</option>
+          <option value="nova" ${voice==='nova'?'selected':''}>nova</option>
+          <option value="shimmer" ${voice==='shimmer'?'selected':''}>shimmer</option>
+        </select>`;
+    } else {
+      return `<input type="text" class="npc-voice-input" placeholder="Voice ID" value="${escapeHtml(voice)}" style="width:100%;">`;
+    }
+  }
+
+  function onNpcProviderChange(select) {
+    const row = select.closest('.npc-voice-row');
+    const wrap = row.querySelector('.npc-voice-wrap');
+    const provider = select.value;
+    wrap.innerHTML = buildVoiceInput(provider, '');
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function loadNpcVoices(npcVoices) {
+    const container = document.getElementById('npc-voices-list');
+    container.innerHTML = '';
+    if (!npcVoices || typeof npcVoices !== 'object') return;
+    for (const [key, map] of Object.entries(npcVoices)) {
+      if (typeof map === 'object' && map !== null) {
+        for (const [provider, voice] of Object.entries(map)) {
+          // key might be an NPC ID — try to find display name
+          const displayName = NPC_ID_TO_NAME[key] || key;
+          addNpcVoiceRow(displayName, provider, voice, key);
+        }
+      }
+    }
+  }
+
+  function collectNpcVoices() {
+    const out = {};
+    document.querySelectorAll('.npc-voice-row').forEach(row => {
+      const id = row.querySelector('.npc-id').value.trim();
+      const name = row.querySelector('.npc-name').value.trim();
+      const provider = row.querySelector('.npc-provider').value;
+      const voiceInput = row.querySelector('.npc-voice-input');
+      const voice = voiceInput ? voiceInput.value.trim() : '';
+      if (!name && !id) return;
+      if (!voice) return;
+      const key = id || name;
+      if (!out[key]) out[key] = {};
+      out[key][provider] = voice;
+    });
+    return out;
   }
 
   async function saveHudFlags() {
@@ -1975,6 +2437,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
               openai_voice_female: document.getElementById('tts-oai-voice-female').value,
               openai_api_key:     document.getElementById('tts-oai-key').value.trim(),
               volume:             parseFloat(document.getElementById('tts-volume').value),
+              npc_voices:         collectNpcVoices(),
             };
           })(),
           stt: _collectSttForm(),
@@ -2162,6 +2625,9 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       tts_test: '\u0422\u0435\u0441\u0442 TTS',
       tts_on: '\u0432\u043a\u043b\u044e\u0447\u0435\u043d\u0430',
       tts_off: '\u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u0430',
+      tts_npc_voices: '\u0413\u043e\u043b\u043e\u0441\u0430 NPC (\u043f\u043e \u0438\u043c\u0435\u043d\u0438)',
+      tts_add_npc_voice: '+ \u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c NPC',
+      tts_npc_voices_hint: '\u041a\u0430\u0436\u0434\u043e\u043c\u0443 NPC \u043c\u043e\u0436\u043d\u043e \u043d\u0430\u0437\u043d\u0430\u0447\u0438\u0442\u044c \u0441\u0432\u043e\u0439 voice ID. \u0415\u0441\u043b\u0438 \u043f\u043e\u043b\u0435 \u043f\u0443\u0441\u0442\u043e\u0435 \u2014 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u0442\u0441\u044f \u0433\u043e\u043b\u043e\u0441 \u043f\u043e \u0443\u043c\u043e\u043b\u0447\u0430\u043d\u0438\u044e (\u043f\u043e \u043f\u043e\u043b\u0443).',
       hud_title: '\u041e\u0442\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435 HUD',
       hud_ai_text: '\u0422\u0435\u043a\u0441\u0442\u043e\u0432\u044b\u0435 \u043e\u0442\u0432\u0435\u0442\u044b \u0418\u0418',
       hud_ai_text_hint: '\u041f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0442\u044c \u0442\u0435\u043a\u0441\u0442 \u043e\u0442\u0432\u0435\u0442\u0430 NPC.',
@@ -2203,6 +2669,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       chat_key: '\u041a\u043b\u0430\u0432\u0438\u0448\u0430 AI-\u0447\u0430\u0442\u0430',
       chat_key_hint: '\u041f\u043e \u0443\u043c\u043e\u043b\u0447\u0430\u043d\u0438\u044e: v. \u042d\u0442\u0430 \u043a\u043b\u0430\u0432\u0438\u0448\u0430 \u043e\u0442\u043a\u0440\u044b\u0432\u0430\u0435\u0442 \u0438 \u0437\u0430\u043a\u0440\u044b\u0432\u0430\u0435\u0442 AI-\u0447\u0430\u0442. \u041f\u0440\u0438\u043c\u0435\u0440\u044b:',
       chat_key_hint_2: '\u0421\u043e\u0445\u0440\u0430\u043d\u044f\u0435\u0442\u0441\u044f \u0432 Data\\Libs\\Config\\ai_npc_actions.xml. \u041f\u043e\u0441\u043b\u0435 \u0441\u043c\u0435\u043d\u044b \u043d\u0443\u0436\u0435\u043d \u0440\u0435\u0441\u0442\u0430\u0440\u0442/\u043f\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0430 \u0438\u0433\u0440\u043e\u0432\u044b\u0445 \u0441\u043a\u0440\u0438\u043f\u0442\u043e\u0432.',
+      chat_key_english_note: '\u0412\u0432\u043e\u0434\u0438\u0442\u0435 \u043a\u043b\u0430\u0432\u0438\u0448\u0443 \u0442\u043e\u043b\u044c\u043a\u043e \u043d\u0430 \u0430\u043d\u0433\u043b\u0438\u0439\u0441\u043a\u043e\u043c (\u043b\u0430\u0442\u0438\u043d\u0438\u0446\u0435\u0439). \u041d\u0435 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439\u0442\u0435 \u0440\u0443\u0441\u0441\u043a\u0438\u0435 / \u043a\u0438\u0440\u0438\u043b\u043b\u0438\u0447\u0435\u0441\u043a\u0438\u0435 \u0441\u0438\u043c\u0432\u043e\u043b\u044b.',
       end_key: '\u041e\u0442\u0434\u0435\u043b\u044c\u043d\u0430\u044f \u043a\u043b\u0430\u0432\u0438\u0448\u0430 \u0437\u0430\u043a\u0440\u044b\u0442\u0438\u044f',
       overlay_enabled: '\u041f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0442\u044c \u043e\u043a\u043d\u043e \u0432\u0432\u043e\u0434\u0430',
       overlay_on: '\u0412\u043a\u043b',
@@ -2318,6 +2785,9 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       tts_test: 'Test TTS',
       tts_on: 'enabled',
       tts_off: 'disabled',
+      tts_npc_voices: 'NPC voices (by name)',
+      tts_add_npc_voice: '+ Add NPC',
+      tts_npc_voices_hint: 'Each NPC can be assigned a custom voice ID. Empty fields fall back to the gender default.',
       hud_title: 'HUD display',
       hud_ai_text: 'AI text responses',
       hud_ai_text_hint: 'Show NPC response text.',
@@ -2359,6 +2829,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       chat_key: 'AI chat key',
       chat_key_hint: 'Default: v. This key toggles AI chat open/closed. Examples:',
       chat_key_hint_2: 'Saved to Data\\Libs\\Config\\ai_npc_actions.xml. Restart/reload game scripts after changing.',
+      chat_key_english_note: 'Enter the key in English (Latin) letters only. Do not use Russian/Cyrillic characters.',
       end_key: 'Optional separate end key',
       overlay_enabled: 'Show input overlay',
       overlay_on: 'On',
@@ -2390,7 +2861,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       testing: 'Testuji...', saving: 'Uloženo', save_ok_msg: 'Nastavení použito — restart není potřeba', save_err: 'Chyba ukládání', online: 'Online', offline: 'Offline', error: 'Chyba', offline_msg: 'Server neodpovídá', model_label: 'Model:', tts_ok_msg: 'Audio se přehrává', llm_ok_msg: 'Odpověď přijata', llm_err: 'Chyba LLM', tts_err: 'Chyba TTS',
       tts_title: 'Nastavení TTS', tts_enabled: 'Hlas NPC', tts_engine: 'Engine', tts_voice: 'Mužský hlas', tts_voice_female: 'Ženský hlas', tts_volume: 'Hlasitost', tts_voices_hint: 'Hlasy:', tts_test: 'Test TTS', tts_on: 'zapnuto', tts_off: 'vypnuto',
       hud_title: 'Zobrazení HUD', hud_left_top: 'Vlevo nahoře (štítek)', hud_right_top: 'Vpravo nahoře (oznámení)', hud_center: 'Uprostřed (titulek)',
-      input_title: 'Vstup / klávesy', chat_key: 'Klávesa AI chatu', end_key: 'Volitelná klávesa zavření', overlay_enabled: 'Zobrazit vstupní overlay', overlay_on: 'Zap', overlay_off: 'Vyp', overlay_style: 'Styl vstupního okna', overlay_style_kcd: 'KCD2 (pergamen + zlato)', overlay_style_plain: 'Jednoduchý (tmavý)'
+      input_title: 'Vstup / klávesy', chat_key: 'Klávesa AI chatu', chat_key_english_note: 'Zadejte klávesu pouze v angličtině (latinka). Nepoužívejte ruské/kyrilické znaky.', end_key: 'Volitelná klávesa zavření', overlay_enabled: 'Zobrazit vstupní overlay', overlay_on: 'Zap', overlay_off: 'Vyp', overlay_style: 'Styl vstupního okna', overlay_style_kcd: 'KCD2 (pergamen + zlato)', overlay_style_plain: 'Jednoduchý (tmavý)'
     },
     de: { ...I18N.en,
       title: 'KCD2 AI NPC — Einstellungen', sub: '127.0.0.1:4999 · Serverkonfiguration · v0.1.0',
@@ -2405,7 +2876,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       testing: 'Teste...', saving: 'Gespeichert', save_ok_msg: 'Einstellungen angewendet — kein Neustart nötig', save_err: 'Speicherfehler', online: 'Online', offline: 'Offline', error: 'Fehler', offline_msg: 'Server antwortet nicht', model_label: 'Modell:', tts_ok_msg: 'Audio wird abgespielt', llm_ok_msg: 'Antwort erhalten', llm_err: 'LLM-Fehler', tts_err: 'TTS-Fehler',
       tts_title: 'TTS-Einstellungen', tts_enabled: 'NPC-Stimme', tts_engine: 'Engine', tts_voice: 'Männliche Stimme', tts_voice_female: 'Weibliche Stimme', tts_volume: 'Lautstärke', tts_voices_hint: 'Stimmen:', tts_test: 'TTS testen', tts_on: 'aktiviert', tts_off: 'deaktiviert',
       hud_title: 'HUD-Anzeige', hud_left_top: 'Oben links (Tafel)', hud_right_top: 'Oben rechts (Benachrichtigung)', hud_center: 'Mitte (Untertitel)',
-      input_title: 'Eingabe / Tasten', chat_key: 'AI-Chat-Taste', end_key: 'Optionale Schließen-Taste', overlay_enabled: 'Eingabe-Overlay anzeigen', overlay_on: 'Ein', overlay_off: 'Aus', overlay_style: 'Stil des Eingabefensters', overlay_style_kcd: 'KCD2 (Pergament + Gold)', overlay_style_plain: 'Einfach (dunkel)'
+      input_title: 'Eingabe / Tasten', chat_key: 'AI-Chat-Taste', chat_key_english_note: 'Taste nur auf Englisch (Latein) eingeben. Keine russischen/kyrillischen Zeichen verwenden.', end_key: 'Optionale Schließen-Taste', overlay_enabled: 'Eingabe-Overlay anzeigen', overlay_on: 'Ein', overlay_off: 'Aus', overlay_style: 'Stil des Eingabefensters', overlay_style_kcd: 'KCD2 (Pergament + Gold)', overlay_style_plain: 'Einfach (dunkel)'
     },
     fr: { ...I18N.en,
       title: 'KCD2 AI NPC — Paramètres', sub: '127.0.0.1:4999 · configuration serveur · v0.1.0',
@@ -2578,15 +3049,26 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
   const MODEL_OPTIONS = {
     groq:       ['llama-3.3-70b-versatile','llama-3.1-70b-versatile','llama-3.1-8b-instant','mixtral-8x7b-32768','gemma2-9b-it'],
     openai:     ['gpt-4o-mini','gpt-4o','gpt-4-turbo','gpt-3.5-turbo'],
+    nvidia:     ['meta/llama3-70b-instruct','meta/llama3-8b-instruct','nvidia/llama-3.1-nemotron-70b-instruct','mistralai/mistral-7b-instruct-v0.3'],
+    google:     ['gemini-1.5-flash','gemini-1.5-pro','gemini-1.5-pro-latest','gemini-1.5-flash-8b'],
+    github:     ['gpt-4o-mini','gpt-4o','meta-llama-3.1-70b-instruct','meta-llama-3.1-8b-instruct','mistral-large-2407'],
+    cohere:     ['command-r','command-r-plus','command-a-03-2025','command-r-08-2024','command-r-plus-08-2024','command-r7b-12-2024'],
+    cerebras:   ['llama-3.3-70b','llama3.1-8b'],
+    mistral:    ['mistral-large-latest','mistral-medium-latest','mistral-small-latest','open-mistral-7b'],
     ollama:     ['llama3.1:8b','llama3.1:70b','mistral:7b','qwen2.5:7b','gemma2:9b','phi3:mini'],
     lmstudio:   ['local-model'],
     openrouter: ['meta-llama/llama-3.3-70b-instruct:free','meta-llama/llama-3.1-8b-instruct:free','mistralai/mixtral-8x7b-instruct','google/gemma-2-9b-it:free'],
-    mistral:    ['mistral-small-latest','mistral-medium-latest','mistral-large-latest','open-mistral-7b'],
   };
   function getModelOpts() {
     const url = (document.getElementById('api-url')?.value||'').toLowerCase();
     if (url.includes('groq'))       return MODEL_OPTIONS.groq;
     if (url.includes('openai.com')) return MODEL_OPTIONS.openai;
+    if (url.includes('nvidia'))     return MODEL_OPTIONS.nvidia;
+    if (url.includes('google'))     return MODEL_OPTIONS.google;
+    if (url.includes('inference.ai')||url.includes('github')) return MODEL_OPTIONS.github;
+    if (url.includes('cohere'))     return MODEL_OPTIONS.cohere;
+    if (url.includes('cerebras'))   return MODEL_OPTIONS.cerebras;
+    if (url.includes('mistral') && !url.includes('openrouter')) return MODEL_OPTIONS.mistral;
     if (url.includes('11434'))      return MODEL_OPTIONS.ollama;
     if (url.includes('1234'))       return MODEL_OPTIONS.lmstudio;
     if (url.includes('openrouter')) return MODEL_OPTIONS.openrouter;
@@ -2597,10 +3079,15 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
   makeCombo('api-url', [
     'https://api.groq.com/openai/v1',
     'https://api.openai.com/v1',
+    'https://integrate.api.nvidia.com/v1',
+    'https://generativelanguage.googleapis.com/v1beta/openai/',
+    'https://models.inference.ai.azure.com',
+    'https://api.cohere.ai/v1',
+    'https://api.cerebras.ai/v1',
+    'https://api.mistral.ai/v1',
     'http://localhost:11434/v1',
     'https://openrouter.ai/api/v1',
     'http://localhost:1234/v1',
-    'https://api.mistral.ai/v1',
     'https://api.together.xyz/v1',
   ]);
   makeCombo('model', getModelOpts());
