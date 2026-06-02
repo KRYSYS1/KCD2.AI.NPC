@@ -650,6 +650,14 @@ local function build_npc_from_entity(ent)
         context_lines[#context_lines + 1] = "Health: " .. tostring(health)
     end
 
+    local npc_pos = nil
+    if ent.GetPos then
+        local ok_pos, pos = pcall(ent.GetPos, ent)
+        if ok_pos and pos then
+            npc_pos = { x = pos.x or 0, y = pos.y or 0, z = pos.z or 0 }
+        end
+    end
+
     return {
         id = tostring(ent.id or entity_token or "unknown"),
         name = chosen_name or (entity_token or "Villager"),
@@ -664,6 +672,7 @@ local function build_npc_from_entity(ent)
         gender = gender,
         soul_name_key = soul_name_key,
         extra_context = table.concat(context_lines, "\n"),
+        pos = npc_pos,
     }
 end
 
@@ -924,7 +933,9 @@ local function get_targeted_npc()
     local hitData = {}
     local max_hits = 16
     local hits = Physics.RayWorldIntersection(from, dir, max_hits, entMask, skip, nil, hitData)
-    if not hits or hits <= 0 then return nil end
+    if not hits or hits <= 0 then
+            return nil
+    end
 
     local hit = nil
     local resolved = nil
@@ -941,13 +952,23 @@ local function get_targeted_npc()
             end
         end
     end
-    if not hit or not resolved then return nil end
+    if not hit or not resolved then
+        return nil
+    end
 
     -- Make sure the "Поговорить" prompt is attached to this entity going
     -- forward (in case the poll-side scanner hasn't injected it yet).
     inject_ai_interaction(resolved)
 
-    local npc = build_npc_from_entity(resolved)
+    local ok_npc, npc = pcall(build_npc_from_entity, resolved)
+    if not ok_npc then
+        System.LogAlways("[AI NPC] build_npc_from_entity crashed: " .. tostring(npc))
+        return nil
+    end
+    if not npc then
+        System.LogAlways("[AI NPC] build_npc_from_entity returned nil for entity=" .. tostring(resolved and resolved.id or "?"))
+        return nil
+    end
     if npc and hit.dist ~= nil then
         npc.target_distance = hit.dist
         npc.extra_context = (npc.extra_context ~= "" and (npc.extra_context .. "\n") or "") .. "Target distance: " .. tostring(hit.dist)
@@ -1025,6 +1046,25 @@ function AI_NPC_TargetDebug()
     System.LogAlways("[AI NPC] TARGET_DEBUG|" .. msg)
 end
 
+local function _get_player_pos_fwd()
+    local player_pos = nil
+    local player_fwd = nil
+    local p = get_player_entity()
+    if p and p.GetPos then
+        local ok_pp, pp = pcall(p.GetPos, p)
+        if ok_pp and pp then
+            player_pos = { x = pp.x or 0, y = pp.y or 0, z = pp.z or 0 }
+        end
+    end
+    if System and System.GetViewCameraDir then
+        local ok_vf, vf = pcall(System.GetViewCameraDir)
+        if ok_vf and vf then
+            player_fwd = { x = vf.x or 0, y = vf.y or 0, z = vf.z or 0 }
+        end
+    end
+    return player_pos, player_fwd
+end
+
 local function npc_debug_probe(npc)
     if not npc then return end
     local actions = {}
@@ -1048,6 +1088,7 @@ local function npc_debug_probe(npc)
             compact_actions[#compact_actions + 1] = item
         end
     end
+    local player_pos, player_fwd = _get_player_pos_fwd()
     System.LogAlways("[AI NPC] TARGET|" .. json.encode({
         id = npc.id,
         name = npc.name,
@@ -1058,6 +1099,9 @@ local function npc_debug_probe(npc)
         soul_name_key = npc.soul_name_key,
         target_distance = npc.target_distance,
         recent_player_actions = compact_actions,
+        npc_pos = npc.pos,
+        player_pos = player_pos,
+        player_fwd = player_fwd,
     }))
     if npc.extra_context and npc.extra_context ~= "" then
         System.LogAlways("[AI NPC] TARGET_CTX|" .. tostring(npc.extra_context):gsub("\n", " | "))
@@ -1090,44 +1134,75 @@ if _G.__ai_npc_hud_narrator_left == nil then _G.__ai_npc_hud_narrator_left = fal
 if _G.__ai_npc_hud_narrator_right == nil then _G.__ai_npc_hud_narrator_right = true end
 if _G.__ai_npc_hud_narrator_center == nil then _G.__ai_npc_hud_narrator_center = false end
 
+--[[ Disabled: world-space floating text is not available in KCD2 Lua.
+-- Show text above an entity's head (world-space).
+-- NOTE: KCD2 Lua has no native floating 3D text / overhead API.
+local function show_text_above_entity(entity, text, duration)
+    if not entity or not text or text == "" then return end
+    duration = duration or 5000
+    if Game and type(Game.SendInfoText) == "function" then
+        local sec = math.max(3, math.floor(duration / 1000))
+        pcall(Game.SendInfoText, text, false, 0, sec)
+    end
+end
+--]]
+
 -- ui_show(message, duration, opts)
 -- opts.service = true  -> force ONLY top-right notification (no center subtitle,
---                        no left tutorial). Use for non-roleplay UX strings:
---                        "разговор с X", "разговор завершён", error toasts.
+--                        no left tutorial). Use for non-roleplay UX strings.
+-- opts.entity = entity_ref -> for world-space text above NPC.
 local function ui_show(message, duration, opts)
     duration = duration or 8000
     opts = opts or {}
     local service_only = opts.service == true
     local text = tostring(message)
     local show_left = (not service_only) and (_G.__ai_npc_hud_left ~= false)
-    local show_right = _G.__ai_npc_hud_right ~= false
+    local show_right = (_G.__ai_npc_hud_right ~= false)
     local show_center = (not service_only) and (_G.__ai_npc_hud_center ~= false)
+    local show_world = false -- disabled: no native KCD2 Lua API for floating 3D text
+    local show_bottom = false -- disabled: Game.SendInfoText requires localization key, raw text fails silently
     System.LogAlways(string.format(
-        "[AI NPC] HUD: left=%s right=%s center=%s service=%s text=%s",
+        "[AI NPC] HUD: left=%s right=%s center=%s world=%s bottom=%s service=%s text=%s",
         tostring(show_left), tostring(show_right), tostring(show_center),
-        tostring(service_only), text
+        tostring(show_world), tostring(show_bottom), tostring(service_only), text
     ))
 
-    -- Center-bottom: italic gold subtitle with ornament.
+    --[[ Disabled features: world-space text and bottom info text
+    -- 1) World-space white text above NPC
+    if show_world and opts.entity then
+        show_text_above_entity(opts.entity, text, duration)
+    end
+
+    -- 2) Bottom white info text (Game.SendInfoText)
+    if show_bottom and Game and type(Game.SendInfoText) == "function" then
+        local sec = math.max(3, math.floor(duration / 1000))
+        local ok, err = pcall(Game.SendInfoText, text, false, 0, sec)
+        if ok then
+            System.LogAlways("[AI NPC] HUD method ok: Game.SendInfoText (bottom)")
+        else
+            System.LogAlways("[AI NPC] HUD bottom error: " .. tostring(err))
+        end
+    end
+    --]]
+
+    -- 3) Standard gold HUD text (left, center, right)
     if show_center and Game and Game.ShowTutorial then
         local sec = math.max(1, math.floor(duration / 1000))
         local ok_tut, err_tut = pcall(Game.ShowTutorial, text, sec)
         if ok_tut then
-            System.LogAlways("[AI NPC] HUD method ok: Game.ShowTutorial (center)")
+            System.LogAlways("[AI NPC] HUD method ok: Game.ShowTutorial (gold)")
         else
             System.LogAlways("[AI NPC] HUD Game.ShowTutorial error: " .. tostring(err_tut))
         end
     end
 
     if UIAction and UIAction.CallFunction then
-        -- Each entry: {position_flag, element, method, args...}
         local candidates = {
             { show_center, "HUD", "ShowInfoText",        text, 10, duration, true },
             { show_left,   "HUD", "ShowTutorial",        "AI_NPC_Chat", text, duration, false, 0, 0, false, "" },
             { show_right,  "HUD", "SetNotificationText", text },
             { show_right,  "HUD", "ShowNotification",    text, duration },
         }
-
         for _, c in ipairs(candidates) do
             if c[1] then
                 local elem, method = c[2], c[3]
@@ -1233,6 +1308,7 @@ local function notify_active_npc()
         local actions = {}
         local ok_acts, acts = pcall(build_recent_player_actions, state.current_npc.id)
         if ok_acts and type(acts) == "table" then actions = acts end
+        local player_pos, player_fwd = _get_player_pos_fwd()
         System.LogAlways("[AI NPC] ACTIVE|" .. json.encode({
             npc_id = state.current_npc.id,
             npc_name = state.current_npc.name,
@@ -1242,6 +1318,9 @@ local function notify_active_npc()
             extra_context = state.current_npc.extra_context,
             recent_player_actions = actions,
             gender = state.current_npc.gender,
+            npc_pos = state.current_npc.pos,
+            player_pos = player_pos,
+            player_fwd = player_fwd,
         }))
     else
         System.LogAlways("[AI NPC] ACTIVE|{}")
@@ -2025,6 +2104,99 @@ local function handle_scene_action(scene, fallback_npc_name)
     end
 end
 
+function AI_NPC_TestWorldText(text)
+    text = tostring(text or "")
+    if text == "" then
+        text = "Тестовый текст над NPC"
+    end
+    local npc = state.current_npc
+    if not npc then
+        ui_show("No active NPC. Hover over an NPC and start chat first.", 4000, { service = true })
+        return
+    end
+    local ent = npc.entity_ref
+    if not ent then
+        ui_show("Active NPC has no entity ref.", 4000, { service = true })
+        return
+    end
+    show_text_above_entity(ent, text, 7000)
+end
+
+-- Test multiple world-space text APIs and log which one works.
+-- Usage: ai_test_world_text_methods "Hello" (or no args for default)
+function AI_NPC_TestWorldTextMethods(text)
+    text = tostring(text or "")
+    if text == "" then
+        text = "Тест world-space"
+    end
+    local npc = state.current_npc
+    if not npc then
+        ui_show("No active NPC. Hover and start chat first.", 4000, { service = true })
+        return
+    end
+    local ent = npc.entity_ref
+    if not ent then
+        ui_show("Active NPC has no entity ref.", 4000, { service = true })
+        return
+    end
+
+    System.LogAlways("[AI NPC] ===== WORLD TEXT TEST START =====")
+
+    -- Method 1: CryAction.SendGameplayEvent entity bound
+    if CryAction and type(CryAction.SendGameplayEvent) == "function" then
+        local ok, err = pcall(CryAction.SendGameplayEvent, ent.id, "ShowInfoText", text, 7000)
+        System.LogAlways("[AI NPC] World text TEST 1 (CryAction SGPE entity): " .. (ok and "OK" or "FAIL: " .. tostring(err)))
+    else
+        System.LogAlways("[AI NPC] World text TEST 1: CryAction unavailable")
+    end
+
+    -- Method 2: CryAction.SendGameplayEvent on player (0)
+    if CryAction and type(CryAction.SendGameplayEvent) == "function" then
+        local ok, err = pcall(CryAction.SendGameplayEvent, 0, "ShowInfoText", text, 7000)
+        System.LogAlways("[AI NPC] World text TEST 2 (CryAction SGPE player): " .. (ok and "OK" or "FAIL: " .. tostring(err)))
+    end
+
+    -- Method 3: CryAction.SetSubtitle (bottom white text)
+    if CryAction and type(CryAction.SetSubtitle) == "function" then
+        local ok3, err3 = pcall(CryAction.SetSubtitle, 0, text, 7)
+        System.LogAlways("[AI NPC] World text TEST 3 (CryAction.SetSubtitle): " .. (ok3 and "OK" or "FAIL: " .. tostring(err3)))
+    else
+        System.LogAlways("[AI NPC] World text TEST 3: CryAction.SetSubtitle unavailable")
+    end
+
+    -- Method 3b: Game.SendInfoText with localization key
+    if Game and type(Game.SendInfoText) == "function" then
+        local ok3b, err3b = pcall(Game.SendInfoText, "@ui_hud_succes", false, 0, 3)
+        System.LogAlways("[AI NPC] World text TEST 3b (SendInfoText loc key): " .. (ok3b and "OK" or "FAIL: " .. tostring(err3b)))
+    else
+        System.LogAlways("[AI NPC] World text TEST 3b: Game.SendInfoText unavailable")
+    end
+
+    -- Method 4: UIAction.CallFunction HUD ShowInfoText
+    if UIAction and UIAction.CallFunction then
+        local ok, err = pcall(UIAction.CallFunction, "HUD", -1, "ShowInfoText", text, 10, 7000, true)
+        System.LogAlways("[AI NPC] World text TEST 4 (UIAction ShowInfoText): " .. (ok and "OK" or "FAIL: " .. tostring(err)))
+    else
+        System.LogAlways("[AI NPC] World text TEST 4: UIAction unavailable")
+    end
+
+    -- Method 5: Game.ShowTutorial
+    if Game and type(Game.ShowTutorial) == "function" then
+        local ok, err = pcall(Game.ShowTutorial, text, 7)
+        System.LogAlways("[AI NPC] World text TEST 5 (Game.ShowTutorial): " .. (ok and "OK" or "FAIL: " .. tostring(err)))
+    else
+        System.LogAlways("[AI NPC] World text TEST 5: Game.ShowTutorial unavailable")
+    end
+
+    -- Method 6: UIAction.CallFunction HUD ShowTutorial
+    if UIAction and UIAction.CallFunction then
+        local ok, err = pcall(UIAction.CallFunction, "HUD", -1, "ShowTutorial", "AI_NPC_Test", text, 7000, false, 0, 0, false, "")
+        System.LogAlways("[AI NPC] World text TEST 6 (UIAction ShowTutorial): " .. (ok and "OK" or "FAIL: " .. tostring(err)))
+    end
+
+    System.LogAlways("[AI NPC] ===== WORLD TEXT TEST END =====")
+end
+
 function AI_NPC_HandleResponse(npc_name, response_text, request_id, scene)
     local rid = tonumber(request_id) or 0
     if _G.__ai_npc_swallow_only then
@@ -2081,7 +2253,9 @@ function AI_NPC_HandleResponse(npc_name, response_text, request_id, scene)
     end
 
     local label = npc_display_name(npc_name_for_msg, npc_class_for_msg)
-    ui_show(label .. ": " .. text, 12000)
+    local ent = state.current_npc and state.current_npc.entity_ref or nil
+    ui_show(label .. ": " .. text, 12000, { entity = ent })
+
     handle_scene_action(scene, npc_name_for_msg)
     System.LogAlways("[AI NPC] RESPONSE id=" .. tostring(rid) .. " npc=" .. tostring(npc_name_for_msg))
 end
@@ -2370,6 +2544,7 @@ local function send_message(text)
     state.last_request_entity_ref = state.current_npc.entity_ref
     ui_show("Вы: " .. tostring(text), 5000)
 
+    local player_pos, player_fwd = _get_player_pos_fwd()
     local request_data = {
         npc_id = state.current_npc.id,
         npc_name = state.current_npc.name,
@@ -2378,6 +2553,9 @@ local function send_message(text)
         player_message = text,
         extra_context = state.current_npc.extra_context or "",
         recent_player_actions = build_recent_player_actions(state.current_npc.id),
+        npc_pos = state.current_npc.pos,
+        player_pos = player_pos,
+        player_fwd = player_fwd,
         request_id = 0,
     }
 
@@ -3971,6 +4149,8 @@ if System and System.AddCCommand then
     local ok_diag_restore_initial = pcall(System.AddCCommand, "ai_npc_test_clothing_restore_initial", "AI_NPC_TestClothingRestoreInitial()", "Restore targeted NPC initial clothing preset")
     local ok_diag_clothing_cycle = pcall(System.AddCCommand, "ai_npc_test_clothing_cycle", "AI_NPC_TestClothingCycle(%line)", "Cycle known clothing preset GUID candidates on targeted NPC")
     local ok_diag_cheat_clothes = pcall(System.AddCCommand, "ai_npc_test_cheat_clothes", "AI_NPC_TestCheatClothes()", "Test cheat clothes EquipInventoryItem on targeted NPC")
+    local ok_test_world_text = pcall(System.AddCCommand, "ai_test_world_text", "AI_NPC_TestWorldText(%line)", "Test world-space text above active NPC")
+    local ok_test_world_text_methods = pcall(System.AddCCommand, "ai_test_world_text_methods", "AI_NPC_TestWorldTextMethods(%line)", "Test all world-space text APIs and log results")
     System.LogAlways("[AI NPC] Register ai_chat: " .. tostring(ok_chat))
     System.LogAlways("[AI NPC] Register ai_say: " .. tostring(ok_say))
     System.LogAlways("[AI NPC] Register ai_end: " .. tostring(ok_end))
@@ -4018,6 +4198,8 @@ if System and System.AddCCommand then
     System.LogAlways("[AI NPC] Register ai_npc_test_clothing_restore_initial: " .. tostring(ok_diag_restore_initial))
     System.LogAlways("[AI NPC] Register ai_npc_test_clothing_cycle: " .. tostring(ok_diag_clothing_cycle))
     System.LogAlways("[AI NPC] Register ai_npc_test_cheat_clothes: " .. tostring(ok_diag_cheat_clothes))
+    System.LogAlways("[AI NPC] Register ai_test_world_text: " .. tostring(ok_test_world_text))
+    System.LogAlways("[AI NPC] Register ai_test_world_text_methods: " .. tostring(ok_test_world_text_methods))
 end
 
 function AI_NPC_PollRespNow()

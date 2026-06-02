@@ -467,6 +467,9 @@ async def file_ipc_watcher() -> None:
                     global active_npc
                     active_npc = data_active if data_active.get("npc_id") else None
                     if active_npc:
+                        active_npc["npc_pos"] = data_active.get("npc_pos")
+                        active_npc["player_pos"] = data_active.get("player_pos")
+                        active_npc["player_fwd"] = data_active.get("player_fwd")
                         resolved = resolve_npc_name(
                             active_npc.get("npc_name") or "",
                             active_npc.get("extra_context") or "",
@@ -518,6 +521,9 @@ async def file_ipc_watcher() -> None:
                             "extra_context": prev_ctx,
                             "recent_player_actions": data_target.get("recent_player_actions") or [],
                             "gender": data_target.get("gender"),
+                            "npc_pos": data_target.get("npc_pos"),
+                            "player_pos": data_target.get("player_pos"),
+                            "player_fwd": data_target.get("player_fwd"),
                         }
                         if prev_resolved:
                             target_npc["npc_name_resolved"] = prev_resolved
@@ -618,6 +624,9 @@ async def _handle_ptt_stop() -> None:
         extra_context=npc.get("extra_context", "") or "",
         recent_player_actions=parsed_actions,
         npc_gender=npc.get("gender"),
+        npc_pos=npc.get("npc_pos"),
+        player_pos=npc.get("player_pos"),
+        player_fwd=npc.get("player_fwd"),
         request_id=10_000_000 + _ptt_request_counter,
     )
     logger.info(
@@ -661,6 +670,9 @@ def _overlay_submit(text: str) -> None:
         extra_context=npc.get("extra_context", "") or "",
         recent_player_actions=parsed_actions,
         npc_gender=npc.get("gender"),
+        npc_pos=npc.get("npc_pos"),
+        player_pos=npc.get("player_pos"),
+        player_fwd=npc.get("player_fwd"),
         request_id=20_000_000 + _overlay_request_counter,
     )
     logger.info(
@@ -1402,7 +1414,7 @@ async def _process_chat_request(req: "ChatRequest", source: str = "log") -> str 
     )
     logger.info(f"[{resolved_name}] LLM gen in {llm_ms:.0f} ms, chars={len(speech_text)} (source={source})")
     if config.tts.enabled:
-        asyncio.create_task(tts_client.speak(speech_text, req.npc_gender, req.npc_id, req.npc_name, resolved_name))
+        asyncio.create_task(tts_client.speak(speech_text, req.npc_gender, req.npc_id, req.npc_name, resolved_name, req.npc_pos, req.player_pos, req.player_fwd))
     write_response_lua(resolved_name, speech_text, req.request_id, scene)
     return speech_text
 
@@ -1435,7 +1447,7 @@ async def lifespan(app: FastAPI):
         set_prompt_template(config.prompt_template)
     if config.tts.enabled:
         try:
-            tts_warmup(config.tts.volume)
+            tts_warmup()
             logger.info("TTS mixer warmed up")
         except Exception as e:
             logger.warning(f"TTS warmup failed: {e}")
@@ -1603,6 +1615,8 @@ def write_response_lua(npc_name: str, response_text: str, request_id: int, scene
         f"_G.__ai_npc_hud_left = {_lua_bool(hud.show_left_top)}\n"
         f"_G.__ai_npc_hud_right = {_lua_bool(hud.show_right_top)}\n"
         f"_G.__ai_npc_hud_center = {_lua_bool(hud.show_center)}\n"
+        f"_G.__ai_npc_hud_world_text = {_lua_bool(hud.show_world_text)}\n"
+        f"_G.__ai_npc_hud_bottom_text = {_lua_bool(hud.show_bottom_text)}\n"
         f"_G.__ai_npc_hud_narrator = {_lua_bool(hud.show_narrator)}\n"
         f"_G.__ai_npc_hud_narrator_left = {_lua_bool(hud.narrator_left_top)}\n"
         f"_G.__ai_npc_hud_narrator_right = {_lua_bool(hud.narrator_right_top)}\n"
@@ -1840,6 +1854,9 @@ class ChatRequest(BaseModel):
         description="Recent notable player actions (pickpocket/kill/loot/...) from Player Event Dispatcher.",
     )
     npc_gender: int | None = Field(default=None, description="NPC gender code: 0=male, 1/2=female.")
+    npc_pos: dict[str, float] | None = Field(default=None, description="NPC world position {x,y,z}.")
+    player_pos: dict[str, float] | None = Field(default=None, description="Player world position {x,y,z}.")
+    player_fwd: dict[str, float] | None = Field(default=None, description="Player forward vector {x,y,z}.")
     request_id: int = Field(default=0, description="Client-side request counter for resp.lua polling.")
 
 
@@ -1896,6 +1913,8 @@ class HUDUpdateRequest(BaseModel):
     show_left_top: bool | None = None
     show_right_top: bool | None = None
     show_center: bool | None = None
+    show_world_text: bool | None = None
+    show_bottom_text: bool | None = None
     show_narrator: bool | None = None
     narrator_left_top: bool | None = None
     narrator_right_top: bool | None = None
@@ -1987,7 +2006,7 @@ async def chat(req: ChatRequest):
     )
 
     if config.tts.enabled:
-        asyncio.create_task(tts_client.speak(speech_text, req.npc_gender, req.npc_id, req.npc_name, resolved_name))
+        asyncio.create_task(tts_client.speak(speech_text, req.npc_gender, req.npc_id, req.npc_name, resolved_name, req.npc_pos, req.player_pos, req.player_fwd))
 
     write_response_lua(resolved_name, speech_text, req.request_id, scene)
 
@@ -2152,6 +2171,9 @@ async def ptt_stop():
             extra_context=active_npc.get("extra_context", "") or "",
             recent_player_actions=parsed_actions,
             npc_gender=active_npc.get("gender"),
+            npc_pos=active_npc.get("npc_pos"),
+            player_pos=active_npc.get("player_pos"),
+            player_fwd=active_npc.get("player_fwd"),
             request_id=10_000_000 + _ptt_request_counter,
         )
         asyncio.create_task(_process_chat_request(req, source="ptt-http"))
@@ -2370,6 +2392,7 @@ async def update_config(req: ConfigUpdateRequest):
         logger.info(
             f"HUD reloaded: left={config.hud.show_left_top} "
             f"right={config.hud.show_right_top} center={config.hud.show_center} "
+            f"world={config.hud.show_world_text} bottom={config.hud.show_bottom_text} "
             f"narrator={config.hud.show_narrator} narrator_left={config.hud.narrator_left_top} "
             f"narrator_right={config.hud.narrator_right_top} narrator_center={config.hud.narrator_center}"
         )
