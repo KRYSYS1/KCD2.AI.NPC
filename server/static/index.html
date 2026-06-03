@@ -881,11 +881,17 @@
       <!-- ElevenLabs fields -->
       <div id="tts-fields-elevenlabs" style="display:none;">
         <div class="form-group">
-          <label for="tts-el-key">ElevenLabs API Key</label>
+          <div class="label-row">
+            <label for="tts-el-key">ElevenLabs API Key</label>
+            <a class="key-link" href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener noreferrer"><span data-i18n="get_key">Получить ключ</span><span class="key-link-arrow">&#8599;</span></a>
+          </div>
           <input type="password" id="tts-el-key" placeholder="sk_...">
         </div>
         <div class="form-group" style="margin-top:10px;">
-          <label for="tts-el-voice" data-i18n="tts_voice_id_male">Voice ID (male)</label>
+          <div class="label-row">
+            <label for="tts-el-voice" data-i18n="tts_voice_id_male">Voice ID (male)</label>
+            <a class="key-link" href="https://elevenlabs.io/app/voice-library" target="_blank" rel="noopener noreferrer"><span data-i18n="get_voice_ids">Получить ID голосов</span><span class="key-link-arrow">&#8599;</span></a>
+          </div>
           <input type="text" id="tts-el-voice" placeholder="21m00Tcm4TlvDq8ikWAM">
         </div>
         <div class="form-group" style="margin-top:10px;">
@@ -898,7 +904,10 @@
       <!-- OpenAI TTS fields -->
       <div id="tts-fields-openai" style="display:none;">
         <div class="form-group">
-          <label for="tts-oai-key">OpenAI API Key</label>
+          <div class="label-row">
+            <label for="tts-oai-key">OpenAI API Key</label>
+            <a class="key-link" href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer"><span data-i18n="get_key">Получить ключ</span><span class="key-link-arrow">&#8599;</span></a>
+          </div>
           <input type="password" id="tts-oai-key" placeholder="sk-...">
         </div>
         <div class="form-group" style="margin-top:10px;">
@@ -2767,6 +2776,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       custom: '\u0421\u0432\u043e\u0439',
       api_key: 'API \u041a\u043b\u044e\u0447',
       get_key: '\u041f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u043a\u043b\u044e\u0447',
+      get_voice_ids: '\u041f\u043e\u043b\u0443\u0447\u0438\u0442\u044c ID \u0433\u043e\u043b\u043e\u0441\u043e\u0432',
       model: '\u041c\u043e\u0434\u0435\u043b\u044c',
       max_tokens: '\u041c\u0430\u043a\u0441. \u0442\u043e\u043a\u0435\u043d\u043e\u0432',
       max_tokens_sub: '\u043d\u0430 \u043e\u0442\u0432\u0435\u0442',
@@ -2928,6 +2938,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       custom: 'Custom',
       api_key: 'API Key',
       get_key: 'Get key',
+      get_voice_ids: 'Get voice IDs',
       model: 'Model',
       max_tokens: 'Max Tokens',
       max_tokens_sub: 'per response',
