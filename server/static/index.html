@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -8,7 +8,7 @@
   <link rel="shortcut icon" href="https://images.steamusercontent.com/ugc/10759354854730671383/C35EAF160E68866EE900CE1F3FDB4DD55ECE9A44/">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Cinzel:wght@500;600&family=Cormorant+Garamond:wght@500;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -16,6 +16,9 @@
       /* â”€â”€ Night palette (EventCalendar-inspired) â”€â”€ */
       --bg-deep:      #0a0c0e;
       --bg-panel:     rgba(15, 19, 24, 0.88);
+      /* Opaque matte panel colour for big scrolling cards — no backdrop-filter,
+         avoids a Chromium repaint bug that left cards' inner content blank. */
+      --bg-card:      #0f1318;
       --bg-input:     rgba(255,255,255,0.032);
       --border:       rgba(255,255,255,0.07);
       --border-hi:    rgba(255,255,255,0.12);
@@ -28,9 +31,12 @@
       --accent-soft:  rgba(56,185,102,0.13);
       --accent-glow:  rgba(56,185,102,0.45);
       --blue:         #4a9eff;
-      --radius:       12px;
+      --radius:       14px;
+      --radius-lg:    20px;
+      --radius-sm:    10px;
       --font-ui:      'Bahnschrift', 'Rajdhani', 'Segoe UI Semibold', 'Arial Narrow', system-ui, sans-serif;
-      --font-body:    'Segoe UI', system-ui, sans-serif;
+      --font-body:    'Inter', 'Segoe UI', system-ui, sans-serif;
+      --font-display: 'Cormorant Garamond', 'Cinzel', 'Times New Roman', serif;
       --font-mono:    'Cascadia Code', 'Consolas', 'Courier New', monospace;
       accent-color:   var(--accent);
       color-scheme:   dark;
@@ -40,6 +46,7 @@
       /* -- Day palette — Smart Lolis inspired -- */
       --bg-deep:      radial-gradient(ellipse 80% 55% at 50% 0%, #18304a 0%, #0e1b29 45%, #06101b 100%);
       --bg-panel:     rgba(8, 22, 36, 0.88);
+      --bg-card:      #0a1826;
       --bg-input:     rgba(3, 13, 23, 0.82);
       --border:       rgba(210,177,92,0.18);
       --border-hi:    rgba(210,177,92,0.46);
@@ -86,13 +93,19 @@
     .bg-glow {
       position: fixed; inset: 0; z-index: 0; pointer-events: none;
       background:
-        radial-gradient(ellipse 70% 40% at 15% 70%, rgba(56,185,102,0.055) 0%, transparent 55%),
-        radial-gradient(ellipse 50% 30% at 85% 25%, rgba(74,158,255,0.04) 0%, transparent 55%);
+        radial-gradient(ellipse 90% 60% at 50% -10%, rgba(255,255,255,0.022) 0%, transparent 55%),
+        radial-gradient(ellipse 70% 50% at 50% 120%, rgba(0,0,0,0.35) 0%, transparent 60%);
     }
     body.day .bg-glow {
       background:
-        radial-gradient(ellipse 70% 40% at 15% 70%, rgba(210,177,92,0.08) 0%, transparent 58%),
-        radial-gradient(ellipse 50% 30% at 85% 25%, rgba(42,93,133,0.18) 0%, transparent 55%);
+        radial-gradient(ellipse 90% 60% at 50% -10%, rgba(210,177,92,0.06) 0%, transparent 55%),
+        radial-gradient(ellipse 70% 50% at 50% 120%, rgba(0,0,0,0.30) 0%, transparent 60%);
+    }
+    /* Fine grain texture — subtle tactile depth, no glow. */
+    body::after {
+      content: ''; position: fixed; inset: 0; z-index: 1; pointer-events: none;
+      opacity: 0.025; mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     }
 
     /* â”€â”€ LAYOUT â”€â”€ */
@@ -109,7 +122,7 @@
          viewport gives >= 2*560+gap, browser places two columns. Anything
          wider just stretches the two columns evenly (capped by max-width). */
       grid-template-columns: repeat(auto-fit, minmax(560px, 1fr));
-      gap: 14px;
+      gap: 18px;
       align-content: start;
     }
     .full-row { grid-column: 1 / -1; }
@@ -117,8 +130,8 @@
     /* â”€â”€ HEADER (sticky top) â”€â”€ */
     .header {
       display: flex; align-items: center; gap: 14px;
-      padding: 18px 20px 16px;
-      border-radius: var(--radius);
+      padding: 20px 24px 18px;
+      border-radius: 0 0 var(--radius) var(--radius);
       background: var(--bg-panel);
       border: 1px solid var(--border);
       border-top: none;
@@ -135,8 +148,10 @@
     }
     .header::before {
       content: ''; position: absolute;
-      left: 0; right: 0; top: 0; height: 5px;
-      background: var(--accent);
+      left: 0; right: 0; top: 0; height: 1px;
+      background: linear-gradient(90deg, transparent 0%, var(--accent-dim) 30%, var(--accent) 50%, var(--accent-dim) 70%, transparent 100%);
+      opacity: 0.7;
+      border-radius: var(--radius) var(--radius) 0 0;
     }
     .header-icon {
       width: 220px; height: 56px;
@@ -202,9 +217,9 @@
       background: var(--accent-soft);
     }
     .header-title {
-      font-family: var(--font-ui);
-      font-size: 22px; font-weight: 700;
-      letter-spacing: 0.12em; text-transform: uppercase;
+      font-family: var(--font-display);
+      font-size: 23px; font-weight: 600;
+      letter-spacing: 0.10em; text-transform: uppercase;
       color: var(--text-head); line-height: 1;
     }
     .header-sub {
@@ -214,6 +229,9 @@
     }
     .header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .header-promo + .header-actions { margin-left: 56px; }
+    .header-status-stack { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+    .header-status-stack .status-badge { justify-content: center; }
+    .header-status-stack .header-mini-btn { cursor: pointer; min-width: 0; padding: 3px 16px; }
     @media (max-width: 1100px) {
       .header { gap: 10px; padding-left: 14px; padding-right: 14px; }
       .header-icon { width: 176px; height: 45px; }
@@ -247,7 +265,7 @@
       transition: background 0.35s, box-shadow 0.35s; flex-shrink: 0;
     }
     .status-badge.online  { color: var(--accent); border-color: var(--accent-glow); background: var(--accent-soft); }
-    .status-badge.online  .status-dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .status-badge.online  .status-dot { background: var(--accent); box-shadow: 0 0 3px var(--accent-glow); }
     .status-badge.offline { color: #e05555; border-color: rgba(224,85,85,0.35); background: rgba(224,85,85,0.08); }
     .status-badge.offline .status-dot { background: #e05555; }
 
@@ -264,21 +282,26 @@
 
     /* â”€â”€ CARD â”€â”€ */
     .card {
-      background: var(--bg-panel);
+      background: var(--bg-card);
       border: 1px solid var(--border);
-      border-top-color: var(--border-hi);
-      border-radius: var(--radius);
-      backdrop-filter: blur(20px) saturate(130%);
-      -webkit-backdrop-filter: blur(20px) saturate(130%);
-      box-shadow: 0 2px 24px rgba(0,0,0,0.32), inset 0 1px 0 var(--border-hi);
+      border-radius: var(--radius-lg);
+      /* No backdrop-filter on cards: opaque matte surface instead. Cards with
+         backdrop-filter intermittently failed to paint their inner content in
+         Chromium (blank card with only the outline) when scrolling under the
+         sticky blurred header/nav. */
+      background-image: linear-gradient(180deg, rgba(255,255,255,0.022) 0%, transparent 38%);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.30), 0 12px 34px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.04);
       /* overflow: visible so combobox dropdowns can escape the card and float
          over neighbouring cards instead of being clipped at the card edge. */
       overflow: visible; position: relative;
       /* margin-bottom removed: parent grid uses `gap` for spacing. */
-      animation: slide-up 0.22s cubic-bezier(0.22,1,0.36,1) both;
-      transition: box-shadow 0.2s;
+      transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
     }
-    .card:hover { box-shadow: 0 4px 32px rgba(0,0,0,0.38), inset 0 1px 0 var(--border-hi); }
+    .card:hover {
+      border-color: var(--border-hi);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.30), 0 18px 46px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.05);
+      transform: translateY(-1px);
+    }
     .card:nth-child(2) { animation-delay: 0.05s; }
     .card:nth-child(3) { animation-delay: 0.10s; }
     .card:nth-child(4) { animation-delay: 0.15s; }
@@ -288,22 +311,28 @@
     }
     .card::before {
       content: ''; position: absolute;
-      left: 0; top: 0; bottom: 0; width: 3px; z-index: 1;
-      background: linear-gradient(180deg, var(--accent) 0%, transparent 100%);
-      border-radius: var(--radius) 0 0 var(--radius);
+      left: 14%; right: 14%; top: 0; height: 1px; z-index: 1;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.16) 50%, transparent);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     }
     .card-header {
-      display: flex; align-items: center; justify-content: center; text-align: center;
-      padding: 9px 16px 8px;
+      display: flex; align-items: center; justify-content: flex-start; text-align: left;
+      gap: 10px;
+      padding: 16px 22px 14px;
       border-bottom: 1px solid var(--sep);
     }
-    .card-title {
-      font-family: var(--font-ui);
-      font-size: 12px; font-weight: 700;
-      letter-spacing: 0.14em; text-transform: uppercase;
-      color: var(--text-muted); margin-top: 2px;
+    .card-header::before {
+      content: ''; flex: none;
+      width: 2px; height: 18px; border-radius: 1px;
+      background: linear-gradient(180deg, var(--accent), var(--accent-dim));
     }
-    .card-body { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+    .card-title {
+      font-family: var(--font-display);
+      font-size: 15px; font-weight: 600;
+      letter-spacing: 0.10em; text-transform: uppercase;
+      color: var(--text-head); margin-top: 0;
+    }
+    .card-body { padding: 22px; display: flex; flex-direction: column; gap: 18px; }
 
     /* â”€â”€ FORM â”€â”€ */
     .form-group { display: flex; flex-direction: column; gap: 6px; }
@@ -324,13 +353,36 @@
     input[type="url"],
     select, textarea {
       background: var(--bg-input);
-      border: 1px solid var(--border-hi);
-      border-radius: 8px; padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 11px 14px;
       font-size: 13px; color: var(--text-body);
       outline: none; font-family: var(--font-body);
       transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
       width: 100%;
     }
+    input[type="text"]:hover,
+    input[type="password"]:hover,
+    input[type="number"]:hover,
+    input[type="url"]:hover,
+    select:hover, textarea:hover { border-color: var(--border-hi); }
+
+    /* ── API-KEY LINK (Получить ключ) ── */
+    .label-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 16px; }
+    .key-link {
+      font-family: var(--font-ui); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      color: var(--accent); text-decoration: none;
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 9px; border-radius: 999px;
+      border: 1px solid var(--accent-glow); background: var(--accent-soft);
+      transition: all 0.16s ease; white-space: nowrap; cursor: pointer;
+    }
+    .key-link:hover {
+      background: var(--accent); color: #0a140d; border-color: var(--accent);
+    }
+    body.day .key-link:hover { color: #1a1205; }
+    .key-link[hidden] { display: none; }
+    .key-link .key-link-arrow { font-size: 11px; line-height: 1; }
     input:focus, select:focus, textarea:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px var(--accent-soft);
@@ -355,7 +407,7 @@
     /* â”€â”€ PRESET BUTTONS â”€â”€ */
     .preset-row { display: flex; gap: 8px; flex-wrap: wrap; }
     .preset-btn {
-      padding: 6px 16px; border: 1px solid var(--border-hi); border-radius: 7px;
+      padding: 7px 16px; border: 1px solid var(--border); border-radius: 999px;
       background: rgba(255,255,255,0.03); color: var(--text-muted);
       font-family: var(--font-ui); font-size: 12px; font-weight: 600;
       letter-spacing: 0.05em; cursor: pointer; transition: all 0.15s;
@@ -378,8 +430,8 @@
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none; appearance: none;
       width: 15px; height: 15px; border-radius: 50%;
-      background: var(--accent); margin-top: -5.5px;
-      box-shadow: 0 0 7px var(--accent-glow);
+      background: linear-gradient(180deg, var(--accent), var(--accent-dim)); margin-top: -5.5px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25);
       transition: transform 0.15s;
     }
     input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
@@ -419,11 +471,6 @@
     body.day .btn { background: rgba(0,0,0,0.03); }
     .btn:hover { background: rgba(255,255,255,0.08); color: var(--text-body); }
     body.day .btn:hover { background: rgba(0,0,0,0.07); color: var(--text-body); }
-    .btn-primary {
-      border-color: var(--accent-glow); background: var(--accent-soft); color: var(--accent);
-      border-top: 2px solid var(--accent);
-    }
-    .btn-primary:hover { background: var(--accent) !important; color: #f0faff !important; border-color: var(--accent); }
     .btn-danger { background: rgba(224,85,85,0.12); color: #e05555; border-color: rgba(224,85,85,0.3); }
     .btn-danger:hover { background: rgba(224,85,85,0.25); border-color: #e05555; }
     .toggle-switch { position:relative; display:inline-block; flex:0 0 38px; width:38px; min-width:38px; height:20px; cursor:pointer; }
@@ -520,6 +567,10 @@
     }
     .combo-btn:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
     .combo-wrap:focus-within .combo-btn { border-color: var(--accent); }
+    /* Focus ring must wrap the whole pill (input + arrow), not the inner input —
+       otherwise the 3px ring renders as a broken rounded notch mid-control. */
+    .combo-wrap:focus-within { border-radius: var(--radius); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .combo-wrap input:focus { box-shadow: none; }
     /* When the parent disables the suggestion list (e.g. "Свой" provider),
        hide the dropdown chevron and let the input reclaim the full width. */
     .combo-wrap.combo-disabled .combo-btn { display: none; }
@@ -538,8 +589,8 @@
     }
     .combo-list.open { display: block; }
     /* When a card contains an open combobox, lift it above sibling cards so
-       the dropdown is never covered by the next card's stacking context
-       (each .card forms its own context due to backdrop-filter). */
+       the dropdown is never covered by the next card (z-index on the
+       position:relative card creates a stacking context above its siblings). */
     .card.combo-open { z-index: 20; }
     .combo-item {
       padding: 8px 14px; cursor: pointer; font-size: 13px;
@@ -549,6 +600,131 @@
     }
     .combo-item:hover { background: var(--accent-soft); color: var(--text-head); }
     .combo-item.hi { color: var(--accent); }
+
+    /* ════════════════════════════════════════════════════════════════
+       ENHANCEMENTS v0.3 — section nav · key tools · dirty save ·
+       export/import · tooltips · card-header icons. All additive.
+       ════════════════════════════════════════════════════════════════ */
+
+    /* ── Section nav (sticky pill bar under header) ── */
+    .section-nav {
+      position: sticky; top: var(--header-h, 92px); z-index: 25;
+      display: flex; gap: 7px; flex-wrap: wrap; align-items: center;
+      padding: 10px 14px; margin-top: -4px;
+      /* All four corners rounded so the bar reads as its own pill panel below
+         the header (rounded top corners requested). */
+      border-radius: var(--radius);
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.22);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    }
+    .section-nav .nav-label {
+      font-family: var(--font-ui); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--text-muted); opacity: 0.7; margin-right: 4px;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .section-nav .nav-label::after {
+      content: ''; width: 1px; height: 14px; background: var(--sep);
+    }
+    .nav-link {
+      font-family: var(--font-ui); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--text-muted); text-decoration: none; cursor: pointer;
+      padding: 5px 13px; border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(128,128,128,0.05);
+      transition: all 0.16s ease; white-space: nowrap;
+    }
+    body.day .nav-link { background: rgba(0,0,0,0.04); }
+    .nav-link:hover { color: var(--accent); border-color: var(--accent-glow); background: var(--accent-soft); }
+    .nav-link.active { color: var(--accent); border-color: var(--accent-glow); background: var(--accent-soft); }
+    @media (max-width: 760px) { .section-nav .nav-label { display: none; } }
+
+    /* Cards: leave room under the two sticky bars when jumped to via anchor */
+    .card[id] { scroll-margin-top: calc(var(--header-h, 92px) + 64px); }
+
+    /* ── Card-header line icon ── */
+    .card-header-icon {
+      flex: none; width: 17px; height: 17px;
+      color: var(--accent); opacity: 0.92;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .card-header-icon svg { width: 100%; height: 100%; display: block; }
+
+    /* ── API-key field tools (eye + paste) ── */
+    .key-field { position: relative; display: block; }
+    .key-field > input { padding-right: 78px; }
+    .key-tools {
+      position: absolute; top: 50%; right: 8px; transform: translateY(-50%);
+      display: flex; gap: 4px; align-items: center;
+    }
+    .key-tool {
+      width: 28px; height: 28px; padding: 0;
+      border: 1px solid var(--border); border-radius: 7px;
+      background: rgba(128,128,128,0.07); color: var(--text-muted);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    body.day .key-tool { background: rgba(0,0,0,0.05); }
+    .key-tool:hover { color: var(--accent); border-color: var(--accent-glow); background: var(--accent-soft); }
+    .key-tool svg { width: 15px; height: 15px; display: block; }
+
+    /* ── Info tooltip (?) ── */
+    .info-tip {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 14px; height: 14px; margin-left: 6px;
+      border-radius: 50%; border: 1px solid var(--border-hi);
+      color: var(--text-muted); background: transparent;
+      font-family: var(--font-body); font-size: 9px; font-weight: 700;
+      cursor: help; vertical-align: middle; position: relative;
+      transition: all 0.15s; flex: none;
+    }
+    .info-tip:hover { color: var(--accent); border-color: var(--accent-glow); background: var(--accent-soft); }
+    .info-tip::after {
+      content: attr(data-tip);
+      position: absolute; bottom: calc(100% + 9px); left: 50%; transform: translateX(-50%) translateY(4px);
+      width: max-content; max-width: 248px;
+      padding: 9px 12px; border-radius: 9px;
+      background: #0e1319; color: var(--text-body);
+      border: 1px solid var(--border-hi);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+      font-family: var(--font-body); font-size: 11.5px; font-weight: 400;
+      line-height: 1.5; letter-spacing: 0; text-transform: none;
+      white-space: normal; text-align: left;
+      opacity: 0; pointer-events: none; transition: opacity 0.16s, transform 0.16s;
+      z-index: 9998;
+    }
+    body.day .info-tip::after { background: #061019; }
+    .info-tip:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── Save button: looks like a normal test button until there are
+       unsaved changes, then it gets the accent highlight (no dot, no label). ── */
+    #save-btn { position: relative; }
+    #save-btn.is-dirty {
+      border: 1px solid var(--accent-dim);
+      background: linear-gradient(180deg, var(--accent-soft), rgba(0,0,0,0.06));
+      color: var(--text-head);
+      box-shadow: 0 0 0 1px var(--accent-glow), 0 6px 18px rgba(0,0,0,0.28);
+    }
+    #save-btn.is-dirty:hover {
+      background: linear-gradient(180deg, var(--accent), var(--accent-dim));
+      color: #0a140d; border-color: var(--accent);
+    }
+    body.day #save-btn.is-dirty:hover { color: #1a1205; }
+
+    /* ── push-to-talk / keybind capture ── */
+    .key-capture-row { display: flex; gap: 8px; align-items: stretch; }
+    .key-capture-row > input { flex: 1; min-width: 0; }
+    .key-capture-btn {
+      flex: none; display: inline-flex; align-items: center; gap: 6px;
+      white-space: nowrap; font-size: 12px; padding: 0 14px;
+    }
+    .key-capture-btn .kc-ico { font-size: 14px; line-height: 1; }
+    .key-capture-btn.capturing {
+      color: var(--accent); border-color: var(--accent-glow); background: var(--accent-soft);
+    }
   </style>
 </head>
 <body>
@@ -576,9 +752,13 @@
     </div>
     <div class="header-actions">
       <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="&#1044;&#1085;&#1077;&#1074;&#1085;&#1072;&#1103; &#1090;&#1077;&#1084;&#1072;" aria-label="Toggle theme"></button>
-      <div id="status-badge" class="status-badge">
-        <div class="status-dot"></div>
-        <span id="status-text">&mdash;</span>
+      <div class="header-status-stack">
+        <button class="header-mini-btn" id="export-btn" type="button">&#1069;&#1082;&#1089;&#1087;&#1086;&#1088;&#1090;</button>
+        <div id="status-badge" class="status-badge">
+          <div class="status-dot"></div>
+          <span id="status-text">&mdash;</span>
+        </div>
+        <button class="header-mini-btn" id="import-btn" type="button">&#1048;&#1084;&#1087;&#1086;&#1088;&#1090;</button>
       </div>
     </div>
   </div>
@@ -632,7 +812,10 @@
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label for="api-key" data-i18n="api_key">API &#1050;&#1083;&#1102;&#1095;</label>
+          <div class="label-row">
+            <label for="api-key" data-i18n="api_key">API &#1050;&#1083;&#1102;&#1095;</label>
+            <a id="api-key-link" class="key-link" target="_blank" rel="noopener noreferrer" hidden><span data-i18n="get_key">&#1055;&#1086;&#1083;&#1091;&#1095;&#1080;&#1090;&#1100; &#1082;&#1083;&#1102;&#1095;</span><span class="key-link-arrow">&#8599;</span></a>
+          </div>
           <input type="password" id="api-key" placeholder="API key">
         </div>
         <div class="form-group">
@@ -988,7 +1171,10 @@
       </div>
       <div class="form-row" style="margin-top:10px;">
         <div class="form-group" id="stt-row-key" style="display:none;">
-          <label for="stt-api-key" data-i18n="stt_api_key">API ключ</label>
+          <div class="label-row">
+            <label for="stt-api-key" data-i18n="stt_api_key">API ключ</label>
+            <a id="stt-api-key-link" class="key-link" target="_blank" rel="noopener noreferrer" hidden><span data-i18n="get_key">Получить ключ</span><span class="key-link-arrow">&#8599;</span></a>
+          </div>
           <input type="password" id="stt-api-key" placeholder="sk-...">
         </div>
         <div class="form-group">
@@ -1349,7 +1535,7 @@
       <button class="btn" id="test-llm-btn" data-i18n="test_llm" onclick="testLLM()">&#1058;&#1077;&#1089;&#1090; LLM</button>
       <button class="btn" id="tts-test-btn" data-i18n="tts_test" onclick="testTTS()">&#1058;&#1077;&#1089;&#1090; TTS</button>
       <button class="btn" id="stt-test-btn" data-i18n="stt_test" onclick="testSTT()" title="Записать ~3 сек с микрофона и распознать">&#1058;&#1077;&#1089;&#1090; STT</button>
-      <button class="btn btn-primary" id="save-btn" data-i18n="save" onclick="saveConfig()">&#1057;&#1086;&#1093;&#1088;&#1072;&#1085;&#1080;&#1090;&#1100;</button>
+      <button class="btn" id="save-btn" data-i18n="save" onclick="saveConfig()">&#1057;&#1086;&#1093;&#1088;&#1072;&#1085;&#1080;&#1090;&#1100;</button>
     </div>
   </div>
 
@@ -1582,6 +1768,31 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     custom:     { url: '',                                key: '',          model: '',                                   keyHint: 'API key'           },
   };
 
+  // Direct links to each provider's API-key page. Empty string = local
+  // provider or custom endpoint that doesn't need a hosted key.
+  const PROVIDER_KEY_URLS = {
+    ollama:     '',
+    openai:     'https://platform.openai.com/api-keys',
+    groq:       'https://console.groq.com/keys',
+    nvidia:     'https://build.nvidia.com/',
+    google:     'https://aistudio.google.com/app/apikey',
+    github:     'https://github.com/settings/tokens',
+    cohere:     'https://dashboard.cohere.com/api-keys',
+    cerebras:   'https://cloud.cerebras.ai/',
+    mistral:    'https://console.mistral.ai/api-keys/',
+    openrouter: 'https://openrouter.ai/keys',
+    lmstudio:   '',
+    custom:     '',
+  };
+
+  // Show/hide and point the "Получить ключ" link next to an API-key field.
+  function updateKeyLink(linkId, url) {
+    const link = document.getElementById(linkId);
+    if (!link) return;
+    if (url) { link.href = url; link.hidden = false; }
+    else { link.hidden = true; link.removeAttribute('href'); }
+  }
+
   // Per-provider profiles: each remembers its own URL, model and API key
   // independently, so switching back to "Свой" restores exactly what the user
   // typed there (instead of inheriting the previously selected provider's URL
@@ -1641,6 +1852,9 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       const modelInput = document.getElementById('model');
       modelInput.placeholder = p.model || 'model-id';
     }
+    // API-key link: show a "Получить ключ" button pointing to the provider's
+    // key page, hidden for local/custom providers that need no hosted key.
+    updateKeyLink('api-key-link', PROVIDER_KEY_URLS[n]);
     activePreset = n;
     // For the "custom" provider we hide the suggestion dropdowns on
     // API URL and Model so the user has a clean text field with no preset list.
@@ -1715,9 +1929,8 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     activePromptPreset = name;
   }
 
-  async function loadConfig() {
-    try {
-      const d = await fetch('/config').then(r => r.json());
+  function populateForm(d) {
+      d = d || {};
       document.getElementById('api-url').value = d.llm?.api_url ?? PRESETS.groq.url;
       document.getElementById('api-key').value = d.llm?.api_key ?? PRESETS.groq.key;
       document.getElementById('model').value   = d.llm?.model   ?? PRESETS.groq.model;
@@ -1808,6 +2021,12 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       // currently active provider so subsequent provider switches behave as
       // expected (each provider independently remembers its own form state).
       snapshotCurrentProfile();
+  }
+
+  async function loadConfig() {
+    try {
+      const d = await fetch('/config').then(r => r.json());
+      populateForm(d);
     } catch { showToast('error', 'Ошибка загрузки', 'Не удалось загрузить конфиг'); }
   }
 
@@ -2175,6 +2394,12 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     'groq':           { url: 'https://api.groq.com/openai/v1', key: '', model: 'whisper-large-v3-turbo', keyHint: 'gsk_...' },
     'custom':         { url: '',                               key: '', model: '',                       keyHint: 'API key' },
   };
+  const STT_KEY_URLS = {
+    'faster-whisper': '',
+    'openai':         'https://platform.openai.com/api-keys',
+    'groq':           'https://console.groq.com/keys',
+    'custom':         '',
+  };
   const STT_PROVIDER_ALIASES = [
     ['groq',   ['api.groq.com', 'groq.com/openai']],
     ['openai', ['api.openai.com']],
@@ -2225,6 +2450,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     const modelWrap = document.getElementById('stt-model')?.closest('.combo-wrap');
     if (modelWrap) modelWrap.classList.toggle('combo-disabled', provider === 'custom');
     if (_combos['stt-model']) _combos['stt-model'].setOptions(STT_MODEL_OPTIONS[provider] || []);
+    updateKeyLink('stt-api-key-link', STT_KEY_URLS[provider]);
     activeSttProvider = provider;
   }
   function setSttProvider(provider) {
@@ -2407,14 +2633,8 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     finally { btn.disabled = false; btn.textContent = T().test_llm; }
   }
 
-  async function saveConfig() {
-    const btn = document.getElementById('save-btn');
-    btn.disabled = true;
-    try {
-      const res = await fetch('/config/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+  function buildConfigPayload() {
+    return {
           language: document.getElementById('language').value,
           llm: {
             api_url:     document.getElementById('api-url').value.trim(),
@@ -2475,10 +2695,21 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
             collapse_spell_terms: document.getElementById('interaction-collapse-terms').value.trim(),
           },
           prompt_template: document.getElementById('prompt-template').value,
-        }),
+        };
+  }
+
+  async function saveConfig() {
+    const btn = document.getElementById('save-btn');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/config/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildConfigPayload()),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       showToast('success', T().saving || 'Saved', T().save_ok_msg || 'Settings applied — no restart needed');
+      if (window.markClean) window.markClean();
     } catch (e) { showToast('error', T().save_err || 'Save error', String(e)); }
     finally     { btn.disabled = false; }
   }
@@ -2535,6 +2766,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       provider: '\u041f\u0440\u043e\u0432\u0430\u0439\u0434\u0435\u0440',
       custom: '\u0421\u0432\u043e\u0439',
       api_key: 'API \u041a\u043b\u044e\u0447',
+      get_key: '\u041f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u043a\u043b\u044e\u0447',
       model: '\u041c\u043e\u0434\u0435\u043b\u044c',
       max_tokens: '\u041c\u0430\u043a\u0441. \u0442\u043e\u043a\u0435\u043d\u043e\u0432',
       max_tokens_sub: '\u043d\u0430 \u043e\u0442\u0432\u0435\u0442',
@@ -2695,6 +2927,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       provider: 'Provider',
       custom: 'Custom',
       api_key: 'API Key',
+      get_key: 'Get key',
       model: 'Model',
       max_tokens: 'Max Tokens',
       max_tokens_sub: 'per response',
@@ -3119,6 +3352,388 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
   document.getElementById('prompt-template')?.addEventListener('input', detectPromptPreset);
   checkStatus();
   setInterval(checkStatus, 15000);
+</script>
+
+<!-- ════════════════════════════════════════════════════════════════
+     ENHANCEMENTS v0.3 — runs after the main script. Purely additive:
+     section nav · key field tools · unsaved indicator · export/import ·
+     tooltips · card-header icons. No existing logic is modified.
+     ════════════════════════════════════════════════════════════════ -->
+<script>
+(function () {
+  'use strict';
+  const curLang = () => (document.getElementById('language')?.value || 'en');
+  const ru = () => curLang() === 'ru';
+
+  /* ── tiny line-icon set (stroke = currentColor) ── */
+  const I = {
+    globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18"/></svg>',
+    cpu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/></svg>',
+    speaker: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 010 7M19 6a8 8 0 010 12"/></svg>',
+    mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg>',
+    keyboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>',
+    hand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 11V5a1.5 1.5 0 013 0v5m0-1V4a1.5 1.5 0 013 0v6m0-2a1.5 1.5 0 013 0v6a6 6 0 01-6 6h-1a6 6 0 01-5-3l-2.5-4a1.5 1.5 0 012.5-1.6L8 13"/></svg>',
+    layout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>',
+    doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>',
+    eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+    eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 3l18 18M10.6 6.2A10.6 10.6 0 0112 6c6.5 0 10 7 10 7a17 17 0 01-3.3 4M6.7 6.7A17 17 0 002 13s3.5 7 10 7a10.6 10.6 0 004.2-.9M9.9 9.9a3 3 0 004.2 4.2"/></svg>',
+    paste: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h2"/></svg>',
+  };
+
+  const CARD_META = {
+    general_title:     { id: 'sec-general',     icon: I.globe },
+    llm_title:         { id: 'sec-llm',         icon: I.cpu },
+    tts_title:         { id: 'sec-tts',         icon: I.speaker },
+    stt_title:         { id: 'sec-stt',         icon: I.mic },
+    input_title:       { id: 'sec-input',       icon: I.keyboard },
+    interaction_title: { id: 'sec-interaction', icon: I.hand },
+    hud_title:         { id: 'sec-hud',         icon: I.layout },
+    prompt_title:      { id: 'sec-prompt',      icon: I.doc },
+  };
+
+  const STR = {
+    sections: { ru: 'Разделы', en: 'Sections' },
+    export:   { ru: 'Экспорт', en: 'Export' },
+    import:   { ru: 'Импорт', en: 'Import' },
+    show:     { ru: 'Показать ключ', en: 'Show key' },
+    hide:     { ru: 'Скрыть ключ', en: 'Hide key' },
+    paste:    { ru: 'Вставить из буфера', en: 'Paste from clipboard' },
+    pasteErr: { ru: 'Не удалось прочитать буфер обмена', en: 'Could not read clipboard' },
+    expOk:    { ru: 'Настройки выгружены в файл', en: 'Settings downloaded' },
+    expErr:   { ru: 'Не удалось выгрузить настройки', en: 'Export failed' },
+    impOk:    { ru: 'Импортировано — проверьте и нажмите «Сохранить»', en: 'Imported — review, then click Save' },
+    impErr:   { ru: 'Неверный файл конфигурации (JSON)', en: 'Invalid config file (JSON)' },
+    tapModeRestartTitle: { ru: 'Требуется перезапуск сервера', en: 'Server restart required' },
+    tapModeRestartMsg:   { ru: 'Режим оверлея изменён — сохраните и перезапустите сервер, чтобы изменения вступили в силу', en: 'Overlay mode changed — save and restart the server for the change to take effect' },
+  };
+  const S = (k) => STR[k][ru() ? 'ru' : 'en'];
+
+  const CAP = {
+    rec:   { ru: 'Записать', en: 'Record' },
+    press: { ru: 'Нажмите клавишу…', en: 'Press a key…' },
+    bad:   { ru: 'Используйте букву (A–Z), цифру или F-клавишу', en: 'Use a letter (A–Z), digit or F-key' },
+  };
+  const C = (k) => CAP[k][ru() ? 'ru' : 'en'];
+
+  const TIPS = {
+    'max-tokens':        { ru: 'Максимальная длина ответа NPC в токенах (~¾ слова). Больше — длиннее реплики, но медленнее и дороже.', en: 'Max length of an NPC reply in tokens (~¾ of a word). Higher = longer replies, but slower and pricier.' },
+    'temperature':       { ru: 'Креативность ответов. 0 — строго и предсказуемо, 2 — максимально творчески. Обычно 0.7–0.9.', en: 'Creativity of replies. 0 = strict & predictable, 2 = very creative. Typically 0.7–0.9.' },
+    'tts-volume':        { ru: 'Громкость озвучки NPC. 1.0 — полная громкость.', en: 'NPC voice volume. 1.0 = full volume.' },
+    'stt-compute':       { ru: 'Тип вычислений для локального распознавания. int8 — быстро и экономно по памяти; float16 — точнее, но нужно больше VRAM.', en: 'Compute type for local recognition. int8 = fast & memory-light; float16 = more accurate but needs more VRAM.' },
+    'stt-device':        { ru: 'Где запускать распознавание: CPU (универсально) или CUDA/GPU (быстрее, нужна видеокарта NVIDIA).', en: 'Where to run recognition: CPU (universal) or CUDA/GPU (faster, needs an NVIDIA GPU).' },
+    'stt-hold-threshold':{ ru: 'Сколько мс удерживать клавишу, прежде чем начать запись. Защищает от случайных коротких нажатий.', en: 'How long (ms) to hold the key before recording starts. Prevents accidental taps.' },
+    'stt-min-duration':  { ru: 'Минимальная длительность записи (мс). Более короткие фрагменты игнорируются.', en: 'Minimum recording length (ms). Shorter clips are ignored.' },
+    'stt-max-duration':  { ru: 'Максимальная длительность одной записи (сек). По достижении запись останавливается автоматически.', en: 'Max length of a single recording (sec). Recording auto-stops at this point.' },
+  };
+
+  /* ════ 1. header height → CSS var (used by sticky nav offset) ════ */
+  function setHeaderH() {
+    const h = document.querySelector('.header')?.offsetHeight || 92;
+    document.documentElement.style.setProperty('--header-h', h + 'px');
+  }
+  setHeaderH();
+  window.addEventListener('resize', setHeaderH);
+  setTimeout(setHeaderH, 400);
+
+  /* ════ 2. card ids + header icons + section nav ════ */
+  const navLinks = [];
+  let _navLock = 0;
+  document.querySelectorAll('.page > .card').forEach(card => {
+    const titleEl = card.querySelector('.card-title');
+    const key = titleEl?.getAttribute('data-i18n');
+    const meta = key && CARD_META[key];
+    if (!meta) return;
+    card.id = meta.id;
+    const header = card.querySelector('.card-header');
+    if (header && !header.querySelector('.card-header-icon')) {
+      const ic = document.createElement('span');
+      ic.className = 'card-header-icon';
+      ic.innerHTML = meta.icon;
+      header.insertBefore(ic, header.firstChild);
+    }
+  });
+
+  const header = document.querySelector('.page > .header');
+  if (header) {
+    const nav = document.createElement('div');
+    nav.className = 'section-nav full-row';
+    const lbl = document.createElement('span');
+    lbl.className = 'nav-label nav-sections-label';
+    lbl.textContent = S('sections');
+    nav.appendChild(lbl);
+    document.querySelectorAll('.page > .card[id]').forEach(card => {
+      const titleEl = card.querySelector('.card-title');
+      const a = document.createElement('a');
+      a.className = 'nav-link';
+      a.dataset.target = card.id;
+      a.dataset.titleSrc = card.id;
+      a.textContent = titleEl ? titleEl.textContent.trim() : card.id;
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        /* highlight the clicked link immediately and stop the scroll-spy from
+           overriding it while the smooth scroll is in flight (otherwise the
+           neighbouring card in the same grid row could steal the highlight). */
+        navLinks.forEach(l => l.classList.toggle('active', l === a));
+        _navLock = Date.now() + 800;
+        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      nav.appendChild(a);
+      navLinks.push(a);
+    });
+    header.insertAdjacentElement('afterend', nav);
+
+    /* active-section highlight.
+       On wide screens the cards are laid out in a 2-column grid, so two cards
+       share a row and intersect at the same scroll position. Instead of "last
+       intersecting entry wins" (which always picked the later card, e.g. LLM
+       over Язык), track the set of visible cards and highlight the top-most one,
+       breaking ties by DOM order (the earlier/left card in the row). */
+    try {
+      const visible = new Set();
+      const refreshActive = () => {
+        if (Date.now() < _navLock || !visible.size) return;
+        let bestId = null, bestTop = Infinity;
+        navLinks.forEach(l => {
+          const id = l.dataset.target;
+          if (!visible.has(id)) return;
+          const el = document.getElementById(id);
+          if (!el) return;
+          const top = el.getBoundingClientRect().top;
+          if (top < bestTop - 1) { bestTop = top; bestId = id; }
+        });
+        if (bestId) navLinks.forEach(l => l.classList.toggle('active', l.dataset.target === bestId));
+      };
+      const obs = new IntersectionObserver((entries) => {
+        entries.forEach(en => {
+          if (en.isIntersecting) visible.add(en.target.id);
+          else visible.delete(en.target.id);
+        });
+        refreshActive();
+      }, { rootMargin: '-170px 0px -55% 0px', threshold: 0 });
+      document.querySelectorAll('.page > .card[id]').forEach(c => obs.observe(c));
+    } catch (e) { /* IO unsupported — links still work */ }
+  }
+
+  /* ════ 3. unsaved-changes (dirty) tracking ════ */
+  let _dirty = false;
+  const saveBtn = document.getElementById('save-btn');
+  function markDirty() {
+    if (_dirty) return;
+    _dirty = true;
+    saveBtn?.classList.add('is-dirty');
+  }
+  window.markClean = function () {
+    _dirty = false;
+    saveBtn?.classList.remove('is-dirty');
+  };
+  window.markDirty = markDirty;
+  const page = document.querySelector('.page');
+  if (page) {
+    page.addEventListener('input', markDirty);
+    page.addEventListener('change', markDirty);
+    page.addEventListener('click', (e) => { if (e.target.closest('.preset-btn')) markDirty(); });
+  }
+  window.addEventListener('beforeunload', (e) => {
+    if (_dirty) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  /* changing the tap-V overlay mode requires a server restart — warn the user */
+  (function () {
+    const tapModeSel = document.getElementById('tap-mode');
+    if (!tapModeSel) return;
+    tapModeSel.addEventListener('change', () => {
+      showToast('info', S('tapModeRestartTitle'), S('tapModeRestartMsg'));
+    });
+  })();
+
+  /* ════ 4. API-key field tools (show/hide + paste) ════ */
+  ['api-key', 'tts-el-key', 'tts-oai-key', 'stt-api-key'].forEach(id => {
+    const inp = document.getElementById(id);
+    if (!inp || inp.closest('.key-field')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'key-field';
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    const tools = document.createElement('div');
+    tools.className = 'key-tools';
+
+    const eye = document.createElement('button');
+    eye.type = 'button'; eye.className = 'key-tool'; eye.tabIndex = -1;
+    eye.title = S('show'); eye.innerHTML = I.eye;
+    eye.addEventListener('click', () => {
+      const reveal = inp.type === 'password';
+      inp.type = reveal ? 'text' : 'password';
+      eye.innerHTML = reveal ? I.eyeOff : I.eye;
+      eye.title = reveal ? S('hide') : S('show');
+    });
+
+    const paste = document.createElement('button');
+    paste.type = 'button'; paste.className = 'key-tool'; paste.tabIndex = -1;
+    paste.title = S('paste'); paste.innerHTML = I.paste;
+    paste.addEventListener('click', async () => {
+      try {
+        const txt = await navigator.clipboard.readText();
+        if (txt) { inp.value = txt.trim(); markDirty(); }
+      } catch (err) {
+        showToast('error', S('pasteErr'), '');
+      }
+    });
+
+    tools.appendChild(eye);
+    tools.appendChild(paste);
+    wrap.appendChild(tools);
+  });
+
+  /* ════ 5. tooltips on advanced params ════ */
+  Object.keys(TIPS).forEach(id => {
+    const inp = document.getElementById(id);
+    if (!inp) return;
+    // prefer the label explicitly bound to this field, else the group label
+    const label = document.querySelector('label[for="' + id + '"]')
+                  || inp.closest('.form-group')?.querySelector('label');
+    if (!label || label.querySelector('.info-tip')) return;
+    const tip = document.createElement('span');
+    tip.className = 'info-tip';
+    tip.textContent = '?';
+    tip.dataset.ru = TIPS[id].ru;
+    tip.dataset.en = TIPS[id].en;
+    tip.setAttribute('data-tip', ru() ? TIPS[id].ru : TIPS[id].en);
+    label.appendChild(tip);
+  });
+
+  /* ════ 6. export / import config ════ */
+  // export / import — buttons live in the header (above/below the status badge)
+  const expBtn = document.getElementById('export-btn');
+  const impBtn = document.getElementById('import-btn');
+  if (expBtn && impBtn) {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'application/json,.json';
+    fileInput.style.display = 'none';
+    document.body.appendChild(fileInput);
+
+    if (expBtn.textContent.trim() === '') expBtn.textContent = S('export');
+    expBtn.addEventListener('click', () => {
+      try {
+        const data = JSON.stringify(buildConfigPayload(), null, 2);
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const ts = new Date().toISOString().slice(0, 10);
+        a.href = url; a.download = 'kcd2-npc-config-' + ts + '.json';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+        showToast('success', S('expOk'), '');
+      } catch (e) { showToast('error', S('expErr'), String(e)); }
+    });
+
+    impBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files && fileInput.files[0];
+      if (!f) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(reader.result);
+          populateForm(parsed);
+          markDirty();
+          showToast('success', S('impOk'), '');
+        } catch (e) { showToast('error', S('impErr'), String(e)); }
+        fileInput.value = '';
+      };
+      reader.readAsText(f);
+    });
+
+  }
+
+  /* ════ 6b. Ctrl/Cmd+S = Save ════ */
+  let _capturing = false; // shared: suppress Ctrl+S while recording a key
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyS' || e.key === 's' || e.key === 'S')) {
+      if (_capturing || e.repeat) return;
+      e.preventDefault();
+      if (typeof saveConfig === 'function') saveConfig();
+    }
+  }, { capture: true });
+
+  /* ════ 6c. push-to-talk / keybind capture (chat-key, end-key) ════ */
+  function codeToKey(code) {
+    let m;
+    if ((m = code.match(/^Key([A-Z])$/)))   return m[1].toLowerCase();
+    if ((m = code.match(/^Digit(\d)$/)))     return m[1];
+    if ((m = code.match(/^Numpad(\d)$/)))    return m[1];
+    if ((m = code.match(/^F(\d{1,2})$/)))    return 'f' + m[1];
+    return null;
+  }
+  ['chat-key', 'end-key'].forEach(id => {
+    const inp = document.getElementById(id);
+    if (!inp || inp.closest('.key-capture-row')) return;
+    const row = document.createElement('div');
+    row.className = 'key-capture-row';
+    inp.parentNode.insertBefore(row, inp);
+    row.appendChild(inp);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn key-capture-btn';
+    btn.innerHTML = '<span class="kc-ico">\u2328</span><span class="kc-label">' + C('rec') + '</span>';
+    row.appendChild(btn);
+    const setLabel = (t) => { btn.querySelector('.kc-label').textContent = t; };
+
+    function stop() {
+      _capturing = false;
+      btn.classList.remove('capturing');
+      setLabel(C('rec'));
+      window.removeEventListener('keydown', onKey, true);
+    }
+    function onKey(e) {
+      if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return; // wait for a real key
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === 'Escape' || e.code === 'Escape') { stop(); return; }
+      const k = codeToKey(e.code);
+      if (!k) { showToast('error', C('bad'), ''); return; }
+      inp.value = k;
+      markDirty();
+      stop();
+    }
+    btn.addEventListener('click', () => {
+      if (_capturing) { stop(); return; }
+      _capturing = true;
+      btn.classList.add('capturing');
+      setLabel(C('press'));
+      window.addEventListener('keydown', onKey, true);
+    });
+  });
+
+  /* ════ 7. re-localize injected UI when language changes ════ */
+  if (typeof applyUiLang === 'function') {
+    const _origApply = applyUiLang;
+    applyUiLang = function (lang) {
+      _origApply(lang);
+      try { relocalize(); } catch (e) {}
+    };
+  }
+  function relocalize() {
+    document.querySelector('.nav-sections-label') && (document.querySelector('.nav-sections-label').textContent = S('sections'));
+    navLinks.forEach(a => {
+      const card = document.getElementById(a.dataset.target);
+      const t = card?.querySelector('.card-title');
+      if (t) a.textContent = t.textContent.trim();
+    });
+    const en = !ru();
+    document.getElementById('export-btn') && (document.getElementById('export-btn').textContent = S('export'));
+    document.getElementById('import-btn') && (document.getElementById('import-btn').textContent = S('import'));
+    document.querySelectorAll('.info-tip').forEach(tip => {
+      tip.setAttribute('data-tip', en ? tip.dataset.en : tip.dataset.ru);
+    });
+    document.querySelectorAll('.key-capture-btn:not(.capturing) .kc-label').forEach(el => {
+      el.textContent = C('rec');
+    });
+  }
+  // initial localize pass (in case lang already applied before this script ran)
+  setTimeout(relocalize, 50);
+})();
 </script>
 </body>
 </html>
