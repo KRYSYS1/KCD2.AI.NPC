@@ -184,7 +184,16 @@ class STTClient:
             with self._lock:
                 self._recording = False
             self._stream = None
-            logger.error(f"[STT] Failed to open input stream: {exc}")
+            requested = stream_kwargs.get("device", "default")
+            try:
+                devices = sd.query_devices()
+                inputs = [f"  {i}: {d['name']}" for i, d in enumerate(devices) if d.get("max_input_channels", 0) > 0]
+                logger.error(
+                    f"[STT] Failed to open input stream (requested device={requested}): {exc}\n"
+                    f"Available input devices:\n" + "\n".join(inputs)
+                )
+            except Exception:
+                logger.error(f"[STT] Failed to open input stream (requested device={requested}): {exc}")
             raise
 
     def stop(self, *, prompt: str = "") -> str:

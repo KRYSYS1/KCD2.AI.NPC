@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -8,7 +8,7 @@
   <link rel="shortcut icon" href="https://images.steamusercontent.com/ugc/10759354854730671383/C35EAF160E68866EE900CE1F3FDB4DD55ECE9A44/">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Cinzel:wght@500;600&family=Cormorant+Garamond:wght@500;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -16,6 +16,9 @@
       /* â”€â”€ Night palette (EventCalendar-inspired) â”€â”€ */
       --bg-deep:      #0a0c0e;
       --bg-panel:     rgba(15, 19, 24, 0.88);
+      /* Opaque matte panel colour for big scrolling cards — no backdrop-filter,
+         avoids a Chromium repaint bug that left cards' inner content blank. */
+      --bg-card:      #0f1318;
       --bg-input:     rgba(255,255,255,0.032);
       --border:       rgba(255,255,255,0.07);
       --border-hi:    rgba(255,255,255,0.12);
@@ -28,9 +31,12 @@
       --accent-soft:  rgba(56,185,102,0.13);
       --accent-glow:  rgba(56,185,102,0.45);
       --blue:         #4a9eff;
-      --radius:       12px;
+      --radius:       14px;
+      --radius-lg:    20px;
+      --radius-sm:    10px;
       --font-ui:      'Bahnschrift', 'Rajdhani', 'Segoe UI Semibold', 'Arial Narrow', system-ui, sans-serif;
-      --font-body:    'Segoe UI', system-ui, sans-serif;
+      --font-body:    'Inter', 'Segoe UI', system-ui, sans-serif;
+      --font-display: 'Cormorant Garamond', 'Cinzel', 'Times New Roman', serif;
       --font-mono:    'Cascadia Code', 'Consolas', 'Courier New', monospace;
       accent-color:   var(--accent);
       color-scheme:   dark;
@@ -40,6 +46,7 @@
       /* -- Day palette — Smart Lolis inspired -- */
       --bg-deep:      radial-gradient(ellipse 80% 55% at 50% 0%, #18304a 0%, #0e1b29 45%, #06101b 100%);
       --bg-panel:     rgba(8, 22, 36, 0.88);
+      --bg-card:      #0a1826;
       --bg-input:     rgba(3, 13, 23, 0.82);
       --border:       rgba(210,177,92,0.18);
       --border-hi:    rgba(210,177,92,0.46);
@@ -86,13 +93,19 @@
     .bg-glow {
       position: fixed; inset: 0; z-index: 0; pointer-events: none;
       background:
-        radial-gradient(ellipse 70% 40% at 15% 70%, rgba(56,185,102,0.055) 0%, transparent 55%),
-        radial-gradient(ellipse 50% 30% at 85% 25%, rgba(74,158,255,0.04) 0%, transparent 55%);
+        radial-gradient(ellipse 90% 60% at 50% -10%, rgba(255,255,255,0.022) 0%, transparent 55%),
+        radial-gradient(ellipse 70% 50% at 50% 120%, rgba(0,0,0,0.35) 0%, transparent 60%);
     }
     body.day .bg-glow {
       background:
-        radial-gradient(ellipse 70% 40% at 15% 70%, rgba(210,177,92,0.08) 0%, transparent 58%),
-        radial-gradient(ellipse 50% 30% at 85% 25%, rgba(42,93,133,0.18) 0%, transparent 55%);
+        radial-gradient(ellipse 90% 60% at 50% -10%, rgba(210,177,92,0.06) 0%, transparent 55%),
+        radial-gradient(ellipse 70% 50% at 50% 120%, rgba(0,0,0,0.30) 0%, transparent 60%);
+    }
+    /* Fine grain texture — subtle tactile depth, no glow. */
+    body::after {
+      content: ''; position: fixed; inset: 0; z-index: 1; pointer-events: none;
+      opacity: 0.025; mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     }
 
     /* â”€â”€ LAYOUT â”€â”€ */
@@ -109,7 +122,7 @@
          viewport gives >= 2*560+gap, browser places two columns. Anything
          wider just stretches the two columns evenly (capped by max-width). */
       grid-template-columns: repeat(auto-fit, minmax(560px, 1fr));
-      gap: 14px;
+      gap: 18px;
       align-content: start;
     }
     .full-row { grid-column: 1 / -1; }
@@ -117,8 +130,8 @@
     /* â”€â”€ HEADER (sticky top) â”€â”€ */
     .header {
       display: flex; align-items: center; gap: 14px;
-      padding: 18px 20px 16px;
-      border-radius: var(--radius);
+      padding: 20px 24px 18px;
+      border-radius: 0 0 var(--radius) var(--radius);
       background: var(--bg-panel);
       border: 1px solid var(--border);
       border-top: none;
@@ -135,8 +148,10 @@
     }
     .header::before {
       content: ''; position: absolute;
-      left: 0; right: 0; top: 0; height: 5px;
-      background: var(--accent);
+      left: 0; right: 0; top: 0; height: 1px;
+      background: linear-gradient(90deg, transparent 0%, var(--accent-dim) 30%, var(--accent) 50%, var(--accent-dim) 70%, transparent 100%);
+      opacity: 0.7;
+      border-radius: var(--radius) var(--radius) 0 0;
     }
     .header-icon {
       width: 220px; height: 56px;
@@ -202,9 +217,9 @@
       background: var(--accent-soft);
     }
     .header-title {
-      font-family: var(--font-ui);
-      font-size: 22px; font-weight: 700;
-      letter-spacing: 0.12em; text-transform: uppercase;
+      font-family: var(--font-display);
+      font-size: 23px; font-weight: 600;
+      letter-spacing: 0.10em; text-transform: uppercase;
       color: var(--text-head); line-height: 1;
     }
     .header-sub {
@@ -214,6 +229,9 @@
     }
     .header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .header-promo + .header-actions { margin-left: 56px; }
+    .header-status-stack { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+    .header-status-stack .status-badge { justify-content: center; }
+    .header-status-stack .header-mini-btn { cursor: pointer; min-width: 0; padding: 3px 16px; }
     @media (max-width: 1100px) {
       .header { gap: 10px; padding-left: 14px; padding-right: 14px; }
       .header-icon { width: 176px; height: 45px; }
@@ -247,7 +265,7 @@
       transition: background 0.35s, box-shadow 0.35s; flex-shrink: 0;
     }
     .status-badge.online  { color: var(--accent); border-color: var(--accent-glow); background: var(--accent-soft); }
-    .status-badge.online  .status-dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .status-badge.online  .status-dot { background: var(--accent); box-shadow: 0 0 3px var(--accent-glow); }
     .status-badge.offline { color: #e05555; border-color: rgba(224,85,85,0.35); background: rgba(224,85,85,0.08); }
     .status-badge.offline .status-dot { background: #e05555; }
 
@@ -264,21 +282,26 @@
 
     /* â”€â”€ CARD â”€â”€ */
     .card {
-      background: var(--bg-panel);
+      background: var(--bg-card);
       border: 1px solid var(--border);
-      border-top-color: var(--border-hi);
-      border-radius: var(--radius);
-      backdrop-filter: blur(20px) saturate(130%);
-      -webkit-backdrop-filter: blur(20px) saturate(130%);
-      box-shadow: 0 2px 24px rgba(0,0,0,0.32), inset 0 1px 0 var(--border-hi);
+      border-radius: var(--radius-lg);
+      /* No backdrop-filter on cards: opaque matte surface instead. Cards with
+         backdrop-filter intermittently failed to paint their inner content in
+         Chromium (blank card with only the outline) when scrolling under the
+         sticky blurred header/nav. */
+      background-image: linear-gradient(180deg, rgba(255,255,255,0.022) 0%, transparent 38%);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.30), 0 12px 34px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.04);
       /* overflow: visible so combobox dropdowns can escape the card and float
          over neighbouring cards instead of being clipped at the card edge. */
       overflow: visible; position: relative;
       /* margin-bottom removed: parent grid uses `gap` for spacing. */
-      animation: slide-up 0.22s cubic-bezier(0.22,1,0.36,1) both;
-      transition: box-shadow 0.2s;
+      transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
     }
-    .card:hover { box-shadow: 0 4px 32px rgba(0,0,0,0.38), inset 0 1px 0 var(--border-hi); }
+    .card:hover {
+      border-color: var(--border-hi);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.30), 0 18px 46px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.05);
+      transform: translateY(-1px);
+    }
     .card:nth-child(2) { animation-delay: 0.05s; }
     .card:nth-child(3) { animation-delay: 0.10s; }
     .card:nth-child(4) { animation-delay: 0.15s; }
@@ -288,22 +311,28 @@
     }
     .card::before {
       content: ''; position: absolute;
-      left: 0; top: 0; bottom: 0; width: 3px; z-index: 1;
-      background: linear-gradient(180deg, var(--accent) 0%, transparent 100%);
-      border-radius: var(--radius) 0 0 var(--radius);
+      left: 14%; right: 14%; top: 0; height: 1px; z-index: 1;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.16) 50%, transparent);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     }
     .card-header {
-      display: flex; align-items: center; justify-content: center; text-align: center;
-      padding: 9px 16px 8px;
+      display: flex; align-items: center; justify-content: flex-start; text-align: left;
+      gap: 10px;
+      padding: 16px 22px 14px;
       border-bottom: 1px solid var(--sep);
     }
-    .card-title {
-      font-family: var(--font-ui);
-      font-size: 12px; font-weight: 700;
-      letter-spacing: 0.14em; text-transform: uppercase;
-      color: var(--text-muted); margin-top: 2px;
+    .card-header::before {
+      content: ''; flex: none;
+      width: 2px; height: 18px; border-radius: 1px;
+      background: linear-gradient(180deg, var(--accent), var(--accent-dim));
     }
-    .card-body { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+    .card-title {
+      font-family: var(--font-display);
+      font-size: 15px; font-weight: 600;
+      letter-spacing: 0.10em; text-transform: uppercase;
+      color: var(--text-head); margin-top: 0;
+    }
+    .card-body { padding: 22px; display: flex; flex-direction: column; gap: 18px; }
 
     /* â”€â”€ FORM â”€â”€ */
     .form-group { display: flex; flex-direction: column; gap: 6px; }
@@ -324,13 +353,36 @@
     input[type="url"],
     select, textarea {
       background: var(--bg-input);
-      border: 1px solid var(--border-hi);
-      border-radius: 8px; padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 11px 14px;
       font-size: 13px; color: var(--text-body);
       outline: none; font-family: var(--font-body);
       transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
       width: 100%;
     }
+    input[type="text"]:hover,
+    input[type="password"]:hover,
+    input[type="number"]:hover,
+    input[type="url"]:hover,
+    select:hover, textarea:hover { border-color: var(--border-hi); }
+
+    /* ── API-KEY LINK (Получить ключ) ── */
+    .label-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 16px; }
+    .key-link {
+      font-family: var(--font-ui); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      color: var(--accent); text-decoration: none;
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 9px; border-radius: 999px;
+      border: 1px solid var(--accent-glow); background: var(--accent-soft);
+      transition: all 0.16s ease; white-space: nowrap; cursor: pointer;
+    }
+    .key-link:hover {
+      background: var(--accent); color: #0a140d; border-color: var(--accent);
+    }
+    body.day .key-link:hover { color: #1a1205; }
+    .key-link[hidden] { display: none; }
+    .key-link .key-link-arrow { font-size: 11px; line-height: 1; }
     input:focus, select:focus, textarea:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px var(--accent-soft);
@@ -355,7 +407,7 @@
     /* â”€â”€ PRESET BUTTONS â”€â”€ */
     .preset-row { display: flex; gap: 8px; flex-wrap: wrap; }
     .preset-btn {
-      padding: 6px 16px; border: 1px solid var(--border-hi); border-radius: 7px;
+      padding: 7px 16px; border: 1px solid var(--border); border-radius: 999px;
       background: rgba(255,255,255,0.03); color: var(--text-muted);
       font-family: var(--font-ui); font-size: 12px; font-weight: 600;
       letter-spacing: 0.05em; cursor: pointer; transition: all 0.15s;
@@ -378,8 +430,8 @@
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none; appearance: none;
       width: 15px; height: 15px; border-radius: 50%;
-      background: var(--accent); margin-top: -5.5px;
-      box-shadow: 0 0 7px var(--accent-glow);
+      background: linear-gradient(180deg, var(--accent), var(--accent-dim)); margin-top: -5.5px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.25);
       transition: transform 0.15s;
     }
     input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
@@ -419,11 +471,6 @@
     body.day .btn { background: rgba(0,0,0,0.03); }
     .btn:hover { background: rgba(255,255,255,0.08); color: var(--text-body); }
     body.day .btn:hover { background: rgba(0,0,0,0.07); color: var(--text-body); }
-    .btn-primary {
-      border-color: var(--accent-glow); background: var(--accent-soft); color: var(--accent);
-      border-top: 2px solid var(--accent);
-    }
-    .btn-primary:hover { background: var(--accent) !important; color: #f0faff !important; border-color: var(--accent); }
     .btn-danger { background: rgba(224,85,85,0.12); color: #e05555; border-color: rgba(224,85,85,0.3); }
     .btn-danger:hover { background: rgba(224,85,85,0.25); border-color: #e05555; }
     .toggle-switch { position:relative; display:inline-block; flex:0 0 38px; width:38px; min-width:38px; height:20px; cursor:pointer; }
@@ -520,6 +567,10 @@
     }
     .combo-btn:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
     .combo-wrap:focus-within .combo-btn { border-color: var(--accent); }
+    /* Focus ring must wrap the whole pill (input + arrow), not the inner input —
+       otherwise the 3px ring renders as a broken rounded notch mid-control. */
+    .combo-wrap:focus-within { border-radius: var(--radius); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .combo-wrap input:focus { box-shadow: none; }
     /* When the parent disables the suggestion list (e.g. "Свой" provider),
        hide the dropdown chevron and let the input reclaim the full width. */
     .combo-wrap.combo-disabled .combo-btn { display: none; }
@@ -538,9 +589,9 @@
     }
     .combo-list.open { display: block; }
     /* When a card contains an open combobox, lift it above sibling cards so
-       the dropdown is never covered by the next card's stacking context
-       (each .card forms its own context due to backdrop-filter). */
-    .card.combo-open { z-index: 50; }
+       the dropdown is never covered by the next card (z-index on the
+       position:relative card creates a stacking context above its siblings). */
+    .card.combo-open { z-index: 20; }
     .combo-item {
       padding: 8px 14px; cursor: pointer; font-size: 13px;
       color: var(--text-body); transition: background .1s;
@@ -549,6 +600,131 @@
     }
     .combo-item:hover { background: var(--accent-soft); color: var(--text-head); }
     .combo-item.hi { color: var(--accent); }
+
+    /* ════════════════════════════════════════════════════════════════
+       ENHANCEMENTS v0.3 — section nav · key tools · dirty save ·
+       export/import · tooltips · card-header icons. All additive.
+       ════════════════════════════════════════════════════════════════ */
+
+    /* ── Section nav (sticky pill bar under header) ── */
+    .section-nav {
+      position: sticky; top: var(--header-h, 92px); z-index: 25;
+      display: flex; gap: 7px; flex-wrap: wrap; align-items: center;
+      padding: 10px 14px; margin-top: -4px;
+      /* All four corners rounded so the bar reads as its own pill panel below
+         the header (rounded top corners requested). */
+      border-radius: var(--radius);
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.22);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    }
+    .section-nav .nav-label {
+      font-family: var(--font-ui); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--text-muted); opacity: 0.7; margin-right: 4px;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .section-nav .nav-label::after {
+      content: ''; width: 1px; height: 14px; background: var(--sep);
+    }
+    .nav-link {
+      font-family: var(--font-ui); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--text-muted); text-decoration: none; cursor: pointer;
+      padding: 5px 13px; border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(128,128,128,0.05);
+      transition: all 0.16s ease; white-space: nowrap;
+    }
+    body.day .nav-link { background: rgba(0,0,0,0.04); }
+    .nav-link:hover { color: var(--accent); border-color: var(--accent-glow); background: var(--accent-soft); }
+    .nav-link.active { color: var(--accent); border-color: var(--accent-glow); background: var(--accent-soft); }
+    @media (max-width: 760px) { .section-nav .nav-label { display: none; } }
+
+    /* Cards: leave room under the two sticky bars when jumped to via anchor */
+    .card[id] { scroll-margin-top: calc(var(--header-h, 92px) + 64px); }
+
+    /* ── Card-header line icon ── */
+    .card-header-icon {
+      flex: none; width: 17px; height: 17px;
+      color: var(--accent); opacity: 0.92;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .card-header-icon svg { width: 100%; height: 100%; display: block; }
+
+    /* ── API-key field tools (eye + paste) ── */
+    .key-field { position: relative; display: block; }
+    .key-field > input { padding-right: 78px; }
+    .key-tools {
+      position: absolute; top: 50%; right: 8px; transform: translateY(-50%);
+      display: flex; gap: 4px; align-items: center;
+    }
+    .key-tool {
+      width: 28px; height: 28px; padding: 0;
+      border: 1px solid var(--border); border-radius: 7px;
+      background: rgba(128,128,128,0.07); color: var(--text-muted);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    body.day .key-tool { background: rgba(0,0,0,0.05); }
+    .key-tool:hover { color: var(--accent); border-color: var(--accent-glow); background: var(--accent-soft); }
+    .key-tool svg { width: 15px; height: 15px; display: block; }
+
+    /* ── Info tooltip (?) ── */
+    .info-tip {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 14px; height: 14px; margin-left: 6px;
+      border-radius: 50%; border: 1px solid var(--border-hi);
+      color: var(--text-muted); background: transparent;
+      font-family: var(--font-body); font-size: 9px; font-weight: 700;
+      cursor: help; vertical-align: middle; position: relative;
+      transition: all 0.15s; flex: none;
+    }
+    .info-tip:hover { color: var(--accent); border-color: var(--accent-glow); background: var(--accent-soft); }
+    .info-tip::after {
+      content: attr(data-tip);
+      position: absolute; bottom: calc(100% + 9px); left: 50%; transform: translateX(-50%) translateY(4px);
+      width: max-content; max-width: 248px;
+      padding: 9px 12px; border-radius: 9px;
+      background: #0e1319; color: var(--text-body);
+      border: 1px solid var(--border-hi);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+      font-family: var(--font-body); font-size: 11.5px; font-weight: 400;
+      line-height: 1.5; letter-spacing: 0; text-transform: none;
+      white-space: normal; text-align: left;
+      opacity: 0; pointer-events: none; transition: opacity 0.16s, transform 0.16s;
+      z-index: 9998;
+    }
+    body.day .info-tip::after { background: #061019; }
+    .info-tip:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── Save button: looks like a normal test button until there are
+       unsaved changes, then it gets the accent highlight (no dot, no label). ── */
+    #save-btn { position: relative; }
+    #save-btn.is-dirty {
+      border: 1px solid var(--accent-dim);
+      background: linear-gradient(180deg, var(--accent-soft), rgba(0,0,0,0.06));
+      color: var(--text-head);
+      box-shadow: 0 0 0 1px var(--accent-glow), 0 6px 18px rgba(0,0,0,0.28);
+    }
+    #save-btn.is-dirty:hover {
+      background: linear-gradient(180deg, var(--accent), var(--accent-dim));
+      color: #0a140d; border-color: var(--accent);
+    }
+    body.day #save-btn.is-dirty:hover { color: #1a1205; }
+
+    /* ── push-to-talk / keybind capture ── */
+    .key-capture-row { display: flex; gap: 8px; align-items: stretch; }
+    .key-capture-row > input { flex: 1; min-width: 0; }
+    .key-capture-btn {
+      flex: none; display: inline-flex; align-items: center; gap: 6px;
+      white-space: nowrap; font-size: 12px; padding: 0 14px;
+    }
+    .key-capture-btn .kc-ico { font-size: 14px; line-height: 1; }
+    .key-capture-btn.capturing {
+      color: var(--accent); border-color: var(--accent-glow); background: var(--accent-soft);
+    }
   </style>
 </head>
 <body>
@@ -561,7 +737,7 @@
     <div class="header-icon"><img class="header-logo" src="https://images.steamusercontent.com/ugc/11071720402767191456/0FBEA45D789CB83CBE101C0F5767A58356660C12/" alt="KCD2 AI NPC"></div>
     <div class="header-info">
       <div class="header-title" data-i18n="title">KCD2 AI NPC &mdash; &#1053;&#1072;&#1089;&#1090;&#1088;&#1086;&#1081;&#1082;&#1080;</div>
-      <div class="header-sub" data-i18n="sub">127.0.0.1:4999 &middot; &#1082;&#1086;&#1085;&#1092;&#1080;&#1075;&#1091;&#1088;&#1072;&#1094;&#1080;&#1103; &#1089;&#1077;&#1088;&#1074;&#1077;&#1088;&#1072; &middot; v0.1.0</div>
+      <div class="header-sub" data-i18n="sub">127.0.0.1:4999 &middot; &#1082;&#1086;&#1085;&#1092;&#1080;&#1075;&#1091;&#1088;&#1072;&#1094;&#1080;&#1103; &#1089;&#1077;&#1088;&#1074;&#1077;&#1088;&#1072; &middot; v0.2.0</div>
     </div>
     <div class="header-spacer"></div>
     <div class="header-promo">
@@ -576,9 +752,13 @@
     </div>
     <div class="header-actions">
       <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="&#1044;&#1085;&#1077;&#1074;&#1085;&#1072;&#1103; &#1090;&#1077;&#1084;&#1072;" aria-label="Toggle theme"></button>
-      <div id="status-badge" class="status-badge">
-        <div class="status-dot"></div>
-        <span id="status-text">&mdash;</span>
+      <div class="header-status-stack">
+        <button class="header-mini-btn" id="export-btn" type="button">&#1069;&#1082;&#1089;&#1087;&#1086;&#1088;&#1090;</button>
+        <div id="status-badge" class="status-badge">
+          <div class="status-dot"></div>
+          <span id="status-text">&mdash;</span>
+        </div>
+        <button class="header-mini-btn" id="import-btn" type="button">&#1048;&#1084;&#1087;&#1086;&#1088;&#1090;</button>
       </div>
     </div>
   </div>
@@ -615,6 +795,12 @@
           <button class="preset-btn" data-preset="ollama"      onclick="setPreset('ollama')">Ollama</button>
           <button class="preset-btn" data-preset="openai"      onclick="setPreset('openai')">OpenAI</button>
           <button class="preset-btn" data-preset="groq"        onclick="setPreset('groq')">Groq</button>
+          <button class="preset-btn" data-preset="nvidia"      onclick="setPreset('nvidia')">NVIDIA</button>
+          <button class="preset-btn" data-preset="google"      onclick="setPreset('google')">Google AI Studio</button>
+          <button class="preset-btn" data-preset="github"      onclick="setPreset('github')">GitHub Models</button>
+          <button class="preset-btn" data-preset="cohere"      onclick="setPreset('cohere')">Cohere</button>
+          <button class="preset-btn" data-preset="cerebras"    onclick="setPreset('cerebras')">Cerebras</button>
+          <button class="preset-btn" data-preset="mistral"     onclick="setPreset('mistral')">Mistral</button>
           <button class="preset-btn" data-preset="openrouter"  onclick="setPreset('openrouter')">OpenRouter</button>
           <button class="preset-btn" data-preset="lmstudio"    onclick="setPreset('lmstudio')">LM Studio</button>
           <button class="preset-btn" data-preset="custom" data-i18n="custom" onclick="setPreset('custom')">&#1057;&#1074;&#1086;&#1081;</button>
@@ -626,7 +812,10 @@
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label for="api-key" data-i18n="api_key">API &#1050;&#1083;&#1102;&#1095;</label>
+          <div class="label-row">
+            <label for="api-key" data-i18n="api_key">API &#1050;&#1083;&#1102;&#1095;</label>
+            <a id="api-key-link" class="key-link" target="_blank" rel="noopener noreferrer" hidden><span data-i18n="get_key">&#1055;&#1086;&#1083;&#1091;&#1095;&#1080;&#1090;&#1100; &#1082;&#1083;&#1102;&#1095;</span><span class="key-link-arrow">&#8599;</span></a>
+          </div>
           <input type="password" id="api-key" placeholder="API key">
         </div>
         <div class="form-group">
@@ -692,11 +881,17 @@
       <!-- ElevenLabs fields -->
       <div id="tts-fields-elevenlabs" style="display:none;">
         <div class="form-group">
-          <label for="tts-el-key">ElevenLabs API Key</label>
+          <div class="label-row">
+            <label for="tts-el-key">ElevenLabs API Key</label>
+            <a class="key-link" href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener noreferrer"><span data-i18n="get_key">Получить ключ</span><span class="key-link-arrow">&#8599;</span></a>
+          </div>
           <input type="password" id="tts-el-key" placeholder="sk_...">
         </div>
         <div class="form-group" style="margin-top:10px;">
-          <label for="tts-el-voice" data-i18n="tts_voice_id_male">Voice ID (male)</label>
+          <div class="label-row">
+            <label for="tts-el-voice" data-i18n="tts_voice_id_male">Voice ID (male)</label>
+            <a class="key-link" href="https://elevenlabs.io/app/voice-library" target="_blank" rel="noopener noreferrer"><span data-i18n="get_voice_ids">Получить ID голосов</span><span class="key-link-arrow">&#8599;</span></a>
+          </div>
           <input type="text" id="tts-el-voice" placeholder="21m00Tcm4TlvDq8ikWAM">
         </div>
         <div class="form-group" style="margin-top:10px;">
@@ -709,7 +904,10 @@
       <!-- OpenAI TTS fields -->
       <div id="tts-fields-openai" style="display:none;">
         <div class="form-group">
-          <label for="tts-oai-key">OpenAI API Key</label>
+          <div class="label-row">
+            <label for="tts-oai-key">OpenAI API Key</label>
+            <a class="key-link" href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer"><span data-i18n="get_key">Получить ключ</span><span class="key-link-arrow">&#8599;</span></a>
+          </div>
           <input type="password" id="tts-oai-key" placeholder="sk-...">
         </div>
         <div class="form-group" style="margin-top:10px;">
@@ -746,6 +944,206 @@
           <span class="slider-value" id="tts-vol-val">1.00</span>
         </div>
       </div>
+
+      <!-- Per-NPC voice assignments -->
+      <datalist id="npc-ids-list">
+        <option value="henry">
+        <option value="katerina">
+        <option value="ptacek">
+        <option value="hans">
+        <option value="bohuta">
+        <option value="brabant">
+        <option value="musa">
+        <option value="roza">
+        <option value="kozlik">
+        <option value="komar">
+        <option value="pista">
+        <option value="samuel">
+        <option value="podkoni">
+        <option value="rychtar">
+        <option value="jan">
+        <option value="michal">
+        <option value="hejtman">
+        <option value="petr">
+        <option value="procek">
+        <option value="francek">
+        <option value="bolek">
+        <option value="kona">
+        <option value="olbram">
+        <option value="anton">
+        <option value="erik">
+        <option value="aulitz">
+        <option value="dcera">
+        <option value="kubenka">
+        <option value="jindrichu">
+        <option value="zizka">
+        <option value="tomlin">
+        <option value="mlada">
+        <option value="marketa">
+        <option value="komori">
+        <option value="vajda">
+        <option value="markrabe">
+        <option value="jost">
+        <option value="arne">
+        <option value="kozeluh">
+        <option value="obchodnic">
+        <option value="ota">
+        <option value="stepan">
+        <option value="vazoun">
+        <option value="hanus">
+        <option value="pan">
+        <option value="cenek">
+        <option value="lichtenst">
+        <option value="kristian">
+        <option value="leopold">
+        <option value="bonka">
+        <option value="bures">
+        <option value="marian">
+        <option value="lovci">
+        <option value="hajny">
+        <option value="pavlena">
+        <option value="herman">
+        <option value="bocek">
+        <option value="bozena">
+        <option value="svatava">
+        <option value="kutnohors">
+        <option value="menhart">
+        <option value="sluzebna">
+        <option value="sluzka">
+        <option value="hospodyne">
+        <option value="kovar">
+        <option value="stajmistr">
+        <option value="kucharka">
+      </datalist>
+      <datalist id="npc-names-list">
+        <option value="Henry"><option value="Генри">
+        <option value="Theresa"><option value="Тереза">
+        <option value="Sir Radzig Kobyla"><option value="Сэр Радзиг Кобыла">
+        <option value="Hans Capon"><option value="Ганс"><option value="Ганс Капон">
+        <option value="Father Godwin"><option value="Отец Годвин">
+        <option value="Istvan Toth"><option value="Иштван Тот">
+        <option value="Markvart von Aulitz"><option value="Аулиц">
+        <option value="Katherine"><option value="Катерина">
+        <option value="Bianca"><option value="Бьянка">
+        <option value="Kunesh"><option value="Кунеш">
+        <option value="Deutsch"><option value="Дойч">
+        <option value="Roman"><option value="Роман">
+        <option value="Matthew"><option value="Матвей">
+        <option value="Fritz"><option value="Фриц">
+        <option value="Samuel"><option value="Самуэль">
+        <option value="Peshek"><option value="Пешек">
+        <option value="Miller"><option value="Мельник">
+        <option value="Captain Bernard"><option value="Капитан Бернард">
+        <option value="Robard"><option value="Робард">
+        <option value="Ulrich"><option value="Ульрих">
+        <option value="Zbyshek"><option value="Збышек">
+        <option value="Vanyek"><option value="Ванек">
+        <option value="Shepherd Nechuta"><option value="Пастушок Нехута">
+        <option value="Guard"><option value="Стражник">
+        <option value="Soldier"><option value="Солдат">
+        <option value="Bandit"><option value="Бандит">
+        <option value="Cuman"><option value="Куман">
+        <option value="Peasant"><option value="Крестьянин">
+        <option value="Farmer"><option value="Фермер">
+        <option value="Hunter"><option value="Охотники">
+        <option value="Fisherman"><option value="Рыбак">
+        <option value="Shepherd"><option value="Пастух">
+        <option value="Innkeeper"><option value="Трактирщица"><option value="Хозяйка">
+        <option value="Trader"><option value="Торговец">
+        <option value="Tailor"><option value="Портной">
+        <option value="Armorer"><option value="Оружейник">
+        <option value="Blacksmith"><option value="Кузнец">
+        <option value="Butcher"><option value="Мясник">
+        <option value="Baker"><option value="Пекарь">
+        <option value="Alchemist"><option value="Алхимик">
+        <option value="Herbalist"><option value="Травник">
+        <option value="Monk"><option value="Монах">
+        <option value="Priest"><option value="Священник">
+        <option value="Maid"><option value="Служанка"><option value="Служка"><option value="Служанка из корчмы"><option value="Служанка из Корчмы">
+        <option value="Lady"><option value="Леди">
+        <option value="Lord"><option value="Лорд">
+        <option value="Drunkard"><option value="Пьяница">
+        <option value="Beggar"><option value="Нищий">
+        <option value="Gambler"><option value="Игрок">
+        <option value="Jeweler"><option value="Ювелир">
+        <option value="Cobbler"><option value="Сапожник">
+        <option value="Locksmith"><option value="Замочник">
+        <option value="Stablemaster"><option value="Стаимистр">
+        <option value="Executioner"><option value="Палач">
+        <option value="Bohuta"><option value="Богута">
+        <option value="Brabant"><option value="Брабант">
+        <option value="Musa"><option value="Муса">
+        <option value="Roza"><option value="Роза">
+        <option value="Kozlik"><option value="Козлик">
+        <option value="Komar"><option value="Комар">
+        <option value="Pista"><option value="Писта">
+        <option value="Podkoni"><option value="Подконный">
+        <option value="Rychtar"><option value="Рихтар">
+        <option value="Jan"><option value="Ян">
+        <option value="Michal"><option value="Михал">
+        <option value="Hejtman"><option value="Гейтман">
+        <option value="Petr"><option value="Петр">
+        <option value="Procek"><option value="Процек">
+        <option value="Francek"><option value="Францек">
+        <option value="Bolek"><option value="Болек">
+        <option value="Kona"><option value="Кона">
+        <option value="Olbram"><option value="Олбрам">
+        <option value="Anton"><option value="Антон">
+        <option value="Erik"><option value="Эрик">
+        <option value="Dcera"><option value="Дочь">
+        <option value="Kubenka"><option value="Кубенка">
+        <option value="Jindrichu"><option value="Йиндржиху">
+        <option value="Zizka"><option value="Жижка">
+        <option value="Tomlin"><option value="Томлин">
+        <option value="Mlada"><option value="Млада">
+        <option value="Marketa"><option value="Маркета">
+        <option value="Komori"><option value="Комори">
+        <option value="Vajda"><option value="Вайда">
+        <option value="Markrabe"><option value="Маркрабе">
+        <option value="Jost"><option value="Йост">
+        <option value="Arne"><option value="Арне">
+        <option value="Kozeluh"><option value="Козелух">
+        <option value="Obchodnic"><option value="Обходник"><option value="Торговец">
+        <option value="Ota"><option value="Ота">
+        <option value="Stepan"><option value="Степан">
+        <option value="Vazoun"><option value="Вазоун">
+        <option value="Hanus"><option value="Ганус">
+        <option value="Pan"><option value="Пан">
+        <option value="Cenek"><option value="Ценек">
+        <option value="Lichtenst"><option value="Лихтенштейн">
+        <option value="Kristian"><option value="Кристиан">
+        <option value="Leopold"><option value="Леопольд">
+        <option value="Bonka"><option value="Бонка">
+        <option value="Bures"><option value="Бурес">
+        <option value="Marian"><option value="Мариан">
+        <option value="Lovci"><option value="Охотники">
+        <option value="Hajny"><option value="Гайны">
+        <option value="Pavlena"><option value="Павлена">
+        <option value="Herman"><option value="Герман">
+        <option value="Bocek"><option value="Бочек">
+        <option value="Bozena"><option value="Божена">
+        <option value="Svatava"><option value="Сватава">
+        <option value="Kutnohors"><option value="Кутногорск">
+        <option value="Menhart"><option value="Менхарт">
+        <option value="Hospodyne"><option value="Хозяйка"><option value="Трактирщица">
+        <option value="Kovar"><option value="Кузнец">
+        <option value="Stajmistr"><option value="Стаимистр">
+        <option value="Kucharka"><option value="Кухарка">
+        <option value="Ptacek"><option value="Птачек">
+      </datalist>
+      <div class="form-group" style="margin-top:14px;">
+        <label data-i18n="tts_npc_voices">Голоса NPC (по имени)</label>
+        <div style="display:flex; gap:6px; margin-bottom:4px; font-size:11px; color:var(--text-secondary);">
+          <span style="flex:1 1 140px;">NPC Name</span>
+          <span style="flex:0 0 120px;">Provider</span>
+          <span style="flex:1 1 140px;">Voice / ID</span>
+        </div>
+        <div id="npc-voices-list" style="display:flex; flex-direction:column; gap:6px;">
+          <!-- rows injected by JS -->
+        </div>
+        <button class="btn" type="button" style="margin-top:6px; font-size:12px; padding:4px 10px;" onclick="addNpcVoiceRow()" data-i18n="tts_add_npc_voice">+ Добавить NPC</button>
+        <div class="form-hint" data-i18n="tts_npc_voices_hint">Для каждого NPC выберите провайдера и голос. Если поле пустое — используется голос по умолчанию (по полу).</div>
+      </div>
     </div>
   </div>
 
@@ -780,14 +1178,20 @@
         <label for="stt-api-url" data-i18n="stt_api_url">API URL</label>
         <input type="text" id="stt-api-url" placeholder="https://api.openai.com/v1">
       </div>
-      <div class="form-group" id="stt-row-key" style="margin-top:10px; display:none;">
-        <label for="stt-api-key" data-i18n="stt_api_key">API ключ</label>
-        <input type="password" id="stt-api-key" placeholder="sk-...">
+      <div class="form-row" style="margin-top:10px;">
+        <div class="form-group" id="stt-row-key" style="display:none;">
+          <div class="label-row">
+            <label for="stt-api-key" data-i18n="stt_api_key">API ключ</label>
+            <a id="stt-api-key-link" class="key-link" target="_blank" rel="noopener noreferrer" hidden><span data-i18n="get_key">Получить ключ</span><span class="key-link-arrow">&#8599;</span></a>
+          </div>
+          <input type="password" id="stt-api-key" placeholder="sk-...">
+        </div>
+        <div class="form-group">
+          <label for="stt-model" data-i18n="stt_model">Модель</label>
+          <input type="text" id="stt-model" placeholder="base">
+        </div>
       </div>
-
-      <div class="form-group" style="margin-top:10px;">
-        <label for="stt-model" data-i18n="stt_model">Модель</label>
-        <input type="text" id="stt-model" placeholder="base">
+      <div class="form-group" style="margin-top:6px;">
         <div class="form-hint" id="stt-model-hint">
           faster-whisper: <code>tiny</code> <code>base</code> <code>small</code> <code>medium</code> <code>large-v3</code>.
           OpenAI: <code>whisper-1</code>.
@@ -879,6 +1283,7 @@
         <label for="chat-key" data-i18n="chat_key">AI chat key</label>
         <input type="text" id="chat-key" maxlength="3" placeholder="v">
         <div class="form-hint"><span data-i18n="chat_key_hint">Default: v. This key toggles AI chat open/closed. Examples:</span> <code>v</code> <code>y</code> <code>g</code> <code>f5</code>. <span data-i18n="chat_key_hint_2">Saved to Data\Libs\Config\ai_npc_actions.xml. Restart/reload game scripts after changing.</span></div>
+        <div class="form-hint" style="color:var(--accent-gold);margin-top:4px;" data-i18n="chat_key_english_note">Enter the key in English (Latin) letters only. Do not use Russian/Cyrillic characters.</div>
       </div>
       <div class="form-group" style="margin-top:10px;">
         <label for="end-key" data-i18n="end_key">Optional separate end key</label>
@@ -895,10 +1300,10 @@
       <div class="form-group" style="margin-top:10px;">
         <label for="tap-mode" data-i18n="tap_mode">Tap V text input mode</label>
         <select id="tap-mode">
-          <option value="direct_overlay" data-i18n="tap_mode_direct">Direct Python overlay (Steam Workshop)</option>
-          <option value="lua_command" data-i18n="tap_mode_lua">Lua command.lua bridge (GOG/dev)</option>
+          <option value="direct_overlay" data-i18n="tap_mode_direct">Прямой Python overlay (могут прожаться окна игры)</option>
+          <option value="lua_command" data-i18n="tap_mode_lua">Lua command.lua bridge (нужно повторная нажимать V после Enter, не работает в Steam)</option>
         </select>
-        <div class="form-hint" data-i18n="tap_mode_hint">Workshop: direct overlay. GOG/loose files: command.lua bridge if Lua file polling is available.</div>
+        <div class="form-hint" data-i18n="tap_mode_hint">Режим открытия окна ввода текста при коротком нажатии V.</div>
       </div>
     </div>
   </div>
@@ -918,7 +1323,7 @@
         </div>
         <div class="form-hint" data-i18n="interaction_dress_examples">Примеры: «Оденься, пожалуйста, холодно», «Переоденься в другую одежду», «Смени одежду, эта уже грязная».</div>
       </div>
-      <div class="form-group" style="margin-top:10px; display:none;">
+      <div class="form-group" style="margin-top:10px;">
         <label for="interaction-dress-terms" data-i18n="interaction_dress_terms">Фразы для одевания</label>
         <textarea id="interaction-dress-terms" style="min-height:72px;"></textarea>
         <div class="form-hint" data-i18n="interaction_terms_hint">Через запятую. Сохраняется без перезапуска сервера.</div>
@@ -934,7 +1339,7 @@
         </div>
         <div class="form-hint" data-i18n="interaction_strip_examples">Примеры: «Разденься, пожалуйста, такая жара!», «Сними верхнюю одежду, тебе станет легче», «Можешь снять плащ, здесь безопасно».</div>
       </div>
-      <div class="form-group" style="margin-top:10px; display:none;">
+      <div class="form-group" style="margin-top:10px;">
         <label for="interaction-strip-terms" data-i18n="interaction_strip_terms">Фразы для раздевания</label>
         <textarea id="interaction-strip-terms" style="min-height:72px;"></textarea>
       </div>
@@ -972,7 +1377,7 @@
         </div>
         <div class="form-hint" data-i18n="interaction_action_examples">Примеры: «Покажи, пожалуйста, оружие», «Достань меч, хочу посмотреть», «Повернись ко мне», «Посмотри на меня», «Подойди поближе», «Иди сюда, я скажу тихо», «Отойди на шаг назад», «Не стой так близко».</div>
       </div>
-      <div class="form-row" style="margin-top:10px; display:none;">
+      <div class="form-row" style="margin-top:10px;">
         <div class="form-group">
           <label for="interaction-draw-terms">Фразы оружия</label>
           <textarea id="interaction-draw-terms" style="min-height:64px;"></textarea>
@@ -982,7 +1387,7 @@
           <textarea id="interaction-turn-terms" style="min-height:64px;"></textarea>
         </div>
       </div>
-      <div class="form-row" style="margin-top:10px; display:none;">
+      <div class="form-row" style="margin-top:10px;">
         <div class="form-group">
           <label for="interaction-come-terms">Фразы “подойди”</label>
           <textarea id="interaction-come-terms" style="min-height:64px;"></textarea>
@@ -1003,7 +1408,7 @@
         </div>
         <div class="form-hint" data-i18n="interaction_collapse_examples">Примеры: «Фус рода!», «Заклинание ветра, падай!», «Силой чар я сбиваю тебя с ног», «Пусть земля уйдёт из-под твоих ног».</div>
       </div>
-      <div class="form-group" style="margin-top:10px; display:none;">
+      <div class="form-group" style="margin-top:10px;">
         <label for="interaction-collapse-terms">Фразы заклинания</label>
         <textarea id="interaction-collapse-terms" style="min-height:64px;"></textarea>
       </div>
@@ -1139,7 +1544,7 @@
       <button class="btn" id="test-llm-btn" data-i18n="test_llm" onclick="testLLM()">&#1058;&#1077;&#1089;&#1090; LLM</button>
       <button class="btn" id="tts-test-btn" data-i18n="tts_test" onclick="testTTS()">&#1058;&#1077;&#1089;&#1090; TTS</button>
       <button class="btn" id="stt-test-btn" data-i18n="stt_test" onclick="testSTT()" title="Записать ~3 сек с микрофона и распознать">&#1058;&#1077;&#1089;&#1090; STT</button>
-      <button class="btn btn-primary" id="save-btn" data-i18n="save" onclick="saveConfig()">&#1057;&#1086;&#1093;&#1088;&#1072;&#1085;&#1080;&#1090;&#1100;</button>
+      <button class="btn" id="save-btn" data-i18n="save" onclick="saveConfig()">&#1057;&#1086;&#1093;&#1088;&#1072;&#1085;&#1080;&#1090;&#1100;</button>
     </div>
   </div>
 
@@ -1361,10 +1766,41 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     ollama:     { url: 'http://localhost:11434/v1',       key: 'ollama',    model: 'llama3.1:8b',                        keyHint: 'ollama'            },
     openai:     { url: 'https://api.openai.com/v1',       key: '',          model: 'gpt-4o-mini',                        keyHint: 'sk-...'            },
     groq:       { url: 'https://api.groq.com/openai/v1',  key: '',          model: 'llama-3.3-70b-versatile',            keyHint: 'gsk_...'           },
+    nvidia:     { url: 'https://integrate.api.nvidia.com/v1', key: '',      model: 'meta/llama3-70b-instruct',           keyHint: 'nvapi-...'         },
+    google:     { url: 'https://generativelanguage.googleapis.com/v1beta/openai/', key: '', model: 'gemini-1.5-flash',  keyHint: 'AIza...'           },
+    github:     { url: 'https://models.inference.ai.azure.com', key: '',    model: 'gpt-4o-mini',                        keyHint: 'ghp_... / github_pat' },
+    cohere:     { url: 'https://api.cohere.ai/v1',          key: '',        model: 'command-r',                          keyHint: 'Cohere API key'    },
+    cerebras:   { url: 'https://api.cerebras.ai/v1',        key: '',          model: 'llama-3.3-70b',                      keyHint: 'Cerebras API key'  },
+    mistral:    { url: 'https://api.mistral.ai/v1',         key: '',          model: 'mistral-large-latest',               keyHint: 'Mistral API key'   },
     openrouter: { url: 'https://openrouter.ai/api/v1',    key: '',          model: 'meta-llama/llama-3.3-8b-instruct:free', keyHint: 'sk-or-...'     },
     lmstudio:   { url: 'http://localhost:1234/v1',        key: 'lm-studio', model: '',                                   keyHint: 'lm-studio'         },
     custom:     { url: '',                                key: '',          model: '',                                   keyHint: 'API key'           },
   };
+
+  // Direct links to each provider's API-key page. Empty string = local
+  // provider or custom endpoint that doesn't need a hosted key.
+  const PROVIDER_KEY_URLS = {
+    ollama:     '',
+    openai:     'https://platform.openai.com/api-keys',
+    groq:       'https://console.groq.com/keys',
+    nvidia:     'https://build.nvidia.com/',
+    google:     'https://aistudio.google.com/app/apikey',
+    github:     'https://github.com/settings/tokens',
+    cohere:     'https://dashboard.cohere.com/api-keys',
+    cerebras:   'https://cloud.cerebras.ai/',
+    mistral:    'https://console.mistral.ai/api-keys/',
+    openrouter: 'https://openrouter.ai/keys',
+    lmstudio:   '',
+    custom:     '',
+  };
+
+  // Show/hide and point the "Получить ключ" link next to an API-key field.
+  function updateKeyLink(linkId, url) {
+    const link = document.getElementById(linkId);
+    if (!link) return;
+    if (url) { link.href = url; link.hidden = false; }
+    else { link.hidden = true; link.removeAttribute('href'); }
+  }
 
   // Per-provider profiles: each remembers its own URL, model and API key
   // independently, so switching back to "Свой" restores exactly what the user
@@ -1425,6 +1861,9 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       const modelInput = document.getElementById('model');
       modelInput.placeholder = p.model || 'model-id';
     }
+    // API-key link: show a "Получить ключ" button pointing to the provider's
+    // key page, hidden for local/custom providers that need no hosted key.
+    updateKeyLink('api-key-link', PROVIDER_KEY_URLS[n]);
     activePreset = n;
     // For the "custom" provider we hide the suggestion dropdowns on
     // API URL and Model so the user has a clean text field with no preset list.
@@ -1499,9 +1938,8 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     activePromptPreset = name;
   }
 
-  async function loadConfig() {
-    try {
-      const d = await fetch('/config').then(r => r.json());
+  function populateForm(d) {
+      d = d || {};
       document.getElementById('api-url').value = d.llm?.api_url ?? PRESETS.groq.url;
       document.getElementById('api-key').value = d.llm?.api_key ?? PRESETS.groq.key;
       document.getElementById('model').value   = d.llm?.model   ?? PRESETS.groq.model;
@@ -1562,6 +2000,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       document.getElementById('tts-oai-key').value   = tts.openai_api_key || '';
       setOaiVoice(tts.openai_voice || 'onyx');
       setOaiVoiceFemale(tts.openai_voice_female || 'nova');
+      loadNpcVoices(tts.npc_voices);
       document.getElementById('prompt-template').value = d.prompt_template || PROMPT_PRESETS.original;
       detectPromptPreset();
 
@@ -1591,6 +2030,12 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       // currently active provider so subsequent provider switches behave as
       // expected (each provider independently remembers its own form state).
       snapshotCurrentProfile();
+  }
+
+  async function loadConfig() {
+    try {
+      const d = await fetch('/config').then(r => r.json());
+      populateForm(d);
     } catch { showToast('error', 'Ошибка загрузки', 'Не удалось загрузить конфиг'); }
   }
 
@@ -1621,6 +2066,251 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     document.getElementById('tts-fields-edge').style.display       = engine === 'edge'        ? '' : 'none';
     document.getElementById('tts-fields-elevenlabs').style.display = engine === 'elevenlabs'  ? '' : 'none';
     document.getElementById('tts-fields-openai').style.display     = engine === 'openai'      ? '' : 'none';
+  }
+
+  const NPC_NAME_TO_ID = {
+    "Henry":"henry","Генри":"henry",
+    "Theresa":"theresa","Тереза":"theresa",
+    "Sir Radzig Kobyla":"sir_radzig_kobyla","Сэр Радзиг Кобыла":"sir_radzig_kobyla",
+    "Hans Capon":"hans","Hans":"hans","Ганс":"hans","Ганс Капон":"hans",
+    "Father Godwin":"father_godwin","Отец Годвин":"father_godwin",
+    "Istvan Toth":"istvan_toth","Иштван Тот":"istvan_toth",
+    "Markvart von Aulitz":"aulitz","Аулиц":"aulitz",
+    "Katherine":"katerina","Katerina":"katerina","Катерина":"katerina",
+    "Bianca":"bianca","Бьянка":"bianca",
+    "Kunesh":"kunesh","Кунеш":"kunesh",
+    "Deutsch":"deutsch","Дойч":"deutsch",
+    "Roman":"roman","Роман":"roman",
+    "Matthew":"matthew","Матвей":"matthew",
+    "Fritz":"fritz","Фриц":"fritz",
+    "Ptacek":"ptacek","Птачек":"ptacek",
+    "Samuel":"samuel","Самуэль":"samuel",
+    "Peshek":"peshek","Пешек":"peshek",
+    "Miller":"miller","Мельник":"miller",
+    "Captain Bernard":"captain_bernard","Капитан Бернард":"captain_bernard",
+    "Robard":"robard","Робард":"robard",
+    "Ulrich":"ulrich","Ульрих":"ulrich",
+    "Zbyshek":"zbyshek","Збышек":"zbyshek",
+    "Vanyek":"vanyek","Ванек":"vanyek",
+    "Shepherd Nechuta":"nechuta","Пастушок Нехута":"nechuta",
+    "Guard":"guard","Стражник":"guard",
+    "Soldier":"soldier","Солдат":"soldier",
+    "Bandit":"bandit","Бандит":"bandit",
+    "Cuman":"cuman","Куман":"cuman",
+    "Peasant":"peasant","Крестьянин":"peasant",
+    "Farmer":"farmer","Фермер":"farmer",
+    "Hunter":"hunter","Охотники":"hunter",
+    "Fisherman":"fisherman","Рыбак":"fisherman",
+    "Shepherd":"shepherd","Пастух":"shepherd",
+    "Innkeeper":"innkeeper","Трактирщица":"innkeeper","Хозяйка":"innkeeper",
+    "Trader":"trader","Торговец":"trader",
+    "Tailor":"tailor","Портной":"tailor",
+    "Armorer":"armorer","Оружейник":"armorer",
+    "Blacksmith":"blacksmith","Кузнец":"blacksmith",
+    "Butcher":"butcher","Мясник":"butcher",
+    "Baker":"baker","Пекарь":"baker",
+    "Alchemist":"alchemist","Алхимик":"alchemist",
+    "Herbalist":"herbalist","Травник":"herbalist",
+    "Monk":"monk","Монах":"monk",
+    "Priest":"priest","Священник":"priest",
+    "Maid":"maid","Служанка":"maid","Служка":"maid","Служанка из корчмы":"maid","Служанка из Корчмы":"maid",
+    "Lady":"lady","Леди":"lady",
+    "Lord":"lord","Лорд":"lord",
+    "Drunkard":"drunkard","Пьяница":"drunkard",
+    "Beggar":"beggar","Нищий":"beggar",
+    "Gambler":"gambler","Игрок":"gambler",
+    "Jeweler":"jeweler","Ювелир":"jeweler",
+    "Cobbler":"cobbler","Сапожник":"cobbler",
+    "Locksmith":"locksmith","Замочник":"locksmith",
+    "Stablemaster":"stablemaster","Стаимистр":"stablemaster",
+    "Executioner":"executioner","Палач":"executioner",
+    "Bohuta":"bohuta","Богута":"bohuta",
+    "Brabant":"brabant","Брабант":"brabant",
+    "Musa":"musa","Муса":"musa",
+    "Roza":"roza","Роза":"roza",
+    "Kozlik":"kozlik","Козлик":"kozlik",
+    "Komar":"komar","Комар":"komar",
+    "Pista":"pista","Писта":"pista",
+    "Podkoni":"podkoni","Подконный":"podkoni",
+    "Rychtar":"rychtar","Рихтар":"rychtar",
+    "Jan":"jan","Ян":"jan",
+    "Michal":"michal","Михал":"michal",
+    "Hejtman":"hejtman","Гейтман":"hejtman",
+    "Petr":"petr","Петр":"petr",
+    "Procek":"procek","Процек":"procek",
+    "Francek":"francek","Францек":"francek",
+    "Bolek":"bolek","Болек":"bolek",
+    "Kona":"kona","Кона":"kona",
+    "Olbram":"olbram","Олбрам":"olbram",
+    "Anton":"anton","Антон":"anton",
+    "Erik":"erik","Эрик":"erik",
+    "Dcera":"dcera","Дочь":"dcera",
+    "Kubenka":"kubenka","Кубенка":"kubenka",
+    "Jindrichu":"jindrichu","Йиндржиху":"jindrichu",
+    "Zizka":"zizka","Жижка":"zizka",
+    "Tomlin":"tomlin","Томлин":"tomlin",
+    "Mlada":"mlada","Млада":"mlada",
+    "Marketa":"marketa","Маркета":"marketa",
+    "Komori":"komori","Комори":"komori",
+    "Vajda":"vajda","Вайда":"vajda",
+    "Markrabe":"markrabe","Маркрабе":"markrabe",
+    "Jost":"jost","Йост":"jost",
+    "Arne":"arne","Арне":"arne",
+    "Kozeluh":"kozeluh","Козелух":"kozeluh",
+    "Obchodnic":"obchodnic","Обходник":"obchodnic","Торговец":"obchodnic",
+    "Ota":"ota","Ота":"ota",
+    "Stepan":"stepan","Степан":"stepan",
+    "Vazoun":"vazoun","Вазоун":"vazoun",
+    "Hanus":"hanus","Ганус":"hanus",
+    "Pan":"pan","Пан":"pan",
+    "Cenek":"cenek","Ценек":"cenek",
+    "Lichtenst":"lichtenst","Лихтенштейн":"lichtenst",
+    "Kristian":"kristian","Кристиан":"kristian",
+    "Leopold":"leopold","Леопольд":"leopold",
+    "Bonka":"bonka","Бонка":"bonka",
+    "Bures":"bures","Бурес":"bures",
+    "Marian":"marian","Мариан":"marian",
+    "Lovci":"lovci","Охотники":"lovci",
+    "Hajny":"hajny","Гайны":"hajny",
+    "Pavlena":"pavlena","Павлена":"pavlena",
+    "Herman":"herman","Герман":"herman",
+    "Bocek":"bocek","Бочек":"bocek",
+    "Bozena":"bozena","Божена":"bozena",
+    "Svatava":"svatava","Сватава":"svatava",
+    "Kutnohors":"kutnohors","Кутногорск":"kutnohors",
+    "Menhart":"menhart","Менхарт":"menhart",
+    "Hospodyne":"hospodyne","Хозяйка":"hospodyne","Трактирщица":"hospodyne",
+    "Kovar":"kovar","Кузнец":"kovar",
+    "Stajmistr":"stajmistr","Стаимистр":"stajmistr",
+    "Kucharka":"kucharka","Кухарка":"kucharka"
+  };
+  const NPC_ID_TO_NAME = {};
+  for (const [name, id] of Object.entries(NPC_NAME_TO_ID)) {
+    if (!NPC_ID_TO_NAME[id]) NPC_ID_TO_NAME[id] = name;
+  }
+
+  const _allNames = Array.from(document.querySelectorAll('#npc-names-list option')).map(o => o.value);
+  _allNames.sort((a,b) => {
+    const aCyr = /[а-яА-ЯЁё]/.test(a);
+    const bCyr = /[а-яА-ЯЁё]/.test(b);
+    return bCyr - aCyr;
+  });
+  const NPC_NAME_OPTIONS = [];
+  const _seenIds = new Set();
+  for (const name of _allNames) {
+    const id = NPC_NAME_TO_ID[name];
+    if (id && !_seenIds.has(id)) { _seenIds.add(id); NPC_NAME_OPTIONS.push(name); }
+    else if (!id && !_seenIds.has(name)) { _seenIds.add(name); NPC_NAME_OPTIONS.push(name); }
+  }
+  let _npcComboId = 0;
+
+  // --- Per-NPC voice assignments ---
+  function addNpcVoiceRow(npcName='', provider='elevenlabs', voice='', npcId='') {
+    const container = document.getElementById('npc-voices-list');
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; gap:6px; align-items:center; flex-wrap:wrap;';
+    row.className = 'npc-voice-row';
+    const comboId = 'npc-name-' + (_npcComboId++);
+    row.innerHTML = `
+      <div style="flex:1 1 140px; min-width:100px;">
+        <input type="text" id="${comboId}" class="npc-name" placeholder="NPC name" value="${escapeHtml(npcName)}" autocomplete="off" oninput="onNpcNameChange(this)">
+        <input type="hidden" class="npc-id" value="${escapeHtml(npcId)}">
+      </div>
+      <select class="npc-provider" onchange="onNpcProviderChange(this)" style="flex:0 0 120px;">
+        <option value="edge" ${provider==='edge'?'selected':''}>Edge</option>
+        <option value="elevenlabs" ${provider==='elevenlabs'?'selected':''}>ElevenLabs</option>
+        <option value="openai" ${provider==='openai'?'selected':''}>OpenAI</option>
+      </select>
+      <div class="npc-voice-wrap" style="flex:1 1 140px; min-width:100px;">
+        ${buildVoiceInput(provider, voice)}
+      </div>
+      <button type="button" class="btn btn-sm icon-btn" onclick="this.closest('.npc-voice-row').remove()" title="Remove" style="width:34px; min-width:34px; padding:4px 0;"><span style="display:inline-block; font-size:18px; line-height:1;">×</span></button>
+    `;
+    container.appendChild(row);
+    makeCombo(comboId, NPC_NAME_OPTIONS);
+    if (npcName && !npcId) {
+      onNpcNameChange(row.querySelector('.npc-name'));
+    }
+  }
+
+  function onNpcNameChange(input) {
+    const row = input.closest('.npc-voice-row');
+    const idField = row.querySelector('.npc-id');
+    const name = input.value.trim();
+    idField.value = NPC_NAME_TO_ID[name] || name;
+  }
+
+  function buildVoiceInput(provider, voice) {
+    if (provider === 'edge') {
+      return `<select class="npc-voice-input" style="width:100%;">
+          <option value="">-- Edge voice --</option>
+          <option value="ru-RU-DmitryNeural" ${voice==='ru-RU-DmitryNeural'?'selected':''}>ru-RU-DmitryNeural (М)</option>
+          <option value="ru-RU-SvetlanaNeural" ${voice==='ru-RU-SvetlanaNeural'?'selected':''}>ru-RU-SvetlanaNeural (Ж)</option>
+          <option value="en-GB-RyanNeural" ${voice==='en-GB-RyanNeural'?'selected':''}>en-GB-RyanNeural (М)</option>
+          <option value="en-GB-SoniaNeural" ${voice==='en-GB-SoniaNeural'?'selected':''}>en-GB-SoniaNeural (Ж)</option>
+          <option value="en-US-GuyNeural" ${voice==='en-US-GuyNeural'?'selected':''}>en-US-GuyNeural (М)</option>
+          <option value="en-US-JennyNeural" ${voice==='en-US-JennyNeural'?'selected':''}>en-US-JennyNeural (Ж)</option>
+          <option value="cs-CZ-AntoninNeural" ${voice==='cs-CZ-AntoninNeural'?'selected':''}>cs-CZ-AntoninNeural (М)</option>
+          <option value="de-DE-ConradNeural" ${voice==='de-DE-ConradNeural'?'selected':''}>de-DE-ConradNeural (М)</option>
+          <option value="pl-PL-MarekNeural" ${voice==='pl-PL-MarekNeural'?'selected':''}>pl-PL-MarekNeural (М)</option>
+        </select>`;
+    } else if (provider === 'openai') {
+      return `<select class="npc-voice-input" style="width:100%;">
+          <option value="">-- OpenAI voice --</option>
+          <option value="alloy" ${voice==='alloy'?'selected':''}>alloy</option>
+          <option value="echo" ${voice==='echo'?'selected':''}>echo</option>
+          <option value="fable" ${voice==='fable'?'selected':''}>fable</option>
+          <option value="onyx" ${voice==='onyx'?'selected':''}>onyx</option>
+          <option value="nova" ${voice==='nova'?'selected':''}>nova</option>
+          <option value="shimmer" ${voice==='shimmer'?'selected':''}>shimmer</option>
+        </select>`;
+    } else {
+      return `<input type="text" class="npc-voice-input" placeholder="Voice ID" value="${escapeHtml(voice)}" style="width:100%;">`;
+    }
+  }
+
+  function onNpcProviderChange(select) {
+    const row = select.closest('.npc-voice-row');
+    const wrap = row.querySelector('.npc-voice-wrap');
+    const provider = select.value;
+    wrap.innerHTML = buildVoiceInput(provider, '');
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function loadNpcVoices(npcVoices) {
+    const container = document.getElementById('npc-voices-list');
+    container.innerHTML = '';
+    if (!npcVoices || typeof npcVoices !== 'object') return;
+    for (const [key, map] of Object.entries(npcVoices)) {
+      if (typeof map === 'object' && map !== null) {
+        for (const [provider, voice] of Object.entries(map)) {
+          // key might be an NPC ID — try to find display name
+          const displayName = NPC_ID_TO_NAME[key] || key;
+          addNpcVoiceRow(displayName, provider, voice, key);
+        }
+      }
+    }
+  }
+
+  function collectNpcVoices() {
+    const out = {};
+    document.querySelectorAll('.npc-voice-row').forEach(row => {
+      const id = row.querySelector('.npc-id').value.trim();
+      const name = row.querySelector('.npc-name').value.trim();
+      const provider = row.querySelector('.npc-provider').value;
+      const voiceInput = row.querySelector('.npc-voice-input');
+      const voice = voiceInput ? voiceInput.value.trim() : '';
+      if (!name && !id) return;
+      if (!voice) return;
+      const key = id || name;
+      if (!out[key]) out[key] = {};
+      out[key][provider] = voice;
+    });
+    return out;
   }
 
   async function saveHudFlags() {
@@ -1713,6 +2403,12 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     'groq':           { url: 'https://api.groq.com/openai/v1', key: '', model: 'whisper-large-v3-turbo', keyHint: 'gsk_...' },
     'custom':         { url: '',                               key: '', model: '',                       keyHint: 'API key' },
   };
+  const STT_KEY_URLS = {
+    'faster-whisper': '',
+    'openai':         'https://platform.openai.com/api-keys',
+    'groq':           'https://console.groq.com/keys',
+    'custom':         '',
+  };
   const STT_PROVIDER_ALIASES = [
     ['groq',   ['api.groq.com', 'groq.com/openai']],
     ['openai', ['api.openai.com']],
@@ -1763,6 +2459,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     const modelWrap = document.getElementById('stt-model')?.closest('.combo-wrap');
     if (modelWrap) modelWrap.classList.toggle('combo-disabled', provider === 'custom');
     if (_combos['stt-model']) _combos['stt-model'].setOptions(STT_MODEL_OPTIONS[provider] || []);
+    updateKeyLink('stt-api-key-link', STT_KEY_URLS[provider]);
     activeSttProvider = provider;
   }
   function setSttProvider(provider) {
@@ -1945,14 +2642,8 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     finally { btn.disabled = false; btn.textContent = T().test_llm; }
   }
 
-  async function saveConfig() {
-    const btn = document.getElementById('save-btn');
-    btn.disabled = true;
-    try {
-      const res = await fetch('/config/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+  function buildConfigPayload() {
+    return {
           language: document.getElementById('language').value,
           llm: {
             api_url:     document.getElementById('api-url').value.trim(),
@@ -1975,6 +2666,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
               openai_voice_female: document.getElementById('tts-oai-voice-female').value,
               openai_api_key:     document.getElementById('tts-oai-key').value.trim(),
               volume:             parseFloat(document.getElementById('tts-volume').value),
+              npc_voices:         collectNpcVoices(),
             };
           })(),
           stt: _collectSttForm(),
@@ -2012,10 +2704,21 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
             collapse_spell_terms: document.getElementById('interaction-collapse-terms').value.trim(),
           },
           prompt_template: document.getElementById('prompt-template').value,
-        }),
+        };
+  }
+
+  async function saveConfig() {
+    const btn = document.getElementById('save-btn');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/config/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildConfigPayload()),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       showToast('success', T().saving || 'Saved', T().save_ok_msg || 'Settings applied — no restart needed');
+      if (window.markClean) window.markClean();
     } catch (e) { showToast('error', T().save_err || 'Save error', String(e)); }
     finally     { btn.disabled = false; }
   }
@@ -2064,7 +2767,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
   const I18N = {
     ru: {
       title: 'KCD2 AI NPC \u2014 \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438',
-      sub: '127.0.0.1:4999 \u00b7 \u043a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044f \u0441\u0435\u0440\u0432\u0435\u0440\u0430 \u00b7 v0.1.0',
+      sub: '127.0.0.1:4999 \u00b7 \u043a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044f \u0441\u0435\u0440\u0432\u0435\u0440\u0430 \u00b7 v0.2.0',
       link_workshop: '\u041c\u0430\u0441\u0442\u0435\u0440\u0441\u043a\u0430\u044f',
       link_guide: '\u0420\u0443\u043a\u043e\u0432\u043e\u0434\u0441\u0442\u0432\u043e',
       link_github: 'GitHub',
@@ -2072,6 +2775,8 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       provider: '\u041f\u0440\u043e\u0432\u0430\u0439\u0434\u0435\u0440',
       custom: '\u0421\u0432\u043e\u0439',
       api_key: 'API \u041a\u043b\u044e\u0447',
+      get_key: '\u041f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u043a\u043b\u044e\u0447',
+      get_voice_ids: '\u041f\u043e\u043b\u0443\u0447\u0438\u0442\u044c ID \u0433\u043e\u043b\u043e\u0441\u043e\u0432',
       model: '\u041c\u043e\u0434\u0435\u043b\u044c',
       max_tokens: '\u041c\u0430\u043a\u0441. \u0442\u043e\u043a\u0435\u043d\u043e\u0432',
       max_tokens_sub: '\u043d\u0430 \u043e\u0442\u0432\u0435\u0442',
@@ -2162,6 +2867,9 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       tts_test: '\u0422\u0435\u0441\u0442 TTS',
       tts_on: '\u0432\u043a\u043b\u044e\u0447\u0435\u043d\u0430',
       tts_off: '\u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u0430',
+      tts_npc_voices: '\u0413\u043e\u043b\u043e\u0441\u0430 NPC (\u043f\u043e \u0438\u043c\u0435\u043d\u0438)',
+      tts_add_npc_voice: '+ \u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c NPC',
+      tts_npc_voices_hint: '\u041a\u0430\u0436\u0434\u043e\u043c\u0443 NPC \u043c\u043e\u0436\u043d\u043e \u043d\u0430\u0437\u043d\u0430\u0447\u0438\u0442\u044c \u0441\u0432\u043e\u0439 voice ID. \u0415\u0441\u043b\u0438 \u043f\u043e\u043b\u0435 \u043f\u0443\u0441\u0442\u043e\u0435 \u2014 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u0442\u0441\u044f \u0433\u043e\u043b\u043e\u0441 \u043f\u043e \u0443\u043c\u043e\u043b\u0447\u0430\u043d\u0438\u044e (\u043f\u043e \u043f\u043e\u043b\u0443).',
       hud_title: '\u041e\u0442\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435 HUD',
       hud_ai_text: '\u0422\u0435\u043a\u0441\u0442\u043e\u0432\u044b\u0435 \u043e\u0442\u0432\u0435\u0442\u044b \u0418\u0418',
       hud_ai_text_hint: '\u041f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0442\u044c \u0442\u0435\u043a\u0441\u0442 \u043e\u0442\u0432\u0435\u0442\u0430 NPC.',
@@ -2203,6 +2911,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       chat_key: '\u041a\u043b\u0430\u0432\u0438\u0448\u0430 AI-\u0447\u0430\u0442\u0430',
       chat_key_hint: '\u041f\u043e \u0443\u043c\u043e\u043b\u0447\u0430\u043d\u0438\u044e: v. \u042d\u0442\u0430 \u043a\u043b\u0430\u0432\u0438\u0448\u0430 \u043e\u0442\u043a\u0440\u044b\u0432\u0430\u0435\u0442 \u0438 \u0437\u0430\u043a\u0440\u044b\u0432\u0430\u0435\u0442 AI-\u0447\u0430\u0442. \u041f\u0440\u0438\u043c\u0435\u0440\u044b:',
       chat_key_hint_2: '\u0421\u043e\u0445\u0440\u0430\u043d\u044f\u0435\u0442\u0441\u044f \u0432 Data\\Libs\\Config\\ai_npc_actions.xml. \u041f\u043e\u0441\u043b\u0435 \u0441\u043c\u0435\u043d\u044b \u043d\u0443\u0436\u0435\u043d \u0440\u0435\u0441\u0442\u0430\u0440\u0442/\u043f\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0430 \u0438\u0433\u0440\u043e\u0432\u044b\u0445 \u0441\u043a\u0440\u0438\u043f\u0442\u043e\u0432.',
+      chat_key_english_note: '\u0412\u0432\u043e\u0434\u0438\u0442\u0435 \u043a\u043b\u0430\u0432\u0438\u0448\u0443 \u0442\u043e\u043b\u044c\u043a\u043e \u043d\u0430 \u0430\u043d\u0433\u043b\u0438\u0439\u0441\u043a\u043e\u043c (\u043b\u0430\u0442\u0438\u043d\u0438\u0446\u0435\u0439). \u041d\u0435 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439\u0442\u0435 \u0440\u0443\u0441\u0441\u043a\u0438\u0435 / \u043a\u0438\u0440\u0438\u043b\u043b\u0438\u0447\u0435\u0441\u043a\u0438\u0435 \u0441\u0438\u043c\u0432\u043e\u043b\u044b.',
       end_key: '\u041e\u0442\u0434\u0435\u043b\u044c\u043d\u0430\u044f \u043a\u043b\u0430\u0432\u0438\u0448\u0430 \u0437\u0430\u043a\u0440\u044b\u0442\u0438\u044f',
       overlay_enabled: '\u041f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0442\u044c \u043e\u043a\u043d\u043e \u0432\u0432\u043e\u0434\u0430',
       overlay_on: '\u0412\u043a\u043b',
@@ -2214,13 +2923,13 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       tap_overlay_enabled: 'Text overlay \u043f\u043e tap V',
       tap_overlay_hint: '\u0412\u044b\u043a\u043b\u044e\u0447\u0438\u0442\u0435, \u0447\u0442\u043e\u0431\u044b \u043a\u043e\u0440\u043e\u0442\u043a\u043e\u0435 \u043d\u0430\u0436\u0430\u0442\u0438\u0435 V \u043d\u0435 \u043e\u0442\u043a\u0440\u044b\u0432\u0430\u043b\u043e \u0442\u0435\u043a\u0441\u0442\u043e\u0432\u044b\u0439 \u0447\u0430\u0442. Hold V voice \u043e\u0441\u0442\u0430\u0451\u0442\u0441\u044f.',
       tap_mode: '\u0420\u0435\u0436\u0438\u043c text input \u043f\u043e tap V',
-      tap_mode_direct: '\u041f\u0440\u044f\u043c\u043e\u0439 Python overlay (Steam Workshop)',
-      tap_mode_lua: 'Lua command.lua bridge (GOG/dev)',
-      tap_mode_hint: 'Workshop: \u043f\u0440\u044f\u043c\u043e\u0439 overlay. GOG/loose files: command.lua bridge, \u0435\u0441\u043b\u0438 Lua-\u043e\u043f\u0440\u043e\u0441 \u0444\u0430\u0439\u043b\u043e\u0432 \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d.',
+      tap_mode_direct: '\u041f\u0440\u044f\u043c\u043e\u0439 Python overlay (\u043c\u043e\u0433\u0443\u0442 \u043f\u0440\u043e\u0436\u0430\u0442\u044c\u0441\u044f \u043e\u043a\u043d\u0430 \u0438\u0433\u0440\u044b)',
+      tap_mode_lua: 'Lua command.lua bridge (\u043d\u0443\u0436\u043d\u043e \u043f\u043e\u0432\u0442\u043e\u0440\u043d\u043e \u043d\u0430\u0436\u0438\u043c\u0430\u0442\u044c V \u043f\u043e\u0441\u043b\u0435 Enter, \u043d\u0435 \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442 \u0432 Steam)',
+      tap_mode_hint: '\u0420\u0435\u0436\u0438\u043c \u043e\u0442\u043a\u0440\u044b\u0442\u0438\u044f \u043e\u043a\u043d\u0430 \u0432\u0432\u043e\u0434\u0430 \u0442\u0435\u043a\u0441\u0442\u0430 \u043f\u0440\u0438 \u043a\u043e\u0440\u043e\u0442\u043a\u043e\u043c \u043d\u0430\u0436\u0430\u0442\u0438\u0438 V.',
     },
     en: {
       title: 'KCD2 AI NPC — Settings',
-      sub: '127.0.0.1:4999 · server configuration · v0.1.0',
+      sub: '127.0.0.1:4999 · server configuration · v0.2.0',
       link_workshop: 'Workshop',
       link_guide: 'Guide',
       link_github: 'GitHub',
@@ -2228,6 +2937,8 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       provider: 'Provider',
       custom: 'Custom',
       api_key: 'API Key',
+      get_key: 'Get key',
+      get_voice_ids: 'Get voice IDs',
       model: 'Model',
       max_tokens: 'Max Tokens',
       max_tokens_sub: 'per response',
@@ -2318,6 +3029,9 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       tts_test: 'Test TTS',
       tts_on: 'enabled',
       tts_off: 'disabled',
+      tts_npc_voices: 'NPC voices (by name)',
+      tts_add_npc_voice: '+ Add NPC',
+      tts_npc_voices_hint: 'Each NPC can be assigned a custom voice ID. Empty fields fall back to the gender default.',
       hud_title: 'HUD display',
       hud_ai_text: 'AI text responses',
       hud_ai_text_hint: 'Show NPC response text.',
@@ -2359,6 +3073,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       chat_key: 'AI chat key',
       chat_key_hint: 'Default: v. This key toggles AI chat open/closed. Examples:',
       chat_key_hint_2: 'Saved to Data\\Libs\\Config\\ai_npc_actions.xml. Restart/reload game scripts after changing.',
+      chat_key_english_note: 'Enter the key in English (Latin) letters only. Do not use Russian/Cyrillic characters.',
       end_key: 'Optional separate end key',
       overlay_enabled: 'Show input overlay',
       overlay_on: 'On',
@@ -2370,15 +3085,15 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       tap_overlay_enabled: 'Tap V text overlay',
       tap_overlay_hint: 'Turn off to disable text chat on short V press. Hold V voice stays enabled.',
       tap_mode: 'Tap V text input mode',
-      tap_mode_direct: 'Direct Python overlay (Steam Workshop)',
-      tap_mode_lua: 'Lua command.lua bridge (GOG/dev)',
-      tap_mode_hint: 'Workshop: direct overlay. GOG/loose files: command.lua bridge if Lua file polling is available.',
+      tap_mode_direct: 'Direct Python overlay (may unfocus game window)',
+      tap_mode_lua: 'Lua command.lua bridge (press V again after Enter, does not work in Steam)',
+      tap_mode_hint: 'How the text input window opens on a short V press.',
     },
   };
 
   Object.assign(I18N, {
     cs: { ...I18N.en,
-      title: 'KCD2 AI NPC — Nastavení', sub: '127.0.0.1:4999 · konfigurace serveru · v0.1.0',
+      title: 'KCD2 AI NPC — Nastavení', sub: '127.0.0.1:4999 · konfigurace serveru · v0.2.0',
       link_workshop: 'Dílna', link_guide: 'Průvodce',
       llm_title: 'Nastavení LLM', provider: 'Poskytovatel', custom: 'Vlastní', api_key: 'API klíč', model: 'Model',
       max_tokens: 'Max. tokenů', max_tokens_sub: 'na odpověď', temperature: 'Teplota', temperature_sub: 'kreativita · 0–2',
@@ -2390,10 +3105,10 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       testing: 'Testuji...', saving: 'Uloženo', save_ok_msg: 'Nastavení použito — restart není potřeba', save_err: 'Chyba ukládání', online: 'Online', offline: 'Offline', error: 'Chyba', offline_msg: 'Server neodpovídá', model_label: 'Model:', tts_ok_msg: 'Audio se přehrává', llm_ok_msg: 'Odpověď přijata', llm_err: 'Chyba LLM', tts_err: 'Chyba TTS',
       tts_title: 'Nastavení TTS', tts_enabled: 'Hlas NPC', tts_engine: 'Engine', tts_voice: 'Mužský hlas', tts_voice_female: 'Ženský hlas', tts_volume: 'Hlasitost', tts_voices_hint: 'Hlasy:', tts_test: 'Test TTS', tts_on: 'zapnuto', tts_off: 'vypnuto',
       hud_title: 'Zobrazení HUD', hud_left_top: 'Vlevo nahoře (štítek)', hud_right_top: 'Vpravo nahoře (oznámení)', hud_center: 'Uprostřed (titulek)',
-      input_title: 'Vstup / klávesy', chat_key: 'Klávesa AI chatu', end_key: 'Volitelná klávesa zavření', overlay_enabled: 'Zobrazit vstupní overlay', overlay_on: 'Zap', overlay_off: 'Vyp', overlay_style: 'Styl vstupního okna', overlay_style_kcd: 'KCD2 (pergamen + zlato)', overlay_style_plain: 'Jednoduchý (tmavý)'
+      input_title: 'Vstup / klávesy', chat_key: 'Klávesa AI chatu', chat_key_english_note: 'Zadejte klávesu pouze v angličtině (latinka). Nepoužívejte ruské/kyrilické znaky.', end_key: 'Volitelná klávesa zavření', overlay_enabled: 'Zobrazit vstupní overlay', overlay_on: 'Zap', overlay_off: 'Vyp', overlay_style: 'Styl vstupního okna', overlay_style_kcd: 'KCD2 (pergamen + zlato)', overlay_style_plain: 'Jednoduchý (tmavý)'
     },
     de: { ...I18N.en,
-      title: 'KCD2 AI NPC — Einstellungen', sub: '127.0.0.1:4999 · Serverkonfiguration · v0.1.0',
+      title: 'KCD2 AI NPC — Einstellungen', sub: '127.0.0.1:4999 · Serverkonfiguration · v0.2.0',
       link_workshop: 'Workshop', link_guide: 'Anleitung',
       llm_title: 'LLM-Einstellungen', provider: 'Anbieter', custom: 'Eigene', api_key: 'API-Schlüssel', model: 'Modell',
       max_tokens: 'Max. Tokens', max_tokens_sub: 'pro Antwort', temperature: 'Temperatur', temperature_sub: 'Kreativität · 0–2',
@@ -2405,10 +3120,10 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       testing: 'Teste...', saving: 'Gespeichert', save_ok_msg: 'Einstellungen angewendet — kein Neustart nötig', save_err: 'Speicherfehler', online: 'Online', offline: 'Offline', error: 'Fehler', offline_msg: 'Server antwortet nicht', model_label: 'Modell:', tts_ok_msg: 'Audio wird abgespielt', llm_ok_msg: 'Antwort erhalten', llm_err: 'LLM-Fehler', tts_err: 'TTS-Fehler',
       tts_title: 'TTS-Einstellungen', tts_enabled: 'NPC-Stimme', tts_engine: 'Engine', tts_voice: 'Männliche Stimme', tts_voice_female: 'Weibliche Stimme', tts_volume: 'Lautstärke', tts_voices_hint: 'Stimmen:', tts_test: 'TTS testen', tts_on: 'aktiviert', tts_off: 'deaktiviert',
       hud_title: 'HUD-Anzeige', hud_left_top: 'Oben links (Tafel)', hud_right_top: 'Oben rechts (Benachrichtigung)', hud_center: 'Mitte (Untertitel)',
-      input_title: 'Eingabe / Tasten', chat_key: 'AI-Chat-Taste', end_key: 'Optionale Schließen-Taste', overlay_enabled: 'Eingabe-Overlay anzeigen', overlay_on: 'Ein', overlay_off: 'Aus', overlay_style: 'Stil des Eingabefensters', overlay_style_kcd: 'KCD2 (Pergament + Gold)', overlay_style_plain: 'Einfach (dunkel)'
+      input_title: 'Eingabe / Tasten', chat_key: 'AI-Chat-Taste', chat_key_english_note: 'Taste nur auf Englisch (Latein) eingeben. Keine russischen/kyrillischen Zeichen verwenden.', end_key: 'Optionale Schließen-Taste', overlay_enabled: 'Eingabe-Overlay anzeigen', overlay_on: 'Ein', overlay_off: 'Aus', overlay_style: 'Stil des Eingabefensters', overlay_style_kcd: 'KCD2 (Pergament + Gold)', overlay_style_plain: 'Einfach (dunkel)'
     },
     fr: { ...I18N.en,
-      title: 'KCD2 AI NPC — Paramètres', sub: '127.0.0.1:4999 · configuration serveur · v0.1.0',
+      title: 'KCD2 AI NPC — Paramètres', sub: '127.0.0.1:4999 · configuration serveur · v0.2.0',
       link_workshop: 'Atelier', link_guide: 'Guide',
       llm_title: 'Paramètres LLM', provider: 'Fournisseur', custom: 'Personnalisé', api_key: 'Clé API', model: 'Modèle',
       max_tokens: 'Tokens max.', max_tokens_sub: 'par réponse', temperature: 'Température', temperature_sub: 'créativité · 0–2',
@@ -2423,7 +3138,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       input_title: 'Saisie / touches', chat_key: 'Touche chat IA', end_key: 'Touche de fermeture optionnelle', overlay_enabled: 'Afficher l’overlay de saisie', overlay_on: 'On', overlay_off: 'Off', overlay_style: 'Style de la fenêtre de saisie', overlay_style_kcd: 'KCD2 (parchemin + or)', overlay_style_plain: 'Simple (sombre)'
     },
     es: { ...I18N.en,
-      title: 'KCD2 AI NPC — Ajustes', sub: '127.0.0.1:4999 · configuración del servidor · v0.1.0',
+      title: 'KCD2 AI NPC — Ajustes', sub: '127.0.0.1:4999 · configuración del servidor · v0.2.0',
       link_workshop: 'Workshop', link_guide: 'Guía',
       llm_title: 'Ajustes LLM', provider: 'Proveedor', custom: 'Propio', api_key: 'Clave API', model: 'Modelo',
       max_tokens: 'Tokens máx.', max_tokens_sub: 'por respuesta', temperature: 'Temperatura', temperature_sub: 'creatividad · 0–2',
@@ -2438,7 +3153,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       input_title: 'Entrada / teclas', chat_key: 'Tecla de chat IA', end_key: 'Tecla opcional de cierre', overlay_enabled: 'Mostrar overlay de entrada', overlay_on: 'On', overlay_off: 'Off', overlay_style: 'Estilo de ventana de entrada', overlay_style_kcd: 'KCD2 (pergamino + oro)', overlay_style_plain: 'Simple (oscuro)'
     },
     pl: { ...I18N.en,
-      title: 'KCD2 AI NPC — Ustawienia', sub: '127.0.0.1:4999 · konfiguracja serwera · v0.1.0',
+      title: 'KCD2 AI NPC — Ustawienia', sub: '127.0.0.1:4999 · konfiguracja serwera · v0.2.0',
       link_workshop: 'Warsztat', link_guide: 'Poradnik',
       llm_title: 'Ustawienia LLM', provider: 'Dostawca', custom: 'Własny', api_key: 'Klucz API', model: 'Model',
       max_tokens: 'Maks. tokenów', max_tokens_sub: 'na odpowiedź', temperature: 'Temperatura', temperature_sub: 'kreatywność · 0–2',
@@ -2453,7 +3168,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       input_title: 'Wejście / klawisze', chat_key: 'Klawisz czatu AI', end_key: 'Opcjonalny klawisz zamknięcia', overlay_enabled: 'Pokaż overlay wejścia', overlay_on: 'Wł.', overlay_off: 'Wył.', overlay_style: 'Styl okna wejścia', overlay_style_kcd: 'KCD2 (pergamin + złoto)', overlay_style_plain: 'Prosty (ciemny)'
     },
     zh: { ...I18N.en,
-      title: 'KCD2 AI NPC — 设置', sub: '127.0.0.1:4999 · 服务器配置 · v0.1.0',
+      title: 'KCD2 AI NPC — 设置', sub: '127.0.0.1:4999 · 服务器配置 · v0.2.0',
       link_workshop: '创意工坊', link_guide: '指南',
       llm_title: 'LLM 设置', provider: '提供商', custom: '自定义', api_key: 'API 密钥', model: '模型',
       max_tokens: '最大 Token', max_tokens_sub: '每次回复', temperature: '温度', temperature_sub: '创造性 · 0–2',
@@ -2468,7 +3183,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       input_title: '输入 / 按键', chat_key: 'AI 聊天键', end_key: '可选关闭键', overlay_enabled: '显示输入覆盖层', overlay_on: '开', overlay_off: '关', overlay_style: '输入窗口样式', overlay_style_kcd: 'KCD2（羊皮纸 + 金色）', overlay_style_plain: '简洁（深色）'
     },
     ja: { ...I18N.en,
-      title: 'KCD2 AI NPC — 設定', sub: '127.0.0.1:4999 · サーバー設定 · v0.1.0',
+      title: 'KCD2 AI NPC — 設定', sub: '127.0.0.1:4999 · サーバー設定 · v0.2.0',
       link_workshop: 'ワークショップ', link_guide: 'ガイド',
       llm_title: 'LLM 設定', provider: 'プロバイダー', custom: 'カスタム', api_key: 'API キー', model: 'モデル',
       max_tokens: '最大トークン', max_tokens_sub: '応答ごと', temperature: '温度', temperature_sub: '創造性 · 0–2',
@@ -2578,15 +3293,26 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
   const MODEL_OPTIONS = {
     groq:       ['llama-3.3-70b-versatile','llama-3.1-70b-versatile','llama-3.1-8b-instant','mixtral-8x7b-32768','gemma2-9b-it'],
     openai:     ['gpt-4o-mini','gpt-4o','gpt-4-turbo','gpt-3.5-turbo'],
+    nvidia:     ['meta/llama3-70b-instruct','meta/llama3-8b-instruct','nvidia/llama-3.1-nemotron-70b-instruct','mistralai/mistral-7b-instruct-v0.3'],
+    google:     ['gemini-1.5-flash','gemini-1.5-pro','gemini-1.5-pro-latest','gemini-1.5-flash-8b'],
+    github:     ['gpt-4o-mini','gpt-4o','meta-llama-3.1-70b-instruct','meta-llama-3.1-8b-instruct','mistral-large-2407'],
+    cohere:     ['command-r','command-r-plus','command-a-03-2025','command-r-08-2024','command-r-plus-08-2024','command-r7b-12-2024'],
+    cerebras:   ['llama-3.3-70b','llama3.1-8b'],
+    mistral:    ['mistral-large-latest','mistral-medium-latest','mistral-small-latest','open-mistral-7b'],
     ollama:     ['llama3.1:8b','llama3.1:70b','mistral:7b','qwen2.5:7b','gemma2:9b','phi3:mini'],
     lmstudio:   ['local-model'],
     openrouter: ['meta-llama/llama-3.3-70b-instruct:free','meta-llama/llama-3.1-8b-instruct:free','mistralai/mixtral-8x7b-instruct','google/gemma-2-9b-it:free'],
-    mistral:    ['mistral-small-latest','mistral-medium-latest','mistral-large-latest','open-mistral-7b'],
   };
   function getModelOpts() {
     const url = (document.getElementById('api-url')?.value||'').toLowerCase();
     if (url.includes('groq'))       return MODEL_OPTIONS.groq;
     if (url.includes('openai.com')) return MODEL_OPTIONS.openai;
+    if (url.includes('nvidia'))     return MODEL_OPTIONS.nvidia;
+    if (url.includes('google'))     return MODEL_OPTIONS.google;
+    if (url.includes('inference.ai')||url.includes('github')) return MODEL_OPTIONS.github;
+    if (url.includes('cohere'))     return MODEL_OPTIONS.cohere;
+    if (url.includes('cerebras'))   return MODEL_OPTIONS.cerebras;
+    if (url.includes('mistral') && !url.includes('openrouter')) return MODEL_OPTIONS.mistral;
     if (url.includes('11434'))      return MODEL_OPTIONS.ollama;
     if (url.includes('1234'))       return MODEL_OPTIONS.lmstudio;
     if (url.includes('openrouter')) return MODEL_OPTIONS.openrouter;
@@ -2597,10 +3323,15 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
   makeCombo('api-url', [
     'https://api.groq.com/openai/v1',
     'https://api.openai.com/v1',
+    'https://integrate.api.nvidia.com/v1',
+    'https://generativelanguage.googleapis.com/v1beta/openai/',
+    'https://models.inference.ai.azure.com',
+    'https://api.cohere.ai/v1',
+    'https://api.cerebras.ai/v1',
+    'https://api.mistral.ai/v1',
     'http://localhost:11434/v1',
     'https://openrouter.ai/api/v1',
     'http://localhost:1234/v1',
-    'https://api.mistral.ai/v1',
     'https://api.together.xyz/v1',
   ]);
   makeCombo('model', getModelOpts());
@@ -2632,6 +3363,388 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
   document.getElementById('prompt-template')?.addEventListener('input', detectPromptPreset);
   checkStatus();
   setInterval(checkStatus, 15000);
+</script>
+
+<!-- ════════════════════════════════════════════════════════════════
+     ENHANCEMENTS v0.3 — runs after the main script. Purely additive:
+     section nav · key field tools · unsaved indicator · export/import ·
+     tooltips · card-header icons. No existing logic is modified.
+     ════════════════════════════════════════════════════════════════ -->
+<script>
+(function () {
+  'use strict';
+  const curLang = () => (document.getElementById('language')?.value || 'en');
+  const ru = () => curLang() === 'ru';
+
+  /* ── tiny line-icon set (stroke = currentColor) ── */
+  const I = {
+    globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18"/></svg>',
+    cpu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/></svg>',
+    speaker: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 010 7M19 6a8 8 0 010 12"/></svg>',
+    mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg>',
+    keyboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>',
+    hand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 11V5a1.5 1.5 0 013 0v5m0-1V4a1.5 1.5 0 013 0v6m0-2a1.5 1.5 0 013 0v6a6 6 0 01-6 6h-1a6 6 0 01-5-3l-2.5-4a1.5 1.5 0 012.5-1.6L8 13"/></svg>',
+    layout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>',
+    doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>',
+    eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+    eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 3l18 18M10.6 6.2A10.6 10.6 0 0112 6c6.5 0 10 7 10 7a17 17 0 01-3.3 4M6.7 6.7A17 17 0 002 13s3.5 7 10 7a10.6 10.6 0 004.2-.9M9.9 9.9a3 3 0 004.2 4.2"/></svg>',
+    paste: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h2"/></svg>',
+  };
+
+  const CARD_META = {
+    general_title:     { id: 'sec-general',     icon: I.globe },
+    llm_title:         { id: 'sec-llm',         icon: I.cpu },
+    tts_title:         { id: 'sec-tts',         icon: I.speaker },
+    stt_title:         { id: 'sec-stt',         icon: I.mic },
+    input_title:       { id: 'sec-input',       icon: I.keyboard },
+    interaction_title: { id: 'sec-interaction', icon: I.hand },
+    hud_title:         { id: 'sec-hud',         icon: I.layout },
+    prompt_title:      { id: 'sec-prompt',      icon: I.doc },
+  };
+
+  const STR = {
+    sections: { ru: 'Разделы', en: 'Sections' },
+    export:   { ru: 'Экспорт', en: 'Export' },
+    import:   { ru: 'Импорт', en: 'Import' },
+    show:     { ru: 'Показать ключ', en: 'Show key' },
+    hide:     { ru: 'Скрыть ключ', en: 'Hide key' },
+    paste:    { ru: 'Вставить из буфера', en: 'Paste from clipboard' },
+    pasteErr: { ru: 'Не удалось прочитать буфер обмена', en: 'Could not read clipboard' },
+    expOk:    { ru: 'Настройки выгружены в файл', en: 'Settings downloaded' },
+    expErr:   { ru: 'Не удалось выгрузить настройки', en: 'Export failed' },
+    impOk:    { ru: 'Импортировано — проверьте и нажмите «Сохранить»', en: 'Imported — review, then click Save' },
+    impErr:   { ru: 'Неверный файл конфигурации (JSON)', en: 'Invalid config file (JSON)' },
+    tapModeRestartTitle: { ru: 'Требуется перезапуск сервера', en: 'Server restart required' },
+    tapModeRestartMsg:   { ru: 'Режим оверлея изменён — сохраните и перезапустите сервер, чтобы изменения вступили в силу', en: 'Overlay mode changed — save and restart the server for the change to take effect' },
+  };
+  const S = (k) => STR[k][ru() ? 'ru' : 'en'];
+
+  const CAP = {
+    rec:   { ru: 'Записать', en: 'Record' },
+    press: { ru: 'Нажмите клавишу…', en: 'Press a key…' },
+    bad:   { ru: 'Используйте букву (A–Z), цифру или F-клавишу', en: 'Use a letter (A–Z), digit or F-key' },
+  };
+  const C = (k) => CAP[k][ru() ? 'ru' : 'en'];
+
+  const TIPS = {
+    'max-tokens':        { ru: 'Максимальная длина ответа NPC в токенах (~¾ слова). Больше — длиннее реплики, но медленнее и дороже.', en: 'Max length of an NPC reply in tokens (~¾ of a word). Higher = longer replies, but slower and pricier.' },
+    'temperature':       { ru: 'Креативность ответов. 0 — строго и предсказуемо, 2 — максимально творчески. Обычно 0.7–0.9.', en: 'Creativity of replies. 0 = strict & predictable, 2 = very creative. Typically 0.7–0.9.' },
+    'tts-volume':        { ru: 'Громкость озвучки NPC. 1.0 — полная громкость.', en: 'NPC voice volume. 1.0 = full volume.' },
+    'stt-compute':       { ru: 'Тип вычислений для локального распознавания. int8 — быстро и экономно по памяти; float16 — точнее, но нужно больше VRAM.', en: 'Compute type for local recognition. int8 = fast & memory-light; float16 = more accurate but needs more VRAM.' },
+    'stt-device':        { ru: 'Где запускать распознавание: CPU (универсально) или CUDA/GPU (быстрее, нужна видеокарта NVIDIA).', en: 'Where to run recognition: CPU (universal) or CUDA/GPU (faster, needs an NVIDIA GPU).' },
+    'stt-hold-threshold':{ ru: 'Сколько мс удерживать клавишу, прежде чем начать запись. Защищает от случайных коротких нажатий.', en: 'How long (ms) to hold the key before recording starts. Prevents accidental taps.' },
+    'stt-min-duration':  { ru: 'Минимальная длительность записи (мс). Более короткие фрагменты игнорируются.', en: 'Minimum recording length (ms). Shorter clips are ignored.' },
+    'stt-max-duration':  { ru: 'Максимальная длительность одной записи (сек). По достижении запись останавливается автоматически.', en: 'Max length of a single recording (sec). Recording auto-stops at this point.' },
+  };
+
+  /* ════ 1. header height → CSS var (used by sticky nav offset) ════ */
+  function setHeaderH() {
+    const h = document.querySelector('.header')?.offsetHeight || 92;
+    document.documentElement.style.setProperty('--header-h', h + 'px');
+  }
+  setHeaderH();
+  window.addEventListener('resize', setHeaderH);
+  setTimeout(setHeaderH, 400);
+
+  /* ════ 2. card ids + header icons + section nav ════ */
+  const navLinks = [];
+  let _navLock = 0;
+  document.querySelectorAll('.page > .card').forEach(card => {
+    const titleEl = card.querySelector('.card-title');
+    const key = titleEl?.getAttribute('data-i18n');
+    const meta = key && CARD_META[key];
+    if (!meta) return;
+    card.id = meta.id;
+    const header = card.querySelector('.card-header');
+    if (header && !header.querySelector('.card-header-icon')) {
+      const ic = document.createElement('span');
+      ic.className = 'card-header-icon';
+      ic.innerHTML = meta.icon;
+      header.insertBefore(ic, header.firstChild);
+    }
+  });
+
+  const header = document.querySelector('.page > .header');
+  if (header) {
+    const nav = document.createElement('div');
+    nav.className = 'section-nav full-row';
+    const lbl = document.createElement('span');
+    lbl.className = 'nav-label nav-sections-label';
+    lbl.textContent = S('sections');
+    nav.appendChild(lbl);
+    document.querySelectorAll('.page > .card[id]').forEach(card => {
+      const titleEl = card.querySelector('.card-title');
+      const a = document.createElement('a');
+      a.className = 'nav-link';
+      a.dataset.target = card.id;
+      a.dataset.titleSrc = card.id;
+      a.textContent = titleEl ? titleEl.textContent.trim() : card.id;
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        /* highlight the clicked link immediately and stop the scroll-spy from
+           overriding it while the smooth scroll is in flight (otherwise the
+           neighbouring card in the same grid row could steal the highlight). */
+        navLinks.forEach(l => l.classList.toggle('active', l === a));
+        _navLock = Date.now() + 800;
+        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      nav.appendChild(a);
+      navLinks.push(a);
+    });
+    header.insertAdjacentElement('afterend', nav);
+
+    /* active-section highlight.
+       On wide screens the cards are laid out in a 2-column grid, so two cards
+       share a row and intersect at the same scroll position. Instead of "last
+       intersecting entry wins" (which always picked the later card, e.g. LLM
+       over Язык), track the set of visible cards and highlight the top-most one,
+       breaking ties by DOM order (the earlier/left card in the row). */
+    try {
+      const visible = new Set();
+      const refreshActive = () => {
+        if (Date.now() < _navLock || !visible.size) return;
+        let bestId = null, bestTop = Infinity;
+        navLinks.forEach(l => {
+          const id = l.dataset.target;
+          if (!visible.has(id)) return;
+          const el = document.getElementById(id);
+          if (!el) return;
+          const top = el.getBoundingClientRect().top;
+          if (top < bestTop - 1) { bestTop = top; bestId = id; }
+        });
+        if (bestId) navLinks.forEach(l => l.classList.toggle('active', l.dataset.target === bestId));
+      };
+      const obs = new IntersectionObserver((entries) => {
+        entries.forEach(en => {
+          if (en.isIntersecting) visible.add(en.target.id);
+          else visible.delete(en.target.id);
+        });
+        refreshActive();
+      }, { rootMargin: '-170px 0px -55% 0px', threshold: 0 });
+      document.querySelectorAll('.page > .card[id]').forEach(c => obs.observe(c));
+    } catch (e) { /* IO unsupported — links still work */ }
+  }
+
+  /* ════ 3. unsaved-changes (dirty) tracking ════ */
+  let _dirty = false;
+  const saveBtn = document.getElementById('save-btn');
+  function markDirty() {
+    if (_dirty) return;
+    _dirty = true;
+    saveBtn?.classList.add('is-dirty');
+  }
+  window.markClean = function () {
+    _dirty = false;
+    saveBtn?.classList.remove('is-dirty');
+  };
+  window.markDirty = markDirty;
+  const page = document.querySelector('.page');
+  if (page) {
+    page.addEventListener('input', markDirty);
+    page.addEventListener('change', markDirty);
+    page.addEventListener('click', (e) => { if (e.target.closest('.preset-btn')) markDirty(); });
+  }
+  window.addEventListener('beforeunload', (e) => {
+    if (_dirty) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  /* changing the tap-V overlay mode requires a server restart — warn the user */
+  (function () {
+    const tapModeSel = document.getElementById('tap-mode');
+    if (!tapModeSel) return;
+    tapModeSel.addEventListener('change', () => {
+      showToast('info', S('tapModeRestartTitle'), S('tapModeRestartMsg'));
+    });
+  })();
+
+  /* ════ 4. API-key field tools (show/hide + paste) ════ */
+  ['api-key', 'tts-el-key', 'tts-oai-key', 'stt-api-key'].forEach(id => {
+    const inp = document.getElementById(id);
+    if (!inp || inp.closest('.key-field')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'key-field';
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    const tools = document.createElement('div');
+    tools.className = 'key-tools';
+
+    const eye = document.createElement('button');
+    eye.type = 'button'; eye.className = 'key-tool'; eye.tabIndex = -1;
+    eye.title = S('show'); eye.innerHTML = I.eye;
+    eye.addEventListener('click', () => {
+      const reveal = inp.type === 'password';
+      inp.type = reveal ? 'text' : 'password';
+      eye.innerHTML = reveal ? I.eyeOff : I.eye;
+      eye.title = reveal ? S('hide') : S('show');
+    });
+
+    const paste = document.createElement('button');
+    paste.type = 'button'; paste.className = 'key-tool'; paste.tabIndex = -1;
+    paste.title = S('paste'); paste.innerHTML = I.paste;
+    paste.addEventListener('click', async () => {
+      try {
+        const txt = await navigator.clipboard.readText();
+        if (txt) { inp.value = txt.trim(); markDirty(); }
+      } catch (err) {
+        showToast('error', S('pasteErr'), '');
+      }
+    });
+
+    tools.appendChild(eye);
+    tools.appendChild(paste);
+    wrap.appendChild(tools);
+  });
+
+  /* ════ 5. tooltips on advanced params ════ */
+  Object.keys(TIPS).forEach(id => {
+    const inp = document.getElementById(id);
+    if (!inp) return;
+    // prefer the label explicitly bound to this field, else the group label
+    const label = document.querySelector('label[for="' + id + '"]')
+                  || inp.closest('.form-group')?.querySelector('label');
+    if (!label || label.querySelector('.info-tip')) return;
+    const tip = document.createElement('span');
+    tip.className = 'info-tip';
+    tip.textContent = '?';
+    tip.dataset.ru = TIPS[id].ru;
+    tip.dataset.en = TIPS[id].en;
+    tip.setAttribute('data-tip', ru() ? TIPS[id].ru : TIPS[id].en);
+    label.appendChild(tip);
+  });
+
+  /* ════ 6. export / import config ════ */
+  // export / import — buttons live in the header (above/below the status badge)
+  const expBtn = document.getElementById('export-btn');
+  const impBtn = document.getElementById('import-btn');
+  if (expBtn && impBtn) {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'application/json,.json';
+    fileInput.style.display = 'none';
+    document.body.appendChild(fileInput);
+
+    if (expBtn.textContent.trim() === '') expBtn.textContent = S('export');
+    expBtn.addEventListener('click', () => {
+      try {
+        const data = JSON.stringify(buildConfigPayload(), null, 2);
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const ts = new Date().toISOString().slice(0, 10);
+        a.href = url; a.download = 'kcd2-npc-config-' + ts + '.json';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+        showToast('success', S('expOk'), '');
+      } catch (e) { showToast('error', S('expErr'), String(e)); }
+    });
+
+    impBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files && fileInput.files[0];
+      if (!f) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(reader.result);
+          populateForm(parsed);
+          markDirty();
+          showToast('success', S('impOk'), '');
+        } catch (e) { showToast('error', S('impErr'), String(e)); }
+        fileInput.value = '';
+      };
+      reader.readAsText(f);
+    });
+
+  }
+
+  /* ════ 6b. Ctrl/Cmd+S = Save ════ */
+  let _capturing = false; // shared: suppress Ctrl+S while recording a key
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyS' || e.key === 's' || e.key === 'S')) {
+      if (_capturing || e.repeat) return;
+      e.preventDefault();
+      if (typeof saveConfig === 'function') saveConfig();
+    }
+  }, { capture: true });
+
+  /* ════ 6c. push-to-talk / keybind capture (chat-key, end-key) ════ */
+  function codeToKey(code) {
+    let m;
+    if ((m = code.match(/^Key([A-Z])$/)))   return m[1].toLowerCase();
+    if ((m = code.match(/^Digit(\d)$/)))     return m[1];
+    if ((m = code.match(/^Numpad(\d)$/)))    return m[1];
+    if ((m = code.match(/^F(\d{1,2})$/)))    return 'f' + m[1];
+    return null;
+  }
+  ['chat-key', 'end-key'].forEach(id => {
+    const inp = document.getElementById(id);
+    if (!inp || inp.closest('.key-capture-row')) return;
+    const row = document.createElement('div');
+    row.className = 'key-capture-row';
+    inp.parentNode.insertBefore(row, inp);
+    row.appendChild(inp);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn key-capture-btn';
+    btn.innerHTML = '<span class="kc-ico">\u2328</span><span class="kc-label">' + C('rec') + '</span>';
+    row.appendChild(btn);
+    const setLabel = (t) => { btn.querySelector('.kc-label').textContent = t; };
+
+    function stop() {
+      _capturing = false;
+      btn.classList.remove('capturing');
+      setLabel(C('rec'));
+      window.removeEventListener('keydown', onKey, true);
+    }
+    function onKey(e) {
+      if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return; // wait for a real key
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === 'Escape' || e.code === 'Escape') { stop(); return; }
+      const k = codeToKey(e.code);
+      if (!k) { showToast('error', C('bad'), ''); return; }
+      inp.value = k;
+      markDirty();
+      stop();
+    }
+    btn.addEventListener('click', () => {
+      if (_capturing) { stop(); return; }
+      _capturing = true;
+      btn.classList.add('capturing');
+      setLabel(C('press'));
+      window.addEventListener('keydown', onKey, true);
+    });
+  });
+
+  /* ════ 7. re-localize injected UI when language changes ════ */
+  if (typeof applyUiLang === 'function') {
+    const _origApply = applyUiLang;
+    applyUiLang = function (lang) {
+      _origApply(lang);
+      try { relocalize(); } catch (e) {}
+    };
+  }
+  function relocalize() {
+    document.querySelector('.nav-sections-label') && (document.querySelector('.nav-sections-label').textContent = S('sections'));
+    navLinks.forEach(a => {
+      const card = document.getElementById(a.dataset.target);
+      const t = card?.querySelector('.card-title');
+      if (t) a.textContent = t.textContent.trim();
+    });
+    const en = !ru();
+    document.getElementById('export-btn') && (document.getElementById('export-btn').textContent = S('export'));
+    document.getElementById('import-btn') && (document.getElementById('import-btn').textContent = S('import'));
+    document.querySelectorAll('.info-tip').forEach(tip => {
+      tip.setAttribute('data-tip', en ? tip.dataset.en : tip.dataset.ru);
+    });
+    document.querySelectorAll('.key-capture-btn:not(.capturing) .kc-label').forEach(el => {
+      el.textContent = C('rec');
+    });
+  }
+  // initial localize pass (in case lang already applied before this script ran)
+  setTimeout(relocalize, 50);
+})();
 </script>
 </body>
 </html>

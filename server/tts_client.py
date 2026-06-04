@@ -39,41 +39,106 @@ _pygame_ready = False
 _pygame_lock = threading.Lock()
 
 
-def _init_pygame(volume: float = 1.0):
+def _init_pygame():
     global _pygame_ready
     try:
         import pygame
         with _pygame_lock:
             if not _pygame_ready:
-                pygame.mixer.init(frequency=22050, size=-16, channels=1, buffer=512)
+                try:
+                    pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
+                except pygame.error:
+                    pygame.mixer.quit()
+                    pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
+                pygame.mixer.set_num_channels(16)
                 _pygame_ready = True
-            pygame.mixer.music.set_volume(max(0.0, min(1.0, volume)))
     except Exception as e:
         logger.warning(f"pygame init failed: {e}")
 
 
-def _play_file(path: str, volume: float = 1.0):
+def _compute_spatial_volume(base_volume: float, npc_pos, player_pos, player_fwd):
+    """Return (left_volume, right_volume) based on distance and angle.
+    KCD2 uses CryEngine coords: X=right, Y=forward, Z=up."""
+    import math
+    try:
+        nx = float(npc_pos.get("x", 0)) if hasattr(npc_pos, "get") else float(npc_pos[0])
+        ny = float(npc_pos.get("y", 0)) if hasattr(npc_pos, "get") else float(npc_pos[1])
+        px = float(player_pos.get("x", 0)) if hasattr(player_pos, "get") else float(player_pos[0])
+        py = float(player_pos.get("y", 0)) if hasattr(player_pos, "get") else float(player_pos[1])
+    except Exception:
+        return base_volume, base_volume
+
+    dx = nx - px
+    dy = ny - py
+    distance = math.sqrt(dx * dx + dy * dy)
+
+    MAX_DIST = 20.0
+    dist_atten = max(0.0, min(1.0, 1.0 - distance / MAX_DIST))
+
+    if not player_fwd:
+        return base_volume * dist_atten, base_volume * dist_atten
+
+    try:
+        fx = float(player_fwd.get("x", 0)) if hasattr(player_fwd, "get") else float(player_fwd[0])
+        fy = float(player_fwd.get("y", 0)) if hasattr(player_fwd, "get") else float(player_fwd[1])
+    except Exception:
+        return base_volume * dist_atten, base_volume * dist_atten
+
+    fwd_len = math.sqrt(fx * fx + fy * fy)
+    if fwd_len < 0.001:
+        return base_volume * dist_atten, base_volume * dist_atten
+
+    npc_angle = math.atan2(dy, dx)
+    fwd_angle = math.atan2(fy / fwd_len, fx / fwd_len)
+    pan = math.sin(fwd_angle - npc_angle)
+
+    left = (1.0 - pan) / 2.0
+    right = (1.0 + pan) / 2.0
+    return left * base_volume * dist_atten, right * base_volume * dist_atten
+
+
+def _play_file(path: str, volume: float = 1.0, npc_pos=None, player_pos=None, player_fwd=None):
     try:
         import pygame
-        _init_pygame(volume)
-        # Hold the lock only for the load/play handoff; release before the
-        # busy-wait so a second TTS thread is not serialized on top of an
-        # already-finished playback. pygame.mixer.music itself is a singleton
-        # channel, so concurrent plays would still preempt each other, but
-        # in practice replies arrive sequentially with gaps and the lock was
-        # the dominant cause of perceived voice queueing.
+        _init_pygame()
         t_play_start = time.perf_counter()
-        with _pygame_lock:
-            pygame.mixer.music.load(path)
-            pygame.mixer.music.set_volume(volume)
-            pygame.mixer.music.play()
-        logger.info(f"TTS play started in {(time.perf_counter()-t_play_start)*1000:.0f} ms")
-        while True:
-            try:
-                if not pygame.mixer.music.get_busy():
-                    break
-            except Exception:
-                break
+        sound = pygame.mixer.Sound(path)
+        channel = pygame.mixer.find_channel(force=True)
+        if channel is None:
+            channel = pygame.mixer.Channel(0)
+
+        left_vol = volume
+        right_vol = volume
+        if npc_pos and player_pos:
+            left_vol, right_vol = _compute_spatial_volume(volume, npc_pos, player_pos, player_fwd)
+
+        # TTS services output mono MP3. pygame Channel.set_volume(left,right)
+        # is ignored for mono sources, so we bake the pan into a stereo Sound.
+        orig_left, orig_right = left_vol, right_vol
+        try:
+            import pygame.sndarray
+            import numpy as np
+            arr = pygame.sndarray.array(sound)
+            if arr.ndim == 1:
+                stereo = np.zeros((len(arr), 2), dtype=arr.dtype)
+                stereo[:, 0] = (arr * left_vol).astype(arr.dtype)
+                stereo[:, 1] = (arr * right_vol).astype(arr.dtype)
+                sound = pygame.sndarray.make_sound(stereo)
+                left_vol = 1.0
+                right_vol = 1.0
+            elif arr.ndim == 2:
+                arr[:, 0] = (arr[:, 0] * left_vol).astype(arr.dtype)
+                arr[:, 1] = (arr[:, 1] * right_vol).astype(arr.dtype)
+                sound = pygame.sndarray.make_sound(arr)
+                left_vol = 1.0
+                right_vol = 1.0
+        except Exception:
+            pass  # fallback to channel.set_volume (works if source is already stereo)
+
+        channel.set_volume(left_vol, right_vol)
+        channel.play(sound)
+        logger.info(f"TTS play started in {(time.perf_counter()-t_play_start)*1000:.0f} ms (L={orig_left:.2f} R={orig_right:.2f})")
+        while channel.get_busy():
             time.sleep(0.05)
     except Exception as e:
         logger.error(f"Audio playback failed: {e}")
@@ -84,9 +149,9 @@ def _play_file(path: str, volume: float = 1.0):
             pass
 
 
-def warmup(volume: float = 1.0) -> None:
+def warmup() -> None:
     """Initialize pygame mixer eagerly to remove cold-start delay on first reply."""
-    _init_pygame(volume)
+    _init_pygame()
 
 
 class TTSClient:
@@ -98,34 +163,93 @@ class TTSClient:
     def _is_female(self, gender: int | None) -> bool:
         return gender == 2
 
-    async def speak(self, text: str, gender: int | None = None) -> None:
+    def _resolve_voice(self, engine: str, npc_id: str | None, npc_name: str | None, gender: int | None, npc_name_resolved: str | None = None) -> str:
+        """Look up per-NPC voice override, fall back to gender default."""
+        npc_voices = getattr(self.config, "npc_voices", {}) or {}
+        if not npc_voices:
+            return ""
+        # Try npc_name first, then npc_name_resolved, then npc_id
+        voice_map = None
+        for key in ((npc_name or "").strip(), (npc_name_resolved or "").strip(), (npc_id or "").strip()):
+            if key:
+                voice_map = npc_voices.get(key)
+                if voice_map is not None:
+                    break
+        if isinstance(voice_map, dict):
+            voice = voice_map.get(engine, "")
+            if voice:
+                return voice
+        # Fall back to gender default (caller handles empty string)
+        return ""
+
+    def _resolve_engine(self, npc_id: str | None, npc_name: str | None, npc_name_resolved: str | None = None) -> str:
+        """Pick TTS engine for this NPC. Global engine wins if NPC has a voice
+        for it; otherwise fallback to any engine the NPC has a voice for."""
+        default = self.config.engine
+        npc_voices = getattr(self.config, "npc_voices", {}) or {}
+        if not npc_voices:
+            return default
+        vm = None
+        for key in ((npc_name or "").strip(), (npc_name_resolved or "").strip(), (npc_id or "").strip()):
+            if key:
+                vm = npc_voices.get(key)
+                if vm is not None:
+                    break
+        if not isinstance(vm, dict) or not vm:
+            return default
+        # If NPC has an explicit voice for the default engine, use it.
+        if vm.get(default):
+            return default
+        # Otherwise pick the first configured engine this NPC has a voice for.
+        for eng in ("elevenlabs", "openai", "edge"):
+            if eng == default:
+                continue
+            if not vm.get(eng):
+                continue
+            if eng == "elevenlabs" and not self.config.elevenlabs_api_key:
+                continue
+            if eng == "openai" and not self.config.openai_api_key:
+                continue
+            return eng
+        return default
+
+    async def speak(self, text: str, gender: int | None = None, npc_id: str | None = None, npc_name: str | None = None, npc_name_resolved: str | None = None, npc_pos=None, player_pos=None, player_fwd=None) -> None:
         """Fire-and-forget speak: swallows engine errors after logging
         so a failing TTS does not crash chat handling."""
         try:
-            await self._synth_and_play(text, gender)
+            await self._synth_and_play(text, gender, npc_id, npc_name, npc_name_resolved, npc_pos, player_pos, player_fwd)
         except Exception as e:
-            logger.error(f"TTS speak failed [{self.config.engine}]: {e}")
+            engine = self._resolve_engine(npc_id, npc_name, npc_name_resolved)
+            logger.error(f"TTS speak failed [{engine}]: {e}")
 
-    async def _synth_and_play(self, text: str, gender: int | None = None) -> None:
+    async def _synth_and_play(self, text: str, gender: int | None = None, npc_id: str | None = None, npc_name: str | None = None, npc_name_resolved: str | None = None, npc_pos=None, player_pos=None, player_fwd=None) -> None:
         """Engine dispatch that propagates errors to the caller."""
         if not self.config.enabled or not text.strip():
             return
-        if self.config.engine == "edge":
-            await self._speak_edge(text, gender)
-        elif self.config.engine == "elevenlabs":
-            await self._speak_elevenlabs(text, gender)
-        elif self.config.engine == "openai":
-            await self._speak_openai(text, gender)
+        engine = self._resolve_engine(npc_id, npc_name, npc_name_resolved)
+        if engine == "edge":
+            await self._speak_edge(text, gender, npc_id, npc_name, npc_name_resolved, npc_pos, player_pos, player_fwd)
+        elif engine == "elevenlabs":
+            await self._speak_elevenlabs(text, gender, npc_id, npc_name, npc_name_resolved, npc_pos, player_pos, player_fwd)
+        elif engine == "openai":
+            await self._speak_openai(text, gender, npc_id, npc_name, npc_name_resolved, npc_pos, player_pos, player_fwd)
         else:
-            raise RuntimeError(f"Unknown TTS engine: {self.config.engine}")
+            raise RuntimeError(f"Unknown TTS engine: {engine}")
 
-    async def _speak_edge(self, text: str, gender: int | None = None) -> None:
+    async def _speak_edge(self, text: str, gender: int | None = None, npc_id: str | None = None, npc_name: str | None = None, npc_name_resolved: str | None = None, npc_pos=None, player_pos=None, player_fwd=None) -> None:
         try:
             import edge_tts
         except ImportError as e:
             raise RuntimeError("edge-tts not installed. Run: pip install edge-tts") from e
         is_female = self._is_female(gender)
-        voice = (self.config.voice_female if is_female and self.config.voice_female else self.config.voice)
+        voice = self._resolve_voice("edge", npc_id, npc_name, gender, npc_name_resolved)
+        if not voice:
+            if is_female and self.config.voice_female:
+                voice = self.config.voice_female
+            elif self.config.voice:
+                voice = self.config.voice
+            elif self.config.voice_female:
+                voice = self.config.voice_female
         if not (voice or "").strip():
             raise RuntimeError("Edge TTS voice is empty")
         tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
@@ -156,16 +280,25 @@ class TTSClient:
                 raise
         logger.info(f"edge-tts synth in {(time.perf_counter()-t0)*1000:.0f} ms, chars={len(text)}, synth_chars={len(synth_text)}, gender={gender}, voice={voice}")
         thread = threading.Thread(
-            target=_play_file, args=(tmp.name, self.config.volume), daemon=True
+            target=_play_file, args=(tmp.name, self.config.volume, npc_pos, player_pos, player_fwd), daemon=True
         )
         thread.start()
 
-    async def _speak_elevenlabs(self, text: str, gender: int | None = None) -> None:
+    async def _speak_elevenlabs(self, text: str, gender: int | None = None, npc_id: str | None = None, npc_name: str | None = None, npc_name_resolved: str | None = None, npc_pos=None, player_pos=None, player_fwd=None) -> None:
         api_key = self.config.elevenlabs_api_key
         if not api_key:
             raise RuntimeError("ElevenLabs API key not set")
-        is_female = self._is_female(gender)
-        voice_id = (self.config.elevenlabs_voice_female if is_female and self.config.elevenlabs_voice_female else self.config.elevenlabs_voice) or "21m00Tcm4TlvDq8ikWAM"
+        voice_id = self._resolve_voice("elevenlabs", npc_id, npc_name, gender, npc_name_resolved)
+        if not voice_id:
+            is_female = self._is_female(gender)
+            if is_female and self.config.elevenlabs_voice_female:
+                voice_id = self.config.elevenlabs_voice_female
+            elif self.config.elevenlabs_voice:
+                voice_id = self.config.elevenlabs_voice
+            elif self.config.elevenlabs_voice_female:
+                voice_id = self.config.elevenlabs_voice_female
+            else:
+                voice_id = "21m00Tcm4TlvDq8ikWAM"
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
         payload = {
             "text": text,
@@ -190,17 +323,26 @@ class TTSClient:
         tmp.write(audio_bytes)
         tmp.close()
         thread = threading.Thread(
-            target=_play_file, args=(tmp.name, self.config.volume), daemon=True
+            target=_play_file, args=(tmp.name, self.config.volume, npc_pos, player_pos, player_fwd), daemon=True
         )
         thread.start()
 
-    async def _speak_openai(self, text: str, gender: int | None = None) -> None:
+    async def _speak_openai(self, text: str, gender: int | None = None, npc_id: str | None = None, npc_name: str | None = None, npc_name_resolved: str | None = None, npc_pos=None, player_pos=None, player_fwd=None) -> None:
         api_key = self.config.openai_api_key
         if not api_key:
             raise RuntimeError("OpenAI TTS API key not set")
         url = "https://api.openai.com/v1/audio/speech"
-        is_female = self._is_female(gender)
-        voice = (self.config.openai_voice_female if is_female and self.config.openai_voice_female else self.config.openai_voice) or "onyx"
+        voice = self._resolve_voice("openai", npc_id, npc_name, gender, npc_name_resolved)
+        if not voice:
+            is_female = self._is_female(gender)
+            if is_female and self.config.openai_voice_female:
+                voice = self.config.openai_voice_female
+            elif self.config.openai_voice:
+                voice = self.config.openai_voice
+            elif self.config.openai_voice_female:
+                voice = self.config.openai_voice_female
+            else:
+                voice = "onyx"
         payload = {
             "model": "tts-1",
             "input": text,
@@ -223,7 +365,7 @@ class TTSClient:
         tmp.write(audio_bytes)
         tmp.close()
         thread = threading.Thread(
-            target=_play_file, args=(tmp.name, self.config.volume), daemon=True
+            target=_play_file, args=(tmp.name, self.config.volume, npc_pos, player_pos, player_fwd), daemon=True
         )
         thread.start()
 

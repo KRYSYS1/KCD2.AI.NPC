@@ -650,6 +650,14 @@ local function build_npc_from_entity(ent)
         context_lines[#context_lines + 1] = "Health: " .. tostring(health)
     end
 
+    local npc_pos = nil
+    if ent.GetPos then
+        local ok_pos, pos = pcall(ent.GetPos, ent)
+        if ok_pos and pos then
+            npc_pos = { x = pos.x or 0, y = pos.y or 0, z = pos.z or 0 }
+        end
+    end
+
     return {
         id = tostring(ent.id or entity_token or "unknown"),
         name = chosen_name or (entity_token or "Villager"),
@@ -664,6 +672,7 @@ local function build_npc_from_entity(ent)
         gender = gender,
         soul_name_key = soul_name_key,
         extra_context = table.concat(context_lines, "\n"),
+        pos = npc_pos,
     }
 end
 
@@ -724,6 +733,37 @@ end
 -- =======================================================================
 _G.__ai_npc_injected_ents = _G.__ai_npc_injected_ents or {}
 
+-- Load dynamic chat action name from server-written config (if present).
+-- Falls back to companion_bond (V) if the file is missing or empty.
+_G.AI_NPC_CHAT_ACTION = "companion_bond"
+_G.AI_NPC_CHAT_KEY    = "v"
+
+-- Try to load the server-written action config immediately at mod startup.
+-- This must happen BEFORE the player ever aims at an NPC, otherwise the
+-- first injection caches the fallback action and the glyph never updates.
+if type(dofile) == "function" then
+    local startup_paths = {
+        "scripts/ai_npc/chat_action.lua",
+        "Scripts/ai_npc/chat_action.lua",
+        "data/scripts/ai_npc/chat_action.lua",
+        "Data/Scripts/ai_npc/chat_action.lua",
+    }
+    for _, p in ipairs(startup_paths) do
+        local ok, err = pcall(dofile, p)
+        if ok then
+            System.LogAlways("[AI NPC] Startup chat_action loaded: action=" ..
+                tostring(_G.AI_NPC_CHAT_ACTION) .. " key=" .. tostring(_G.AI_NPC_CHAT_KEY))
+            _G.__ai_npc_chat_action_loaded = true
+            break
+        else
+            if not _G.__ai_npc_chat_action_startup_err then
+                _G.__ai_npc_chat_action_startup_err = true
+                System.LogAlways("[AI NPC] Startup chat_action error: " .. tostring(p) .. " err=" .. tostring(err))
+            end
+        end
+    end
+end
+
 local function inject_ai_interaction(ent)
     if not ent then return end
     local key = tostring(ent.id or (ent.GetName and ent:GetName()) or "")
@@ -748,13 +788,30 @@ local function inject_ai_interaction(ent)
             for _, a in pairs(base) do table.insert(output, a) end
         end
 
+        -- One-shot diagnostic: log the first time GetActions is called after injection.
+        local diag_key = tostring(self.id or "") .. "_ga"
+        if not _G["__ai_npc_diag_" .. diag_key] then
+            _G["__ai_npc_diag_" .. diag_key] = true
+            System.LogAlways("[AI NPC] GetActions called for " .. tostring(self.GetName and self:GetName() or "?") ..
+                " firstFast=" .. tostring(firstFast) .. " base_actions=" .. tostring(base and #base or 0) ..
+                " output_before_add=" .. tostring(#output))
+        end
+
         if self.actor and not self.actor:IsDead() and not self.actor:IsUnconscious() then
+            -- Ensure the ai_npc action map is active so the V-key icon renders.
+            if ActionMapManager and ActionMapManager.EnableActionMap then
+                pcall(ActionMapManager.EnableActionMap, "ai_npc", true)
+            end
             local ok_add, add_err = pcall(function()
+                local act = Action()
+                    :hint("ui_ai_npc_talk")
+                    :hintType(AHT_RELEASE)
+                local chat_action = (_G.AI_NPC_CHAT_ACTION or "")
+                if chat_action ~= "" then
+                    act:action(chat_action)
+                end
                 AddInteractorAction(output, firstFast,
-                    Action()
-                        :hint("ui_ai_npc_talk")
-                        :hintType(AHT_RELEASE)
-                        :action("ai_npc_chat")
+                    act
                         :uiOrder(2)
                         :func(function(this, usr)
                             -- This native CryEngine action runs whenever the
@@ -774,7 +831,6 @@ local function inject_ai_interaction(ent)
                                 System.LogAlways("[AI NPC] Interaction action ai_npc_chat fired — poll re-armed")
                             end
                         end)
-                        :interaction(inr_loot)
                 )
             end)
             if not ok_add then
@@ -877,7 +933,9 @@ local function get_targeted_npc()
     local hitData = {}
     local max_hits = 16
     local hits = Physics.RayWorldIntersection(from, dir, max_hits, entMask, skip, nil, hitData)
-    if not hits or hits <= 0 then return nil end
+    if not hits or hits <= 0 then
+            return nil
+    end
 
     local hit = nil
     local resolved = nil
@@ -894,13 +952,23 @@ local function get_targeted_npc()
             end
         end
     end
-    if not hit or not resolved then return nil end
+    if not hit or not resolved then
+        return nil
+    end
 
     -- Make sure the "Поговорить" prompt is attached to this entity going
     -- forward (in case the poll-side scanner hasn't injected it yet).
     inject_ai_interaction(resolved)
 
-    local npc = build_npc_from_entity(resolved)
+    local ok_npc, npc = pcall(build_npc_from_entity, resolved)
+    if not ok_npc then
+        System.LogAlways("[AI NPC] build_npc_from_entity crashed: " .. tostring(npc))
+        return nil
+    end
+    if not npc then
+        System.LogAlways("[AI NPC] build_npc_from_entity returned nil for entity=" .. tostring(resolved and resolved.id or "?"))
+        return nil
+    end
     if npc and hit.dist ~= nil then
         npc.target_distance = hit.dist
         npc.extra_context = (npc.extra_context ~= "" and (npc.extra_context .. "\n") or "") .. "Target distance: " .. tostring(hit.dist)
@@ -978,6 +1046,25 @@ function AI_NPC_TargetDebug()
     System.LogAlways("[AI NPC] TARGET_DEBUG|" .. msg)
 end
 
+local function _get_player_pos_fwd()
+    local player_pos = nil
+    local player_fwd = nil
+    local p = get_player_entity()
+    if p and p.GetPos then
+        local ok_pp, pp = pcall(p.GetPos, p)
+        if ok_pp and pp then
+            player_pos = { x = pp.x or 0, y = pp.y or 0, z = pp.z or 0 }
+        end
+    end
+    if System and System.GetViewCameraDir then
+        local ok_vf, vf = pcall(System.GetViewCameraDir)
+        if ok_vf and vf then
+            player_fwd = { x = vf.x or 0, y = vf.y or 0, z = vf.z or 0 }
+        end
+    end
+    return player_pos, player_fwd
+end
+
 local function npc_debug_probe(npc)
     if not npc then return end
     local actions = {}
@@ -1001,6 +1088,7 @@ local function npc_debug_probe(npc)
             compact_actions[#compact_actions + 1] = item
         end
     end
+    local player_pos, player_fwd = _get_player_pos_fwd()
     System.LogAlways("[AI NPC] TARGET|" .. json.encode({
         id = npc.id,
         name = npc.name,
@@ -1011,6 +1099,9 @@ local function npc_debug_probe(npc)
         soul_name_key = npc.soul_name_key,
         target_distance = npc.target_distance,
         recent_player_actions = compact_actions,
+        npc_pos = npc.pos,
+        player_pos = player_pos,
+        player_fwd = player_fwd,
     }))
     if npc.extra_context and npc.extra_context ~= "" then
         System.LogAlways("[AI NPC] TARGET_CTX|" .. tostring(npc.extra_context):gsub("\n", " | "))
@@ -1043,44 +1134,75 @@ if _G.__ai_npc_hud_narrator_left == nil then _G.__ai_npc_hud_narrator_left = fal
 if _G.__ai_npc_hud_narrator_right == nil then _G.__ai_npc_hud_narrator_right = true end
 if _G.__ai_npc_hud_narrator_center == nil then _G.__ai_npc_hud_narrator_center = false end
 
+--[[ Disabled: world-space floating text is not available in KCD2 Lua.
+-- Show text above an entity's head (world-space).
+-- NOTE: KCD2 Lua has no native floating 3D text / overhead API.
+local function show_text_above_entity(entity, text, duration)
+    if not entity or not text or text == "" then return end
+    duration = duration or 5000
+    if Game and type(Game.SendInfoText) == "function" then
+        local sec = math.max(3, math.floor(duration / 1000))
+        pcall(Game.SendInfoText, text, false, 0, sec)
+    end
+end
+--]]
+
 -- ui_show(message, duration, opts)
 -- opts.service = true  -> force ONLY top-right notification (no center subtitle,
---                        no left tutorial). Use for non-roleplay UX strings:
---                        "разговор с X", "разговор завершён", error toasts.
+--                        no left tutorial). Use for non-roleplay UX strings.
+-- opts.entity = entity_ref -> for world-space text above NPC.
 local function ui_show(message, duration, opts)
     duration = duration or 8000
     opts = opts or {}
     local service_only = opts.service == true
     local text = tostring(message)
     local show_left = (not service_only) and (_G.__ai_npc_hud_left ~= false)
-    local show_right = _G.__ai_npc_hud_right ~= false
+    local show_right = (_G.__ai_npc_hud_right ~= false)
     local show_center = (not service_only) and (_G.__ai_npc_hud_center ~= false)
+    local show_world = false -- disabled: no native KCD2 Lua API for floating 3D text
+    local show_bottom = false -- disabled: Game.SendInfoText requires localization key, raw text fails silently
     System.LogAlways(string.format(
-        "[AI NPC] HUD: left=%s right=%s center=%s service=%s text=%s",
+        "[AI NPC] HUD: left=%s right=%s center=%s world=%s bottom=%s service=%s text=%s",
         tostring(show_left), tostring(show_right), tostring(show_center),
-        tostring(service_only), text
+        tostring(show_world), tostring(show_bottom), tostring(service_only), text
     ))
 
-    -- Center-bottom: italic gold subtitle with ornament.
+    --[[ Disabled features: world-space text and bottom info text
+    -- 1) World-space white text above NPC
+    if show_world and opts.entity then
+        show_text_above_entity(opts.entity, text, duration)
+    end
+
+    -- 2) Bottom white info text (Game.SendInfoText)
+    if show_bottom and Game and type(Game.SendInfoText) == "function" then
+        local sec = math.max(3, math.floor(duration / 1000))
+        local ok, err = pcall(Game.SendInfoText, text, false, 0, sec)
+        if ok then
+            System.LogAlways("[AI NPC] HUD method ok: Game.SendInfoText (bottom)")
+        else
+            System.LogAlways("[AI NPC] HUD bottom error: " .. tostring(err))
+        end
+    end
+    --]]
+
+    -- 3) Standard gold HUD text (left, center, right)
     if show_center and Game and Game.ShowTutorial then
         local sec = math.max(1, math.floor(duration / 1000))
         local ok_tut, err_tut = pcall(Game.ShowTutorial, text, sec)
         if ok_tut then
-            System.LogAlways("[AI NPC] HUD method ok: Game.ShowTutorial (center)")
+            System.LogAlways("[AI NPC] HUD method ok: Game.ShowTutorial (gold)")
         else
             System.LogAlways("[AI NPC] HUD Game.ShowTutorial error: " .. tostring(err_tut))
         end
     end
 
     if UIAction and UIAction.CallFunction then
-        -- Each entry: {position_flag, element, method, args...}
         local candidates = {
             { show_center, "HUD", "ShowInfoText",        text, 10, duration, true },
             { show_left,   "HUD", "ShowTutorial",        "AI_NPC_Chat", text, duration, false, 0, 0, false, "" },
             { show_right,  "HUD", "SetNotificationText", text },
             { show_right,  "HUD", "ShowNotification",    text, duration },
         }
-
         for _, c in ipairs(candidates) do
             if c[1] then
                 local elem, method = c[2], c[3]
@@ -1186,6 +1308,7 @@ local function notify_active_npc()
         local actions = {}
         local ok_acts, acts = pcall(build_recent_player_actions, state.current_npc.id)
         if ok_acts and type(acts) == "table" then actions = acts end
+        local player_pos, player_fwd = _get_player_pos_fwd()
         System.LogAlways("[AI NPC] ACTIVE|" .. json.encode({
             npc_id = state.current_npc.id,
             npc_name = state.current_npc.name,
@@ -1195,6 +1318,9 @@ local function notify_active_npc()
             extra_context = state.current_npc.extra_context,
             recent_player_actions = actions,
             gender = state.current_npc.gender,
+            npc_pos = state.current_npc.pos,
+            player_pos = player_pos,
+            player_fwd = player_fwd,
         }))
     else
         System.LogAlways("[AI NPC] ACTIVE|{}")
@@ -1291,6 +1417,7 @@ local function scene_memory_for_npc(npc_id)
         warning_count = 0,
         refused_until = 0,
         danger = false,
+        strip_level = 0,  -- 0 = fully clothed, 1 = partial (upper off), 2 = fully nude
     }
     return state.npc_scene_memory[key], key
 end
@@ -1457,6 +1584,110 @@ local function scene_draw_weapon(ent)
     return false
 end
 
+local function scene_play_anim(ent, anims)
+    if not ent or type(ent.actor) ~= "table" then return false end
+    if type(anims) ~= "table" then return false end
+    local ok_any = false
+    for _, anim in ipairs(anims) do
+        -- Direct animation playback (layer 0, name, blendTime=0)
+        if type(ent.actor.StartAnimation) == "function" then
+            local ok_call, result = pcall(function() return ent.actor:StartAnimation(0, anim, 0) end)
+            System.LogAlways("[AI NPC] DIAG anim try StartAnimation(0,'" .. tostring(anim) .. "',0) ok=" .. tostring(ok_call) .. " result=" .. tostring(result))
+            if ok_call and result then return true end
+            ok_any = ok_any or (ok_call and result ~= nil)
+        end
+        if type(ent.actor.QueueAnimation) == "function" then
+            local ok_call, result = pcall(function() return ent.actor:QueueAnimation(0, anim, 0) end)
+            System.LogAlways("[AI NPC] DIAG anim try QueueAnimation(0,'" .. tostring(anim) .. "',0) ok=" .. tostring(ok_call) .. " result=" .. tostring(result))
+            if ok_call and result then return true end
+            ok_any = ok_any or (ok_call and result ~= nil)
+        end
+        -- Interactive actions (action names, not animation names)
+        if type(ent.actor.StartInteractiveActionByName) == "function" then
+            local ok_call, result = pcall(function() return ent.actor:StartInteractiveActionByName(anim) end)
+            System.LogAlways("[AI NPC] DIAG anim try StartInteractiveActionByName('" .. tostring(anim) .. "') ok=" .. tostring(ok_call) .. " result=" .. tostring(result))
+            if ok_call and result then return true end
+            ok_any = ok_any or (ok_call and result ~= nil)
+        end
+        if type(ent.actor.SimulateOnAction) == "function" then
+            local ok_call, result = pcall(function() return ent.actor:SimulateOnAction(anim, 1, 1.0) end)
+            System.LogAlways("[AI NPC] DIAG anim try SimulateOnAction('" .. tostring(anim) .. "',1,1.0) ok=" .. tostring(ok_call) .. " result=" .. tostring(result))
+            if ok_call and result then return true end
+            ok_any = ok_any or (ok_call and result ~= nil)
+        end
+        -- Dialog animation states (can drive body language)
+        if type(ent.actor.SetDialogAnimationState) == "function" then
+            local ok_call, result = pcall(function() return ent.actor:SetDialogAnimationState(anim) end)
+            System.LogAlways("[AI NPC] DIAG anim try SetDialogAnimationState('" .. tostring(anim) .. "') ok=" .. tostring(ok_call) .. " result=" .. tostring(result))
+            if ok_call and result then return true end
+            ok_any = ok_any or (ok_call and result ~= nil)
+        end
+        -- Human PlayAnim fallback (match TestAnim signature)
+        if type(ent.human) == "table" and type(ent.human.PlayAnim) == "function" then
+            local ok_call, result = pcall(function() return ent.human:PlayAnim(anim, "") end)
+            System.LogAlways("[AI NPC] DIAG anim try human:PlayAnim('" .. tostring(anim) .. "','') ok=" .. tostring(ok_call) .. " result=" .. tostring(result))
+            if ok_call and result then return true end
+            ok_any = ok_any or (ok_call and result ~= nil)
+        end
+        -- KCD2 animation state overrides
+        if type(ent.actor.SetAnimationState) == "function" then
+            local ok_call, result = pcall(function() return ent.actor:SetAnimationState(anim) end)
+            System.LogAlways("[AI NPC] DIAG anim try SetAnimationState('" .. tostring(anim) .. "') ok=" .. tostring(ok_call) .. " result=" .. tostring(result))
+            if ok_call and result then return true end
+            ok_any = ok_any or (ok_call and result ~= nil)
+        end
+        if type(ent.actor.SetAnimState) == "function" then
+            local ok_call, result = pcall(function() return ent.actor:SetAnimState(anim) end)
+            System.LogAlways("[AI NPC] DIAG anim try SetAnimState('" .. tostring(anim) .. "') ok=" .. tostring(ok_call) .. " result=" .. tostring(result))
+            if ok_call and result then return true end
+            ok_any = ok_any or (ok_call and result ~= nil)
+        end
+    end
+    return ok_any
+end
+
+--[[  -- GESTURE/SIT/STAND ACTIONS DISABLED
+local function scene_gesture_wave(ent)
+    local ok = scene_play_anim(ent, { "wave", "Wave", "greet", "Greeting", "gesture_wave" })
+    scene_send_ai_signal(ent, "OnPlayerSeenFriendly")
+    if not ok then
+        ok = scene_look_at_player(ent)
+    end
+    System.LogAlways("[AI NPC] SCENE_ACTION gesture_wave ok=" .. tostring(ok))
+    return ok
+end
+
+local function scene_gesture_bow(ent)
+    local ok = scene_play_anim(ent, { "bow", "Bow", "bow_short", "bow_long", "gesture_bow" })
+    scene_send_ai_signal(ent, "OnLowHealth")
+    if not ok then
+        ok = scene_look_at_player(ent)
+    end
+    System.LogAlways("[AI NPC] SCENE_ACTION gesture_bow ok=" .. tostring(ok))
+    return ok
+end
+
+local function scene_sit_down(ent)
+    local ok = scene_play_anim(ent, { "sit_down", "SitDown", "sit", "idle_sit", "sitdown", "sit_down_chair" })
+    scene_send_ai_signal(ent, "OnLowHideSpot")
+    if not ok then
+        ok = scene_look_at_player(ent)
+    end
+    System.LogAlways("[AI NPC] SCENE_ACTION sit_down ok=" .. tostring(ok))
+    return ok
+end
+
+local function scene_stand_up(ent)
+    local ok = scene_play_anim(ent, { "stand_up", "StandUp", "stand", "idle", "standup" })
+    scene_send_ai_signal(ent, "OnFallAndPlay")
+    if not ok then
+        ok = scene_look_at_player(ent)
+    end
+    System.LogAlways("[AI NPC] SCENE_ACTION stand_up ok=" .. tostring(ok))
+    return ok
+end
+--]]
+
 local ai_npc_item_class_info
 
 local function scene_strip_outerwear(ent)
@@ -1464,6 +1695,28 @@ local function scene_strip_outerwear(ent)
     local ok = pcall(function() return ent.actor:EquipClothingPreset("48691669-b94a-0e6a-d9db-0a70a0ca1fad") end)
     return ok == true
 end
+
+--[[  -- INTERMEDIATE STRIP DISABLED until a nude mod supports separate underwear layer
+-- Full strip: equip the female naked preset (vanilla bathhouse after-sex preset).
+-- This removes all clothing including underwear for female NPCs.
+-- Preset: f_bathhouse_afterSex_naked = 45d18962-2691-48af-8eb2-26c67884ac11
+local function scene_full_strip(ent)
+    if not ent or type(ent.actor) ~= "table" or type(ent.actor.EquipClothingPreset) ~= "function" then return false end
+    local ok = pcall(function() return ent.actor:EquipClothingPreset("45d18962-2691-48af-8eb2-26c67884ac11") end)
+    System.LogAlways("[AI NPC] SCENE_ACTION full strip (naked preset) ok=" .. tostring(ok))
+    return ok == true
+end
+
+-- Partial strip: remove outerwear down to underwear layer.
+-- Uses EquipClothingPreset "light" which strips to underwear/nightgown.
+-- With a patched nude-mod (underwear.xml restored) this shows the NPC in underwear.
+local function scene_partial_strip(ent)
+    if not ent or type(ent.actor) ~= "table" or type(ent.actor.EquipClothingPreset) ~= "function" then return false end
+    local ok = pcall(function() return ent.actor:EquipClothingPreset("48691669-b94a-0e6a-d9db-0a70a0ca1fad") end)
+    System.LogAlways("[AI NPC] SCENE_ACTION partial strip (light preset) ok=" .. tostring(ok))
+    return ok == true
+end
+--]]
 
 local function scene_unequip_slot(ent, slot)
     if not ent or type(ent.actor) ~= "table" or type(ent.actor.UnequipInventoryItem) ~= "function" then return false end
@@ -1680,6 +1933,36 @@ local function scene_execute_game_action(scene, action, intent)
         ok = scene_strip_outerwear(ent) or ok
     elseif action == "dress_up" then
         ok = scene_dress_up(ent) or ok
+        local mem = scene_memory_for_npc(scene.npc_id or (state.current_npc and state.current_npc.id))
+        mem.strip_level = 0
+        System.LogAlways("[AI NPC] SCENE_ACTION dress_up reset strip_level=0")
+--[[  -- INTERMEDIATE STRIP DISABLED
+    elseif action == "strip_partial" then
+        ok = scene_partial_strip(ent) or ok
+        local mem = scene_memory_for_npc(scene.npc_id or (state.current_npc and state.current_npc.id))
+        mem.strip_level = 1
+        System.LogAlways("[AI NPC] SCENE_ACTION strip_partial -> ok=" .. tostring(ok))
+    elseif action == "strip_full" then
+        ok = scene_full_strip(ent) or ok
+        local mem = scene_memory_for_npc(scene.npc_id or (state.current_npc and state.current_npc.id))
+        mem.strip_level = 2
+        System.LogAlways("[AI NPC] SCENE_ACTION strip_full -> ok=" .. tostring(ok))
+    elseif action == "dress_partial" then
+        local ok_body = scene_equip_first_in_slot(ent, "body")
+        local ok_legs = scene_equip_first_in_slot(ent, "legs")
+        ok = ok_body or ok_legs or ok
+        if not ok then
+            ok = scene_dress_up(ent) or ok
+        end
+        local mem = scene_memory_for_npc(scene.npc_id or (state.current_npc and state.current_npc.id))
+        mem.strip_level = 0
+        System.LogAlways("[AI NPC] SCENE_ACTION dress_partial ok=" .. tostring(ok) .. " body=" .. tostring(ok_body) .. " legs=" .. tostring(ok_legs))
+    elseif action == "dress_full" then
+        ok = scene_dress_up(ent) or ok
+        local mem = scene_memory_for_npc(scene.npc_id or (state.current_npc and state.current_npc.id))
+        mem.strip_level = 0
+        System.LogAlways("[AI NPC] SCENE_ACTION dress_full -> ok=" .. tostring(ok))
+--]]
     elseif action == "headwear_off" then
         ok = scene_unequip_slot(ent, "head") or ok
     elseif action == "headwear_on" then
@@ -1704,6 +1987,16 @@ local function scene_execute_game_action(scene, action, intent)
         ok = scene_unequip_slot(ent, "body") or ok
     elseif action == "bodywear_on" then
         ok = scene_equip_first_in_slot(ent, "body") or ok
+--[[  -- GESTURE/SIT/STAND DISABLED
+    elseif action == "gesture_wave" then
+        ok = scene_gesture_wave(ent) or scene_look_at_player(ent) or ok
+    elseif action == "gesture_bow" then
+        ok = scene_gesture_bow(ent) or scene_look_at_player(ent) or ok
+    elseif action == "sit_down" then
+        ok = scene_sit_down(ent) or ok
+    elseif action == "stand_up" then
+        ok = scene_stand_up(ent) or ok
+--]]
     elseif action == "collapse_spell" then
         ok = scene_collapse_spell(ent) or ok
     elseif action == "call_help" or intent == "call_help" then
@@ -1811,6 +2104,99 @@ local function handle_scene_action(scene, fallback_npc_name)
     end
 end
 
+function AI_NPC_TestWorldText(text)
+    text = tostring(text or "")
+    if text == "" then
+        text = "Тестовый текст над NPC"
+    end
+    local npc = state.current_npc
+    if not npc then
+        ui_show("No active NPC. Hover over an NPC and start chat first.", 4000, { service = true })
+        return
+    end
+    local ent = npc.entity_ref
+    if not ent then
+        ui_show("Active NPC has no entity ref.", 4000, { service = true })
+        return
+    end
+    show_text_above_entity(ent, text, 7000)
+end
+
+-- Test multiple world-space text APIs and log which one works.
+-- Usage: ai_test_world_text_methods "Hello" (or no args for default)
+function AI_NPC_TestWorldTextMethods(text)
+    text = tostring(text or "")
+    if text == "" then
+        text = "Тест world-space"
+    end
+    local npc = state.current_npc
+    if not npc then
+        ui_show("No active NPC. Hover and start chat first.", 4000, { service = true })
+        return
+    end
+    local ent = npc.entity_ref
+    if not ent then
+        ui_show("Active NPC has no entity ref.", 4000, { service = true })
+        return
+    end
+
+    System.LogAlways("[AI NPC] ===== WORLD TEXT TEST START =====")
+
+    -- Method 1: CryAction.SendGameplayEvent entity bound
+    if CryAction and type(CryAction.SendGameplayEvent) == "function" then
+        local ok, err = pcall(CryAction.SendGameplayEvent, ent.id, "ShowInfoText", text, 7000)
+        System.LogAlways("[AI NPC] World text TEST 1 (CryAction SGPE entity): " .. (ok and "OK" or "FAIL: " .. tostring(err)))
+    else
+        System.LogAlways("[AI NPC] World text TEST 1: CryAction unavailable")
+    end
+
+    -- Method 2: CryAction.SendGameplayEvent on player (0)
+    if CryAction and type(CryAction.SendGameplayEvent) == "function" then
+        local ok, err = pcall(CryAction.SendGameplayEvent, 0, "ShowInfoText", text, 7000)
+        System.LogAlways("[AI NPC] World text TEST 2 (CryAction SGPE player): " .. (ok and "OK" or "FAIL: " .. tostring(err)))
+    end
+
+    -- Method 3: CryAction.SetSubtitle (bottom white text)
+    if CryAction and type(CryAction.SetSubtitle) == "function" then
+        local ok3, err3 = pcall(CryAction.SetSubtitle, 0, text, 7)
+        System.LogAlways("[AI NPC] World text TEST 3 (CryAction.SetSubtitle): " .. (ok3 and "OK" or "FAIL: " .. tostring(err3)))
+    else
+        System.LogAlways("[AI NPC] World text TEST 3: CryAction.SetSubtitle unavailable")
+    end
+
+    -- Method 3b: Game.SendInfoText with localization key
+    if Game and type(Game.SendInfoText) == "function" then
+        local ok3b, err3b = pcall(Game.SendInfoText, "@ui_hud_succes", false, 0, 3)
+        System.LogAlways("[AI NPC] World text TEST 3b (SendInfoText loc key): " .. (ok3b and "OK" or "FAIL: " .. tostring(err3b)))
+    else
+        System.LogAlways("[AI NPC] World text TEST 3b: Game.SendInfoText unavailable")
+    end
+
+    -- Method 4: UIAction.CallFunction HUD ShowInfoText
+    if UIAction and UIAction.CallFunction then
+        local ok, err = pcall(UIAction.CallFunction, "HUD", -1, "ShowInfoText", text, 10, 7000, true)
+        System.LogAlways("[AI NPC] World text TEST 4 (UIAction ShowInfoText): " .. (ok and "OK" or "FAIL: " .. tostring(err)))
+    else
+        System.LogAlways("[AI NPC] World text TEST 4: UIAction unavailable")
+    end
+
+    -- Method 5: Game.ShowTutorial
+    if Game and type(Game.ShowTutorial) == "function" then
+        local ok, err = pcall(Game.ShowTutorial, text, 7)
+        System.LogAlways("[AI NPC] World text TEST 5 (Game.ShowTutorial): " .. (ok and "OK" or "FAIL: " .. tostring(err)))
+    else
+        System.LogAlways("[AI NPC] World text TEST 5: Game.ShowTutorial unavailable")
+    end
+
+    -- Method 6: UIAction.CallFunction HUD ShowTutorial
+    if UIAction and UIAction.CallFunction then
+        local ok, err = pcall(UIAction.CallFunction, "HUD", -1, "ShowTutorial", "AI_NPC_Test", text, 7000, false, 0, 0, false, "")
+        System.LogAlways("[AI NPC] World text TEST 6 (UIAction ShowTutorial): " .. (ok and "OK" or "FAIL: " .. tostring(err)))
+    end
+
+    System.LogAlways("[AI NPC] ===== WORLD TEXT TEST END =====")
+end
+
 function AI_NPC_HandleResponse(npc_name, response_text, request_id, scene)
     local rid = tonumber(request_id) or 0
     if _G.__ai_npc_swallow_only then
@@ -1867,7 +2253,9 @@ function AI_NPC_HandleResponse(npc_name, response_text, request_id, scene)
     end
 
     local label = npc_display_name(npc_name_for_msg, npc_class_for_msg)
-    ui_show(label .. ": " .. text, 12000)
+    local ent = state.current_npc and state.current_npc.entity_ref or nil
+    ui_show(label .. ": " .. text, 12000, { entity = ent })
+
     handle_scene_action(scene, npc_name_for_msg)
     System.LogAlways("[AI NPC] RESPONSE id=" .. tostring(rid) .. " npc=" .. tostring(npc_name_for_msg))
 end
@@ -1922,7 +2310,7 @@ end
 function AI_NPC_PollWebCommand()
     __ai_npc_poll_ticks = __ai_npc_poll_ticks + 1
     if __ai_npc_poll_ticks == 1 or __ai_npc_poll_ticks % 20 == 0 then
-        System.LogAlways("[AI NPC] Poll tick #" .. tostring(__ai_npc_poll_ticks))
+        -- System.LogAlways("[AI NPC] Poll tick #" .. tostring(__ai_npc_poll_ticks))
     end
 
     poll_step("sync_binds", function() sync_binds_from_actionmap() end)
@@ -1972,6 +2360,32 @@ function AI_NPC_PollWebCommand()
             -- Use the global wrapper because the local `end_conversation`
             -- is declared after AI_NPC_PollWebCommand and is not visible here.
             if AI_NPC_End then AI_NPC_End() end
+        end
+    end)
+
+    poll_step("chat_action", function()
+        if type(dofile) ~= "function" then return end
+        local paths = {
+            "scripts/ai_npc/chat_action.lua",
+            "Scripts/ai_npc/chat_action.lua",
+            "data/scripts/ai_npc/chat_action.lua",
+            "Data/Scripts/ai_npc/chat_action.lua",
+        }
+        for _, p in ipairs(paths) do
+            local ok, err = pcall(dofile, p)
+            if ok then
+                if not _G.__ai_npc_chat_action_loaded then
+                    _G.__ai_npc_chat_action_loaded = true
+                    System.LogAlways("[AI NPC] Poll chat_action loaded action=" ..
+                        tostring(_G.AI_NPC_CHAT_ACTION) .. " key=" .. tostring(_G.AI_NPC_CHAT_KEY))
+                end
+                return
+            else
+                if not _G.__ai_npc_chat_action_err then
+                    _G.__ai_npc_chat_action_err = true
+                    System.LogAlways("[AI NPC] Poll chat_action dofile error: " .. tostring(p) .. " err=" .. tostring(err))
+                end
+            end
         end
     end)
 
@@ -2130,6 +2544,7 @@ local function send_message(text)
     state.last_request_entity_ref = state.current_npc.entity_ref
     ui_show("Вы: " .. tostring(text), 5000)
 
+    local player_pos, player_fwd = _get_player_pos_fwd()
     local request_data = {
         npc_id = state.current_npc.id,
         npc_name = state.current_npc.name,
@@ -2138,6 +2553,9 @@ local function send_message(text)
         player_message = text,
         extra_context = state.current_npc.extra_context or "",
         recent_player_actions = build_recent_player_actions(state.current_npc.id),
+        npc_pos = state.current_npc.pos,
+        player_pos = player_pos,
+        player_fwd = player_fwd,
         request_id = 0,
     }
 
@@ -3367,6 +3785,36 @@ function AI_NPC_TestEquipSlot(line)
     System.LogAlways("[AI NPC] DIAG equip_slot slot=" .. slot .. " index=" .. tostring(chosen.idx) .. " class=" .. tostring(chosen.class) .. " ok=" .. tostring(ok_eq) .. " result=" .. tostring(result))
 end
 
+--[[  -- GESTURE/SIT/STAND TESTS DISABLED
+function AI_NPC_TestWave()
+    local ent = ai_npc_diag_target()
+    if not ent then return end
+    local ok = scene_gesture_wave(ent) or scene_look_at_player(ent)
+    System.LogAlways("[AI NPC] DIAG gesture_wave ok=" .. tostring(ok))
+end
+
+function AI_NPC_TestBow()
+    local ent = ai_npc_diag_target()
+    if not ent then return end
+    local ok = scene_gesture_bow(ent) or scene_look_at_player(ent)
+    System.LogAlways("[AI NPC] DIAG gesture_bow ok=" .. tostring(ok))
+end
+
+function AI_NPC_TestSit()
+    local ent = ai_npc_diag_target()
+    if not ent then return end
+    local ok = scene_sit_down(ent)
+    System.LogAlways("[AI NPC] DIAG sit_down ok=" .. tostring(ok))
+end
+
+function AI_NPC_TestStand()
+    local ent = ai_npc_diag_target()
+    if not ent then return end
+    local ok = scene_stand_up(ent)
+    System.LogAlways("[AI NPC] DIAG stand_up ok=" .. tostring(ok))
+end
+--]]
+
 function AI_NPC_TestClothingPreset(line)
     local preset = tostring(line or ""):gsub("^%s+", ""):gsub("%s+$", ""):lower()
     if preset == "" then preset = "light" end
@@ -3396,6 +3844,42 @@ function AI_NPC_TestDressUp()
     local ok = scene_dress_up(ent)
     System.LogAlways("[AI NPC] DIAG dress_up ok=" .. tostring(ok))
 end
+
+--[[  -- INTERMEDIATE STRIP DISABLED
+function AI_NPC_TestPartialStrip()
+    local ent = ai_npc_diag_target()
+    if not ent then return end
+    local ok = scene_partial_strip(ent)
+    System.LogAlways("[AI NPC] DIAG partial_strip ok=" .. tostring(ok))
+end
+
+function AI_NPC_TestFullStrip()
+    local ent = ai_npc_diag_target()
+    if not ent then return end
+    local ok = scene_full_strip(ent)
+    System.LogAlways("[AI NPC] DIAG full_strip ok=" .. tostring(ok))
+end
+
+function AI_NPC_TestDressPartial()
+    local ent = ai_npc_diag_target()
+    if not ent then return end
+    local ok = false
+    -- Try equipping body+legs from inventory first
+    ok = scene_equip_first_in_slot(ent, "body") or ok
+    ok = scene_equip_first_in_slot(ent, "legs") or ok
+    if not ok then
+        ok = scene_dress_up(ent) or ok
+    end
+    System.LogAlways("[AI NPC] DIAG dress_partial ok=" .. tostring(ok))
+end
+
+function AI_NPC_TestDressFull()
+    local ent = ai_npc_diag_target()
+    if not ent then return end
+    local ok = scene_dress_up(ent)
+    System.LogAlways("[AI NPC] DIAG dress_full ok=" .. tostring(ok))
+end
+--]]
 
 function AI_NPC_TestClothingReset()
     local ent = ai_npc_diag_target()
@@ -3634,6 +4118,11 @@ if System and System.AddCCommand then
     local ok_diag_look = pcall(System.AddCCommand, "ai_npc_test_look", "AI_NPC_TestLook()", "Test look-at methods on targeted NPC")
     local ok_diag_dialog = pcall(System.AddCCommand, "ai_npc_test_dialog_state", "AI_NPC_TestDialogState(%line)", "Test actor:SetDialogAnimationState on targeted NPC")
     local ok_diag_iact2 = pcall(System.AddCCommand, "ai_npc_test_iact2", "AI_NPC_TestIAct2(%line)", "Test extended StartInteractiveActionByName on targeted NPC")
+-- GESTURE/SIT/STAND COMMANDS DISABLED
+--    local ok_diag_wave = pcall(System.AddCCommand, "ai_npc_test_wave", "AI_NPC_TestWave()", "Test gesture wave on targeted NPC")
+--    local ok_diag_bow = pcall(System.AddCCommand, "ai_npc_test_bow", "AI_NPC_TestBow()", "Test gesture bow on targeted NPC")
+--    local ok_diag_sit = pcall(System.AddCCommand, "ai_npc_test_sit", "AI_NPC_TestSit()", "Test sit down on targeted NPC")
+--    local ok_diag_stand = pcall(System.AddCCommand, "ai_npc_test_stand", "AI_NPC_TestStand()", "Test stand up on targeted NPC")
     local ok_diag_methods = pcall(System.AddCCommand, "ai_npc_test_methods", "AI_NPC_TestMethods()", "Dump actor/human methods for targeted NPC")
     local ok_diag_weapon = pcall(System.AddCCommand, "ai_npc_test_weapon", "AI_NPC_TestWeapon(%line)", "Test weapon draw/holster/toggle on targeted NPC")
     local ok_diag_fall = pcall(System.AddCCommand, "ai_npc_test_fall", "AI_NPC_TestFall()", "Test actor:Fall on targeted NPC")
@@ -3650,11 +4139,18 @@ if System and System.AddCCommand then
     local ok_diag_equip_slot = pcall(System.AddCCommand, "ai_npc_test_equip_slot", "AI_NPC_TestEquipSlot(%line)", "Test actor:EquipInventoryItem by classified armor slot")
     local ok_diag_clothing_preset = pcall(System.AddCCommand, "ai_npc_test_clothing_preset", "AI_NPC_TestClothingPreset(%line)", "Test actor:EquipClothingPreset on targeted NPC")
     local ok_diag_dress_up = pcall(System.AddCCommand, "ai_npc_test_dress_up", "AI_NPC_TestDressUp()", "Test actor:EquipClothingPreset dress/normal on targeted NPC")
+-- INTERMEDIATE STRIP DISABLED (console commands commented out)
+--    local ok_diag_partial_strip = pcall(System.AddCCommand, "ai_npc_test_partial_strip", "AI_NPC_TestPartialStrip()", "Test partial strip (upper clothes only) on targeted NPC")
+--    local ok_diag_full_strip = pcall(System.AddCCommand, "ai_npc_test_full_strip", "AI_NPC_TestFullStrip()", "Test full strip (all clothes) on targeted NPC")
+--    local ok_diag_dress_partial = pcall(System.AddCCommand, "ai_npc_test_dress_partial", "AI_NPC_TestDressPartial()", "Test partial dress (underwear/lower clothes) on targeted NPC")
+--    local ok_diag_dress_full = pcall(System.AddCCommand, "ai_npc_test_dress_full", "AI_NPC_TestDressFull()", "Test full dress (complete outfit) on targeted NPC")
     local ok_diag_clothing_reset = pcall(System.AddCCommand, "ai_npc_test_clothing_reset", "AI_NPC_TestClothingReset()", "Try known clothing presets and safe inventory refresh on targeted NPC")
     local ok_diag_initial_clothing = pcall(System.AddCCommand, "ai_npc_test_initial_clothing", "AI_NPC_TestInitialClothing()", "Dump actor:GetInitialClothingPreset for targeted NPC")
     local ok_diag_restore_initial = pcall(System.AddCCommand, "ai_npc_test_clothing_restore_initial", "AI_NPC_TestClothingRestoreInitial()", "Restore targeted NPC initial clothing preset")
     local ok_diag_clothing_cycle = pcall(System.AddCCommand, "ai_npc_test_clothing_cycle", "AI_NPC_TestClothingCycle(%line)", "Cycle known clothing preset GUID candidates on targeted NPC")
     local ok_diag_cheat_clothes = pcall(System.AddCCommand, "ai_npc_test_cheat_clothes", "AI_NPC_TestCheatClothes()", "Test cheat clothes EquipInventoryItem on targeted NPC")
+    local ok_test_world_text = pcall(System.AddCCommand, "ai_test_world_text", "AI_NPC_TestWorldText(%line)", "Test world-space text above active NPC")
+    local ok_test_world_text_methods = pcall(System.AddCCommand, "ai_test_world_text_methods", "AI_NPC_TestWorldTextMethods(%line)", "Test all world-space text APIs and log results")
     System.LogAlways("[AI NPC] Register ai_chat: " .. tostring(ok_chat))
     System.LogAlways("[AI NPC] Register ai_say: " .. tostring(ok_say))
     System.LogAlways("[AI NPC] Register ai_end: " .. tostring(ok_end))
@@ -3671,6 +4167,11 @@ if System and System.AddCCommand then
     System.LogAlways("[AI NPC] Register ai_npc_test_look: " .. tostring(ok_diag_look))
     System.LogAlways("[AI NPC] Register ai_npc_test_dialog_state: " .. tostring(ok_diag_dialog))
     System.LogAlways("[AI NPC] Register ai_npc_test_iact2: " .. tostring(ok_diag_iact2))
+-- GESTURE/SIT/STAND LOGS DISABLED
+--    System.LogAlways("[AI NPC] Register ai_npc_test_wave: " .. tostring(ok_diag_wave))
+--    System.LogAlways("[AI NPC] Register ai_npc_test_bow: " .. tostring(ok_diag_bow))
+--    System.LogAlways("[AI NPC] Register ai_npc_test_sit: " .. tostring(ok_diag_sit))
+--    System.LogAlways("[AI NPC] Register ai_npc_test_stand: " .. tostring(ok_diag_stand))
     System.LogAlways("[AI NPC] Register ai_npc_test_methods: " .. tostring(ok_diag_methods))
     System.LogAlways("[AI NPC] Register ai_npc_test_weapon: " .. tostring(ok_diag_weapon))
     System.LogAlways("[AI NPC] Register ai_npc_test_fall: " .. tostring(ok_diag_fall))
@@ -3687,11 +4188,18 @@ if System and System.AddCCommand then
     System.LogAlways("[AI NPC] Register ai_npc_test_equip_slot: " .. tostring(ok_diag_equip_slot))
     System.LogAlways("[AI NPC] Register ai_npc_test_clothing_preset: " .. tostring(ok_diag_clothing_preset))
     System.LogAlways("[AI NPC] Register ai_npc_test_dress_up: " .. tostring(ok_diag_dress_up))
+-- INTERMEDIATE STRIP DISABLED (log lines commented out)
+--    System.LogAlways("[AI NPC] Register ai_npc_test_partial_strip: " .. tostring(ok_diag_partial_strip))
+--    System.LogAlways("[AI NPC] Register ai_npc_test_full_strip: " .. tostring(ok_diag_full_strip))
+--    System.LogAlways("[AI NPC] Register ai_npc_test_dress_partial: " .. tostring(ok_diag_dress_partial))
+--    System.LogAlways("[AI NPC] Register ai_npc_test_dress_full: " .. tostring(ok_diag_dress_full))
     System.LogAlways("[AI NPC] Register ai_npc_test_clothing_reset: " .. tostring(ok_diag_clothing_reset))
     System.LogAlways("[AI NPC] Register ai_npc_test_initial_clothing: " .. tostring(ok_diag_initial_clothing))
     System.LogAlways("[AI NPC] Register ai_npc_test_clothing_restore_initial: " .. tostring(ok_diag_restore_initial))
     System.LogAlways("[AI NPC] Register ai_npc_test_clothing_cycle: " .. tostring(ok_diag_clothing_cycle))
     System.LogAlways("[AI NPC] Register ai_npc_test_cheat_clothes: " .. tostring(ok_diag_cheat_clothes))
+    System.LogAlways("[AI NPC] Register ai_test_world_text: " .. tostring(ok_test_world_text))
+    System.LogAlways("[AI NPC] Register ai_test_world_text_methods: " .. tostring(ok_test_world_text_methods))
 end
 
 function AI_NPC_PollRespNow()
@@ -3964,9 +4472,7 @@ function rearm_poll_from_user_context()
     -- The polling timer scheduled during Bootstrap.lua never fires under the
     -- current DLL (the timer subsystem is likely not live yet at that point).
     -- Re-arming from a user-triggered context (after the world is loaded)
-    -- often makes it tick. Do this once.
-    if _G.__ai_npc_poll_rearmed then return end
-    _G.__ai_npc_poll_rearmed = true
+    -- often makes it tick. Re-arming is harmless, so we allow repeats.
     if not Script then return end
     local ok_st, err_st = pcall(function()
         if type(Script.SetTimer) == "function" then
@@ -4083,3 +4589,25 @@ end
 print("[AI NPC] Mod loaded v0.1.0")
 print("[AI NPC] Press " .. CONFIG.chat_key .. " near an NPC to start a conversation")
 print("[AI NPC] Server: " .. CONFIG.server_url)
+
+-- Run one poll cycle immediately so the first NPC the player is looking at
+-- gets injected right away (the scheduled timer may not tick on GOG DLL).
+pcall(function()
+    System.LogAlways("[AI NPC] Immediate startup poll")
+    AI_NPC_PollWebCommand()
+end)
+
+-- GOG rolled-back DLL: Script.SetTimer scheduled at bootstrap silently no-ops.
+-- Re-arm after a longer delay once the level/world is fully loaded.
+function AI_NPC_AutoRearmPoll()
+    System.LogAlways("[AI NPC] Auto-rearm poll after startup delay")
+    rearm_poll_from_user_context()
+end
+
+if Script then
+    if type(Script.SetTimerForFunction) == "function" then
+        Script.SetTimerForFunction(10000, "AI_NPC_AutoRearmPoll")
+    elseif type(Script.SetTimer) == "function" then
+        Script.SetTimer(10000, function() AI_NPC_AutoRearmPoll() end)
+    end
+end
