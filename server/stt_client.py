@@ -168,6 +168,7 @@ class STTClient:
             "dtype": np.float32,
             "callback": self._audio_callback,
             "blocksize": 1024,
+            "latency": "low",
         }
         if getattr(self.config, "input_device", -1) is not None and self.config.input_device >= 0:
             stream_kwargs["device"] = self.config.input_device
@@ -182,12 +183,7 @@ class STTClient:
         except Exception as exc:
             with self._lock:
                 self._recording = False
-            if self._stream is not None:
-                try:
-                    self._stream.close()
-                except Exception:
-                    pass
-                self._stream = None
+            self._stream = None
             logger.error(f"[STT] Failed to open input stream: {exc}")
             raise
 
