@@ -135,6 +135,8 @@ class HUDConfig(BaseModel):
     show_left_top: bool = Field(default=False, description="Black tooltip plaque with gold border in the top-left (HUD.ShowTutorial UIAction).")
     show_right_top: bool = Field(default=True, description="Quest-update style notification in the top-right (HUD.ShowNotification).")
     show_center: bool = Field(default=True, description="Italic gold subtitle with ornament at the bottom-center (Game.ShowTutorial).")
+    show_world_text: bool = Field(default=False, description="Show white world-space text above the NPC's head (CryAction.SendGameplayEvent entity-bound).")
+    show_bottom_text: bool = Field(default=False, description="Show white info text at bottom of screen (Game.SendInfoText).")
     show_narrator: bool = Field(default=True, description="Show narrator-style descriptions of NPC scene actions, e.g. 'The shepherd steps back'.")
     narrator_left_top: bool = Field(default=False, description="Show narrator-style scene action descriptions in the top-left HUD.")
     narrator_right_top: bool = Field(default=True, description="Show narrator-style scene action descriptions in the top-right HUD.")
@@ -174,6 +176,30 @@ class InteractionConfig(BaseModel):
     dress_up_terms: str = Field(
         default="оденься, одевайся, одень одежду, надень одежду, надень что-нибудь, прикройся, переоденься, смени одежду, переоденься в другую одежду, надень другую одежду, одеться, оделся, оделась, одень его, одень её, одень ее, dress up, get dressed, put clothes on, put your clothes on, wear clothes, change clothes, change your clothes, put on different clothes",
         description="Comma-separated player phrases that trigger dress_up.",
+    )
+    strip_terms: str = Field(
+        default="разденься, сними одежду, раздевайся, раздеть, снимай одежду, сними всё, разденься догола, get undressed, take off clothes, strip, undress, remove clothes, take everything off",
+        description="Comma-separated player phrases that trigger strip.",
+    )
+    draw_weapon_terms: str = Field(
+        default="оружие, достань оружие, достань меч, оружие наготове, достать оружие, pull out weapon, draw weapon, draw your weapon, take out weapon, unsheathe weapon, unsheathe",
+        description="Comma-separated player phrases that trigger draw_weapon.",
+    )
+    turn_to_player_terms: str = Field(
+        default="повернись, повернись ко мне, смотри на меня, поверни лицом, face me, turn around, turn to me, look at me",
+        description="Comma-separated player phrases that trigger turn_to_player.",
+    )
+    come_closer_terms: str = Field(
+        default="подойди ближе, подойди, иди сюда, ко мне, come here, come closer, step closer, get closer, approach me, walk over here",
+        description="Comma-separated player phrases that trigger come_closer.",
+    )
+    step_back_terms: str = Field(
+        default="отойди, отойди назад, назад, отступи, step back, back off, move back, get back, retreat, stand back",
+        description="Comma-separated player phrases that trigger step_back.",
+    )
+    collapse_spell_terms: str = Field(
+        default="спад, рассеять, развеять, заклинание, collapse, dispel, break spell, end spell, remove spell",
+        description="Comma-separated player phrases that trigger collapse_spell.",
     )
     headwear_on_terms: str = Field(
         default="надень шляпу, надень шляпк, надень капюшон, надень головной убор, одень шапку, надень шапку, put on your hat, wear your hat, put on headwear, 戴上帽子, 戴帽子, 戴头巾, załóż kapelusz, załóż czapkę, zaloz kapelusz, zaloz czapke, nasaď si klobúk, nasaď čiapku, setz deinen hut auf, hut aufsetzen, setz deine mütze auf, mets ton chapeau, mets ta casquette, pon el sombrero, ponte el sombrero, ponte el gorro, pon la capucha, pon el gorro, 帽子をかぶれ, 帽子をかぶって",
