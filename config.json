@@ -2,11 +2,11 @@
   "host": "127.0.0.1",
   "port": 4999,
   "game_path": "",
-  "language": "en",
+  "language": "ru",
   "llm": {
-    "api_url": "",
+    "api_url": "https://api.groq.com/openai/v1",
     "api_key": "",
-    "model": "",
+    "model": "llama-3.3-70b-versatile",
     "max_tokens": 200,
     "temperature": 0.8
   },
