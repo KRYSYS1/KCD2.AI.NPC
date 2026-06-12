@@ -780,7 +780,7 @@ SCENE_LAYER_PROMPT = """
 
 # AI NPC Scene Layer
 You may respond either as plain speech or as a compact JSON object:
-{"speech":"what the NPC says aloud","mood":"neutral|friendly|suspicious|angry|afraid|respectful|annoyed","intent":"continue|end|refuse|warn|call_help","suggested_action":"none|look_at_player|turn_to_player|come_closer|step_back|walk_away|draw_weapon|call_help|laugh|strip_outerwear|dress_up|strip_partial|strip_full|dress_partial|dress_full|collapse_spell"}
+{"speech":"what the NPC says aloud","mood":"neutral|friendly|suspicious|angry|afraid|respectful|annoyed","intent":"continue|end|refuse|warn|call_help","suggested_action":"none|look_at_player|turn_to_player|come_closer|step_back|walk_away|draw_weapon|holster_weapon|call_help|laugh|strip_outerwear|dress_up|strip_partial|strip_full|dress_partial|dress_full|collapse_spell|gesture_wave|gesture_bow|gesture_nod|gesture_point|gesture_cheer|gesture_come_here|gesture_look_around|emotion_nervous|emotion_sad|emotion_angry|emotion_drunk|sit_down|stand_up|pet_dog|knock_door|close_visor|open_visor|injured_idle|fear_stand|cooking|play_anim"}
 If you use JSON, speech must still follow the length/language rules. Do not wrap JSON in markdown.
 Recognize player intent in ANY language, not only English/Russian. Map requests to actions:
 - Get dressed (full outfit) → suggested_action="dress_up" or "dress_full"; partial dress (underwear/lower only) → "dress_partial".
@@ -789,6 +789,9 @@ Recognize player intent in ANY language, not only English/Russian. Map requests 
 - Draw weapon → "draw_weapon"; holster/put away weapon → "holster_weapon".
 - Turn/look at the player → "turn_to_player"; come closer → "come_closer"; back off → "step_back".
 - Magic/spell-like phrase to make the NPC fall/collapse → "collapse_spell".
+- Gestures: wave → "gesture_wave"; bow → "gesture_bow"; nod → "gesture_nod"; point → "gesture_point"; cheer → "gesture_cheer"; beckon/call by hand → "gesture_come_here"; look around → "gesture_look_around".
+- Emotions/body language: nervous → "emotion_nervous"; sad → "emotion_sad"; angry → "emotion_angry"; drunk → "emotion_drunk"; laugh → "laugh"; afraid/scared stance → "fear_stand"; injured/sick stance → "injured_idle".
+- Sit/stand → "sit_down" / "stand_up"; pet/stroke dog → "pet_dog"; knock on door → "knock_door"; open/close visor → "open_visor" / "close_visor"; cooking/stirring → "cooking".
 """
 
 
@@ -1146,6 +1149,23 @@ def _apply_scene_context(req: "ChatRequest", scene: dict[str, str], apology_atte
     player_stand_request = _player_requested_action(req.player_message, config.interaction.enable_stand_requests, config.interaction.stand_terms)
     player_wave_request = _player_requested_action(req.player_message, config.interaction.enable_wave_requests, config.interaction.wave_terms)
     player_bow_request = _player_requested_action(req.player_message, config.interaction.enable_bow_requests, config.interaction.bow_terms)
+    player_nod_request = _player_requested_action(req.player_message, config.interaction.enable_nod_requests, config.interaction.nod_terms)
+    player_point_request = _player_requested_action(req.player_message, config.interaction.enable_point_requests, config.interaction.point_terms)
+    player_cheer_request = _player_requested_action(req.player_message, config.interaction.enable_cheer_requests, config.interaction.cheer_terms)
+    player_beckon_request = _player_requested_action(req.player_message, config.interaction.enable_beckon_requests, config.interaction.beckon_terms)
+    player_look_around_request = _player_requested_action(req.player_message, config.interaction.enable_look_around_requests, config.interaction.look_around_terms)
+    player_nervous_request = _player_requested_action(req.player_message, config.interaction.enable_nervous_requests, config.interaction.nervous_terms)
+    player_sad_request = _player_requested_action(req.player_message, config.interaction.enable_sad_requests, config.interaction.sad_terms)
+    player_angry_request = _player_requested_action(req.player_message, config.interaction.enable_angry_requests, config.interaction.angry_terms)
+    player_drunk_request = _player_requested_action(req.player_message, config.interaction.enable_drunk_requests, config.interaction.drunk_terms)
+    player_laugh_request = _player_requested_action(req.player_message, config.interaction.enable_laugh_requests, config.interaction.laugh_terms)
+    player_pet_dog_request = _player_requested_action(req.player_message, config.interaction.enable_pet_dog_requests, config.interaction.pet_dog_terms)
+    player_knock_door_request = _player_requested_action(req.player_message, config.interaction.enable_knock_door_requests, config.interaction.knock_door_terms)
+    player_close_visor_request = _player_requested_action(req.player_message, config.interaction.enable_close_visor_requests, config.interaction.close_visor_terms)
+    player_open_visor_request = _player_requested_action(req.player_message, config.interaction.enable_open_visor_requests, config.interaction.open_visor_terms)
+    player_injured_request = _player_requested_action(req.player_message, config.interaction.enable_injured_requests, config.interaction.injured_terms)
+    player_fear_request = _player_requested_action(req.player_message, config.interaction.enable_fear_requests, config.interaction.fear_terms)
+    player_cooking_request = _player_requested_action(req.player_message, config.interaction.enable_cooking_requests, config.interaction.cooking_terms)
     rel = _get_relationship(req)
     annoyance = int(rel.get("annoyance", 0)) if rel else 0
     fear = int(rel.get("fear", 0)) if rel else 0
@@ -1250,6 +1270,40 @@ def _apply_scene_context(req: "ChatRequest", scene: dict[str, str], apology_atte
         action = "gesture_wave"
     elif player_bow_request and not animal_context:
         action = "gesture_bow"
+    elif player_nod_request and not animal_context:
+        action = "gesture_nod"
+    elif player_point_request and not animal_context:
+        action = "gesture_point"
+    elif player_cheer_request and not animal_context:
+        action = "gesture_cheer"
+    elif player_beckon_request and not animal_context:
+        action = "gesture_come_here"
+    elif player_look_around_request and not animal_context:
+        action = "gesture_look_around"
+    elif player_nervous_request and not animal_context:
+        action = "emotion_nervous"
+    elif player_sad_request and not animal_context:
+        action = "emotion_sad"
+    elif player_angry_request and not animal_context:
+        action = "emotion_angry"
+    elif player_drunk_request and not animal_context:
+        action = "emotion_drunk"
+    elif player_laugh_request and not animal_context:
+        action = "laugh"
+    elif player_pet_dog_request and not animal_context:
+        action = "pet_dog"
+    elif player_knock_door_request and not animal_context:
+        action = "knock_door"
+    elif player_close_visor_request and not animal_context:
+        action = "close_visor"
+    elif player_open_visor_request and not animal_context:
+        action = "open_visor"
+    elif player_injured_request and not animal_context:
+        action = "injured_idle"
+    elif player_fear_request and not animal_context:
+        action = "fear_stand"
+    elif player_cooking_request and not animal_context:
+        action = "cooking"
     elif player_collapse_spell_request and not animal_context:
         mood = "afraid" if mood == "neutral" else mood
         intent = "warn" if intent == "continue" else intent
@@ -1549,8 +1603,25 @@ SCENE_ACTIONS = {
     "bodywear_off",
     "gesture_wave",
     "gesture_bow",
+    "gesture_nod",
+    "gesture_point",
+    "gesture_cheer",
+    "gesture_come_here",
+    "gesture_look_around",
+    "emotion_nervous",
+    "emotion_sad",
+    "emotion_angry",
+    "emotion_drunk",
     "sit_down",
     "stand_up",
+    "pet_dog",
+    "knock_door",
+    "close_visor",
+    "open_visor",
+    "injured_idle",
+    "fear_stand",
+    "cooking",
+    "play_anim",
 }
 
 
@@ -1591,6 +1662,7 @@ def normalize_scene_for_lua(scene: dict[str, str] | None) -> dict[str, str]:
         "npc_id": str(scene.get("npc_id") or ""),
         "npc_name": str(scene.get("npc_name") or ""),
         "apology_attempt": "true" if str(scene.get("apology_attempt") or "false").strip().lower() == "true" else "false",
+        "animation_name": str(scene.get("animation_name") or ""),
     }
 
 
@@ -1603,7 +1675,8 @@ def lua_scene_literal(scene: dict[str, str] | None) -> str:
         f"suggested_action={lua_string_literal(safe['suggested_action'])},"
         f"npc_id={lua_string_literal(safe['npc_id'])},"
         f"npc_name={lua_string_literal(safe['npc_name'])},"
-        f"apology_attempt={lua_string_literal(safe['apology_attempt'])}"
+        f"apology_attempt={lua_string_literal(safe['apology_attempt'])},"
+        f"animation_name={lua_string_literal(safe['animation_name'])}"
         "}"
     )
 

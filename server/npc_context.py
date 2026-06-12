@@ -247,6 +247,7 @@ def build_system_prompt(
     npc_location: str = "",
     language: str = "en",
     extra_context: str = "",
+    npc_gender: int | None = None,
 ) -> tuple[str, str]:
     """Build a system prompt for the given NPC.
 
@@ -317,6 +318,12 @@ def build_system_prompt(
         )
         extra = f"{extra}\n{generic_hint}" if extra else generic_hint
 
+    # Gender directive for animation-safe action selection.
+    gender_directive = ""
+    if npc_gender is not None:
+        gender_label = "female" if npc_gender in (1, 2) else "male"
+        gender_directive = f"\nNPC gender: {gender_label}. When selecting animations, use gender-safe names. For female NPCs avoid: soldier_cheer_lg_nw, angry_stand_loop, angry_sad_loop, behavior_nervous_man_loop, behavior_meditation_loop, stand_plaing_flute_fast, stand_plaing_flute_slow, stand_plaing_flute_loop_fast."
+
     lang_instruction = LANGUAGE_INSTRUCTIONS.get(language, f"Respond in {language}.")
 
     # Animal directive: if Entity kind: animal was supplied, lift it into a dedicated,
@@ -376,6 +383,7 @@ def build_system_prompt(
                 f"Never use *asterisk actions* — only inline sounds."
             )
 
+    extra_with_gender = (gender_directive + "\n" + extra) if gender_directive else extra
     tmpl = _custom_template if _custom_template else SYSTEM_PROMPT_TEMPLATE
     try:
         prompt = tmpl.format(
@@ -385,7 +393,7 @@ def build_system_prompt(
             personality=personality,
             occupation=occupation,
             animal_directive=animal_directive,
-            extra_context=f"\nAdditional context: {extra}" if extra else "",
+            extra_context=f"\nAdditional context: {extra_with_gender}" if extra_with_gender else "",
             language_instruction=lang_instruction,
         )
     except KeyError:
@@ -396,7 +404,7 @@ def build_system_prompt(
             location=location,
             personality=personality,
             occupation=occupation,
-            extra_context=(animal_directive + (f"\nAdditional context: {extra}" if extra else "")),
+            extra_context=(animal_directive + (f"\nAdditional context: {extra_with_gender}" if extra_with_gender else "")),
             language_instruction=lang_instruction,
         )
     return prompt, name

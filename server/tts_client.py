@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+import shutil
 import tempfile
 import threading
 import time
@@ -57,8 +58,12 @@ def _init_pygame():
 
 
 def _compute_spatial_volume(base_volume: float, npc_pos, player_pos, player_fwd):
-    """Return (left_volume, right_volume) based on distance and angle.
-    KCD2 uses CryEngine coords: X=right, Y=forward, Z=up."""
+    """Return (left_volume, right_volume, distance, pan) for NPC-relative TTS.
+
+    KCD2 uses CryEngine coords: X/Y horizontal, Z up. This is intentionally
+    stronger than natural HRTF because the sound is still played by our Python
+    process, not by KCD2's native positional audio emitter.
+    """
     import math
     try:
         nx = float(npc_pos.get("x", 0)) if hasattr(npc_pos, "get") else float(npc_pos[0])
@@ -66,35 +71,51 @@ def _compute_spatial_volume(base_volume: float, npc_pos, player_pos, player_fwd)
         px = float(player_pos.get("x", 0)) if hasattr(player_pos, "get") else float(player_pos[0])
         py = float(player_pos.get("y", 0)) if hasattr(player_pos, "get") else float(player_pos[1])
     except Exception:
-        return base_volume, base_volume
+        return base_volume, base_volume, None, None
 
     dx = nx - px
     dy = ny - py
     distance = math.sqrt(dx * dx + dy * dy)
 
-    MAX_DIST = 20.0
-    dist_atten = max(0.0, min(1.0, 1.0 - distance / MAX_DIST))
+    max_dist = 14.0
+    min_gain = 0.12
+    dist_atten = min_gain + (1.0 - min_gain) * max(0.0, min(1.0, 1.0 - distance / max_dist))
 
     if not player_fwd:
-        return base_volume * dist_atten, base_volume * dist_atten
+        vol = base_volume * dist_atten
+        return vol, vol, distance, 0.0
 
     try:
         fx = float(player_fwd.get("x", 0)) if hasattr(player_fwd, "get") else float(player_fwd[0])
         fy = float(player_fwd.get("y", 0)) if hasattr(player_fwd, "get") else float(player_fwd[1])
     except Exception:
-        return base_volume * dist_atten, base_volume * dist_atten
+        vol = base_volume * dist_atten
+        return vol, vol, distance, 0.0
 
     fwd_len = math.sqrt(fx * fx + fy * fy)
     if fwd_len < 0.001:
-        return base_volume * dist_atten, base_volume * dist_atten
+        vol = base_volume * dist_atten
+        return vol, vol, distance, 0.0
 
-    npc_angle = math.atan2(dy, dx)
-    fwd_angle = math.atan2(fy / fwd_len, fx / fwd_len)
-    pan = math.sin(fwd_angle - npc_angle)
+    dir_len = distance
+    if dir_len < 0.001:
+        vol = base_volume * dist_atten
+        return vol, vol, distance, 0.0
 
-    left = (1.0 - pan) / 2.0
-    right = (1.0 + pan) / 2.0
-    return left * base_volume * dist_atten, right * base_volume * dist_atten
+    fx /= fwd_len
+    fy /= fwd_len
+    dx /= dir_len
+    dy /= dir_len
+    # Right vector for the player's current view in the horizontal plane.
+    rx = fy
+    ry = -fx
+    pan = max(-1.0, min(1.0, dx * rx + dy * ry))
+    # Make the effect obvious on ordinary headphones/speakers.
+    pan = max(-1.0, min(1.0, pan * 1.65))
+
+    left = 1.0 - max(0.0, pan) * 0.92
+    right = 1.0 - max(0.0, -pan) * 0.92
+    return left * base_volume * dist_atten, right * base_volume * dist_atten, distance, pan
 
 
 def _play_file(path: str, volume: float = 1.0, npc_pos=None, player_pos=None, player_fwd=None):
@@ -109,8 +130,10 @@ def _play_file(path: str, volume: float = 1.0, npc_pos=None, player_pos=None, pl
 
         left_vol = volume
         right_vol = volume
+        distance = None
+        pan = None
         if npc_pos and player_pos:
-            left_vol, right_vol = _compute_spatial_volume(volume, npc_pos, player_pos, player_fwd)
+            left_vol, right_vol, distance, pan = _compute_spatial_volume(volume, npc_pos, player_pos, player_fwd)
 
         # TTS services output mono MP3. pygame Channel.set_volume(left,right)
         # is ignored for mono sources, so we bake the pan into a stereo Sound.
@@ -137,7 +160,11 @@ def _play_file(path: str, volume: float = 1.0, npc_pos=None, player_pos=None, pl
 
         channel.set_volume(left_vol, right_vol)
         channel.play(sound)
-        logger.info(f"TTS play started in {(time.perf_counter()-t_play_start)*1000:.0f} ms (L={orig_left:.2f} R={orig_right:.2f})")
+        logger.info(
+            f"TTS play started in {(time.perf_counter()-t_play_start)*1000:.0f} ms "
+            f"(L={orig_left:.2f} R={orig_right:.2f} dist={distance if distance is not None else 'n/a'} "
+            f"pan={pan if pan is not None else 'n/a'} npc_pos={npc_pos} player_pos={player_pos} player_fwd={player_fwd})"
+        )
         while channel.get_busy():
             time.sleep(0.05)
     except Exception as e:
@@ -159,6 +186,69 @@ class TTSClient:
         self.config = config
         self._output_dir = Path(config.output_dir)
         self._output_dir.mkdir(parents=True, exist_ok=True)
+        self._engine_playback_callback = None
+
+    def set_engine_playback_callback(self, callback) -> None:
+        """Register a server callback that asks the Lua mod to play TTS in-engine.
+
+        The callback receives (audio_path, npc_id, npc_name, npc_name_resolved,
+        npc_pos, player_pos, volume) and returns True when the command was
+        queued. External pygame playback remains available as a fallback.
+        """
+        self._engine_playback_callback = callback
+
+    def _durable_audio_path(self, suffix: str) -> Path:
+        stamp = int(time.time() * 1000)
+        return self._output_dir / f"ai_npc_tts_{stamp}_{threading.get_ident()}{suffix}"
+
+    def _queue_engine_playback(self, path: str, npc_id: str | None, npc_name: str | None, npc_name_resolved: str | None, npc_pos=None, player_pos=None) -> bool:
+        if not self._engine_playback_callback:
+            return False
+        try:
+            return bool(self._engine_playback_callback(
+                path,
+                npc_id,
+                npc_name,
+                npc_name_resolved,
+                npc_pos,
+                player_pos,
+                self.config.volume,
+            ))
+        except Exception as exc:
+            logger.warning(f"engine TTS dispatch failed: {exc}")
+            return False
+
+    def _dispatch_playback(self, tmp_path: str, volume: float, npc_id: str | None, npc_name: str | None, npc_name_resolved: str | None, npc_pos=None, player_pos=None, player_fwd=None) -> None:
+        mode = (os.getenv("AI_NPC_TTS_PLAYBACK") or "engine").strip().lower()
+        if mode not in {"engine", "external", "both"}:
+            mode = "engine"
+
+        engine_queued = False
+        if mode in {"engine", "both"}:
+            src = Path(tmp_path)
+            durable = self._durable_audio_path(src.suffix or ".mp3")
+            try:
+                durable.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, durable)
+                engine_queued = self._queue_engine_playback(
+                    str(durable), npc_id, npc_name, npc_name_resolved, npc_pos, player_pos
+                )
+                if engine_queued:
+                    logger.info(f"TTS queued for engine playback: {durable}")
+            except Exception as exc:
+                logger.warning(f"engine TTS file handoff failed: {exc}")
+
+        if mode == "external" or mode == "both" or not engine_queued:
+            thread = threading.Thread(
+                target=_play_file, args=(tmp_path, volume, npc_pos, player_pos, player_fwd), daemon=True
+            )
+            thread.start()
+            return
+
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
 
     def _is_female(self, gender: int | None) -> bool:
         return gender == 2
@@ -279,10 +369,7 @@ class TTSClient:
             else:
                 raise
         logger.info(f"edge-tts synth in {(time.perf_counter()-t0)*1000:.0f} ms, chars={len(text)}, synth_chars={len(synth_text)}, gender={gender}, voice={voice}")
-        thread = threading.Thread(
-            target=_play_file, args=(tmp.name, self.config.volume, npc_pos, player_pos, player_fwd), daemon=True
-        )
-        thread.start()
+        self._dispatch_playback(tmp.name, self.config.volume, npc_id, npc_name, npc_name_resolved, npc_pos, player_pos, player_fwd)
 
     async def _speak_elevenlabs(self, text: str, gender: int | None = None, npc_id: str | None = None, npc_name: str | None = None, npc_name_resolved: str | None = None, npc_pos=None, player_pos=None, player_fwd=None) -> None:
         api_key = self.config.elevenlabs_api_key
@@ -322,10 +409,7 @@ class TTSClient:
         tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
         tmp.write(audio_bytes)
         tmp.close()
-        thread = threading.Thread(
-            target=_play_file, args=(tmp.name, self.config.volume, npc_pos, player_pos, player_fwd), daemon=True
-        )
-        thread.start()
+        self._dispatch_playback(tmp.name, self.config.volume, npc_id, npc_name, npc_name_resolved, npc_pos, player_pos, player_fwd)
 
     async def _speak_openai(self, text: str, gender: int | None = None, npc_id: str | None = None, npc_name: str | None = None, npc_name_resolved: str | None = None, npc_pos=None, player_pos=None, player_fwd=None) -> None:
         api_key = self.config.openai_api_key
@@ -364,10 +448,7 @@ class TTSClient:
         tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
         tmp.write(audio_bytes)
         tmp.close()
-        thread = threading.Thread(
-            target=_play_file, args=(tmp.name, self.config.volume, npc_pos, player_pos, player_fwd), daemon=True
-        )
-        thread.start()
+        self._dispatch_playback(tmp.name, self.config.volume, npc_id, npc_name, npc_name_resolved, npc_pos, player_pos, player_fwd)
 
     _TEST_PHRASES = {
         "ru": "Здравствуй, путник. Чем могу помочь?",
