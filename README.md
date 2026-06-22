@@ -60,7 +60,7 @@ pip install -r requirements.txt
 
 The repository already includes `config.json`. Open it and replace `YOUR_GROQ_API_KEY_HERE` with your Groq API key (free at [console.groq.com](https://console.groq.com)). You can also start the server and enter the same keys in the web UI at `http://127.0.0.1:4999`.
 
-If the server cannot find your game automatically, set `game_path` to your KCD2 game root, for example `C:\SteamLibrary\steamapps\common\KingdomComeDeliverance2`:
+If the server cannot find your game automatically, set `game_path` to your KCD2 game root, for example `C:/SteamLibrary/steamapps/common/KingdomComeDeliverance2`:
 
 ```json
 {
