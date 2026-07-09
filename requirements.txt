@@ -14,3 +14,10 @@ pyfiglet>=1.0.2
 faster-whisper>=1.0.0
 sounddevice>=0.4.6
 numpy>=1.24.0
+
+# Optional: global keyboard monitoring for voice input (push-to-talk) on
+# Linux/X11. On Windows the built-in Win32 GetAsyncKeyState is used instead.
+# On Wayland, global keyboard capture is blocked by the compositor — text
+# chat still works via the Lua console-toggle fallback.
+# pip install pynput
+pynput>=1.7.6
