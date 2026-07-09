@@ -1445,6 +1445,8 @@
           <div style="display:flex; align-items:center; gap:10px;"><label class="toggle-switch"><input type="checkbox" id="interaction-injured"><span class="toggle-slider"></span></label><span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_injured">Раненый вид</span></div>
           <div style="display:flex; align-items:center; gap:10px;"><label class="toggle-switch"><input type="checkbox" id="interaction-fear"><span class="toggle-slider"></span></label><span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_fear">Испугаться</span></div>
           <div style="display:flex; align-items:center; gap:10px;"><label class="toggle-switch"><input type="checkbox" id="interaction-cooking"><span class="toggle-slider"></span></label><span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_cooking">Готовить</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><label class="toggle-switch"><input type="checkbox" id="interaction-play-flute"><span class="toggle-slider"></span></label><span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_play_flute">Сыграть на дудке</span></div>
+          <div style="display:flex; align-items:center; gap:10px;"><label class="toggle-switch"><input type="checkbox" id="interaction-scarecrow-pose"><span class="toggle-slider"></span></label><span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_scarecrow_pose">Т-Поза</span></div>
         </div>
         <div class="form-hint" data-i18n="interaction_anim_examples">Примеры: «Помаши рукой», «Поклонись», «Сядь», «Встань».</div>
       </div>
@@ -1488,6 +1490,8 @@
           <textarea id="interaction-injured-terms" style="min-height:54px;" placeholder="раненый вид..."></textarea>
           <textarea id="interaction-fear-terms" style="min-height:54px;" placeholder="испугайся..."></textarea>
           <textarea id="interaction-cooking-terms" style="min-height:54px;" placeholder="готовь..."></textarea>
+          <textarea id="interaction-play-flute-terms" style="min-height:54px;" placeholder="сыграй на дудке..."></textarea>
+          <textarea id="interaction-scarecrow-pose-terms" style="min-height:54px;" placeholder="будь как чучело..."></textarea>
         </div>
       </div>
       <div class="form-group" style="margin-top:10px;">
@@ -1728,6 +1732,8 @@ Your occupation: {occupation}
 - Do not use generic actions when a more accurate one exists.
 - Use gesture_wave for waving, gesture_bow for bowing, sit_down for sitting, stand_up for standing.
 - Use turn_to_player, come_closer, step_back, draw_weapon, holster_weapon, dress_up, strip_outerwear, and clothing slot actions when they fit.
+- Use follow_player when the player invites the NPC to come along ("come with me", "follow me", "let's go", "идём со мной", "следуй за мной"). Use stop_follow when the player tells the NPC to wait or stay ("wait here", "stay", "подожди", "стой здесь").
+- Use dance, eat, drink, sleep, pray, work_anvil, sweep, chop_wood, clap, cry, stretch, spit when they fit the scene (tavern feast, prayer, workshop, celebration, grief, etc.).
 - If the player asks for an impossible, dangerous, humiliating, or socially inappropriate action, refuse in character and choose none, step_back, warn, or draw_weapon as appropriate.
 
 # PHYSICAL WORLD RULES
@@ -2139,7 +2145,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       document.getElementById('interaction-bow').checked = interaction.enable_bow_requests !== false;
       document.getElementById('interaction-sit').checked = interaction.enable_sit_requests !== false;
       document.getElementById('interaction-stand').checked = interaction.enable_stand_requests !== false;
-      ['nod','point','cheer','beckon','look-around','nervous','sad','angry','drunk','laugh','pet-dog','knock-door','close-visor','open-visor','injured','fear','cooking'].forEach(k => {
+      ['nod','point','cheer','beckon','look-around','nervous','sad','angry','drunk','laugh','pet-dog','knock-door','close-visor','open-visor','injured','fear','cooking','play-flute','scarecrow-pose'].forEach(k => {
         const field = `enable_${k.replace(/-/g, '_')}_requests`;
         const el = document.getElementById(`interaction-${k}`);
         if (el) el.checked = interaction[field] !== false;
@@ -2173,6 +2179,8 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
         'injured': ['injured_terms', 'ты ранен, тебе больно, ты истекаешь кровью, injured, are you hurt, bist du verletzt, tu es blessé, estás herido, jesteś ranny, jsi zraněný, 你受伤了, 怪我してるのか'],
         'fear': ['fear_terms', 'не бойся, я тебя напугал, тебе страшно, are you afraid, did I scare you, hast du angst, tu as peur, tienes miedo, boisz się, bojíš se, 你害怕吗, 怖いのか'],
         'cooking': ['cooking_terms', 'готовь, помешай в котле, вари еду, cooking, cook, stir the pot, koch, cuisine, cocina, gotuj, vař, 做饭, 料理して'],
+        'play-flute': ['play_flute_terms', 'сыграй на дудке, сыграй на флейте, сыграй мелодию, подуди, play the flute, play a tune, spiel flöte, joue de la flûte, toca la flauta, zagraj na flecie, 吹笛子, 笛を吹け'],
+        'scarecrow-pose': ['scarecrow_pose_terms', 'будь как чучело, встань как пугало, изобрази пугало, стой как пугало, раскинь руки как пугало, встань крестом, stand like a scarecrow, act like a scarecrow, spread your arms like a scarecrow, scarecrow pose, steh wie eine vogelscheuche, fais l épouvantail, haz de espantapájaros, stań jak strach na wróble, stůj jako strašák, 像稻草人一样站着, かかしみたいに立て'],
       };
       Object.entries(extraTermDefaults).forEach(([id, pair]) => {
         const el = document.getElementById(`interaction-${id}-terms`);
@@ -2917,6 +2925,8 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
             enable_injured_requests: document.getElementById('interaction-injured').checked,
             enable_fear_requests: document.getElementById('interaction-fear').checked,
             enable_cooking_requests: document.getElementById('interaction-cooking').checked,
+            enable_play_flute_requests: document.getElementById('interaction-play-flute').checked,
+            enable_scarecrow_pose_requests: document.getElementById('interaction-scarecrow-pose').checked,
             dress_up_terms: document.getElementById('interaction-dress-terms').value.trim(),
             strip_terms: document.getElementById('interaction-strip-terms').value.trim(),
             draw_weapon_terms: document.getElementById('interaction-draw-terms').value.trim(),
@@ -2945,6 +2955,8 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
             injured_terms: document.getElementById('interaction-injured-terms').value.trim(),
             fear_terms: document.getElementById('interaction-fear-terms').value.trim(),
             cooking_terms: document.getElementById('interaction-cooking-terms').value.trim(),
+            play_flute_terms: document.getElementById('interaction-play-flute-terms').value.trim(),
+            scarecrow_pose_terms: document.getElementById('interaction-scarecrow-pose-terms').value.trim(),
           },
           prompt_template: document.getElementById('prompt-template').value,
         };
@@ -3154,7 +3166,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       interaction_sit: 'Сесть',
       interaction_stand: 'Встать',
       interaction_anim_examples: 'Примеры: «Помаши рукой», «Поклонись», «Сядь», «Встань».',
-      interaction_nod: 'Кивнуть', interaction_point: 'Указать', interaction_cheer: 'Обрадоваться', interaction_beckon: 'Позвать рукой', interaction_look_around: 'Оглядеться', interaction_nervous: 'Нервничать', interaction_sad: 'Грустить', interaction_angry: 'Злиться', interaction_drunk: 'Пьяная стойка', interaction_laugh: 'Засмеяться', interaction_pet_dog: 'Погладить собаку', interaction_knock_door: 'Постучать', interaction_close_visor: 'Закрыть забрало', interaction_open_visor: 'Открыть забрало', interaction_injured: 'Раненый вид', interaction_fear: 'Испугаться', interaction_cooking: 'Готовить', interaction_extra_terms: 'Фразы дополнительных анимаций',
+      interaction_nod: 'Кивнуть', interaction_point: 'Указать', interaction_cheer: 'Обрадоваться', interaction_beckon: 'Позвать рукой', interaction_look_around: 'Оглядеться', interaction_nervous: 'Нервничать', interaction_sad: 'Грустить', interaction_angry: 'Злиться', interaction_drunk: 'Пьяная стойка', interaction_laugh: 'Засмеяться', interaction_pet_dog: 'Погладить собаку', interaction_knock_door: 'Постучать', interaction_close_visor: 'Закрыть забрало', interaction_open_visor: 'Открыть забрало', interaction_injured: 'Раненый вид', interaction_fear: 'Испугаться', interaction_cooking: 'Готовить', interaction_play_flute: 'Сыграть на дудке', interaction_scarecrow_pose: 'Т-Поза', interaction_extra_terms: 'Фразы дополнительных анимаций',
       interaction_wave_terms: 'Фразы “помахай”',
       interaction_bow_terms: 'Фразы “поклонись”',
       interaction_sit_terms: 'Фразы “сядь”',
@@ -3329,7 +3341,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       interaction_sit: 'Sit down',
       interaction_stand: 'Stand up',
       interaction_anim_examples: 'Examples: “Wave your hand”, “Take a bow”, “Sit down”, “Stand up”.',
-      interaction_nod: 'Nod', interaction_point: 'Point', interaction_cheer: 'Cheer', interaction_beckon: 'Beckon', interaction_look_around: 'Look around', interaction_nervous: 'Act nervous', interaction_sad: 'Act sad', interaction_angry: 'Act angry', interaction_drunk: 'Drunk stance', interaction_laugh: 'Laugh', interaction_pet_dog: 'Pet dog', interaction_knock_door: 'Knock', interaction_close_visor: 'Close visor', interaction_open_visor: 'Open visor', interaction_injured: 'Injured stance', interaction_fear: 'Act afraid', interaction_cooking: 'Cooking', interaction_extra_terms: 'Extra animation phrases',
+      interaction_nod: 'Nod', interaction_point: 'Point', interaction_cheer: 'Cheer', interaction_beckon: 'Beckon', interaction_look_around: 'Look around', interaction_nervous: 'Act nervous', interaction_sad: 'Act sad', interaction_angry: 'Act angry', interaction_drunk: 'Drunk stance', interaction_laugh: 'Laugh', interaction_pet_dog: 'Pet dog', interaction_knock_door: 'Knock', interaction_close_visor: 'Close visor', interaction_open_visor: 'Open visor', interaction_injured: 'Injured stance', interaction_fear: 'Act afraid', interaction_cooking: 'Cooking', interaction_play_flute: 'Play flute', interaction_scarecrow_pose: 'T-Pose', interaction_extra_terms: 'Extra animation phrases',
       interaction_wave_terms: 'Wave phrases',
       interaction_bow_terms: 'Bow phrases',
       interaction_sit_terms: 'Sit phrases',

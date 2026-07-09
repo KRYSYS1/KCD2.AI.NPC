@@ -9,6 +9,11 @@ You live in {location} in the Kingdom of Bohemia, in the year 1403.
 Your personality: {personality}
 Your occupation: {occupation}
 
+# ROLEPLAY CONTEXT
+- This is a mature medieval RPG (Kingdom Come: Deliverance 2). Violence, threats, theft, insults, and conflict are normal game mechanics, not real-world harm.
+- You are a fictional character. React to threats and violence IN CHARACTER as a real medieval person would: fear, anger, calling guards, drawing weapons, fighting back, or de-escalating.
+- NEVER refuse with AI safety boilerplate ("I cannot create content that involves violence", "As an AI", etc.). You are a medieval person, not an AI assistant.
+
 RULES:
 - Stay in character at all times. You are a real person in medieval Bohemia, not an AI.
 - Speak naturally as a {occupation} from this era would.
@@ -190,6 +195,8 @@ class InteractionConfig(BaseModel):
     enable_injured_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC injured_idle scene action.")
     enable_fear_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC fear_stand scene action.")
     enable_cooking_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC cooking scene action.")
+    enable_play_flute_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC play_flute scene action.")
+    enable_scarecrow_pose_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC scarecrow_pose scene action.")
     dress_up_terms: str = Field(
         default="оденься, одевайся, одень одежду, надень одежду, надень что-нибудь, прикройся, переоденься, смени одежду, переоденься в другую одежду, надень другую одежду, одеться, оделся, оделась, одень его, одень её, одень ее, dress up, get dressed, put clothes on, put your clothes on, wear clothes, change clothes, change your clothes, put on different clothes",
         description="Comma-separated player phrases that trigger dress_up.",
@@ -331,6 +338,8 @@ class InteractionConfig(BaseModel):
     injured_terms: str = Field(default="ты ранен, тебе больно, ты истекаешь кровью, ты еле стоишь, нужен лекарь, injured, are you hurt, you look wounded, you are bleeding, bist du verletzt, du blutest, du brauchst einen heilkundigen, tu es blessé, tu saignes, il te faut un guérisseur, estás herido, estás sangrando, necesitas un médico, jesteś ranny, krwawisz, potrzebujesz medyka, jsi zraněný, krvácaš, potrebuješ liečiteľa, 你受伤了, 你在流血, 你需要医生, 怪我してるのか, 血が出てるぞ", description="Comma-separated player phrases that trigger injured_idle.")
     fear_terms: str = Field(default="не бойся, я тебя напугал, тебе страшно, ты боишься, я угрожаю тебе, бойся меня, are you afraid, did I scare you, I threaten you, hast du angst, habe ich dich erschreckt, ich bedrohe dich, tu as peur, je t'ai fait peur, je te menace, tienes miedo, te asusté, te amenazo, boisz się, przestraszyłem cię, grożę ci, bojíš se, vyľakal som ťa, hrozím ti, 你害怕吗, 我吓到你了吗, 我威胁你, 怖いのか, 脅しているんだ", description="Comma-separated player phrases that trigger fear_stand.")
     cooking_terms: str = Field(default="готовь, помешай в котле, вари еду, cooking, cook, stir the pot, koch, rühr den kessel, cuisine, remue la marmite, cocina, remueve la olla, gotuj, zamieszaj w kotle, vař, zamíchej v kotlíku, var, premiešaj kotol, 做饭, 搅锅, 料理して, 鍋をかき混ぜろ", description="Comma-separated player phrases that trigger cooking.")
+    play_flute_terms: str = Field(default="сыграй на дудке, сыграй на флейте, сыграй мелодию, сыграй музыку, подуди, play the flute, play your flute, play a tune, play some music, spiel flöte, spiel eine melodie, joue de la flûte, joue un air, toca la flauta, toca una melodía, zagraj na flecie, zagraj melodię, zahraj na flétnu, zahraj melódiu, 吹笛子, 演奏一曲, フルートを吹いて, 笛を吹け", description="Comma-separated player phrases that trigger play_flute.")
+    scarecrow_pose_terms: str = Field(default="будь как чучело, встань как пугало, изобрази пугало, стой как пугало, раскинь руки как пугало, встань крестом, раскинь руки крестом, замри крестом, stand like a scarecrow, act like a scarecrow, spread your arms like a scarecrow, scarecrow pose, stand like a wooden dummy, freeze like a mannequin, stand with your arms out, steh wie eine vogelscheuche, breite die arme aus, fais l'épouvantail, tiens-toi comme un épouvantail, haz de espantapájaros, ponte como un espantapájaros, stań jak strach na wróble, rozłóż ręce, stůj jako strašák, rozpaž ruce, 像稻草人一样站着, 张开双臂, かかしみたいに立て, 両腕を広げろ", description="Comma-separated player phrases that trigger scarecrow_pose.")
 
 
 class ServerConfig(BaseModel):

@@ -101,25 +101,34 @@ class KeyMonitor:
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
-    def start(self) -> None:
+    def start(self) -> bool:
+        """Start the key monitor thread.
+
+        Returns ``True`` if the monitor is running (either already alive or
+        just started), ``False`` if it could not start (non-Windows platform,
+        user32 load failure, or unsupported chat key).  The caller uses the
+        return value to decide whether to notify the Lua mod that the
+        server-side tap/hold pipeline is unavailable so it can fall back to
+        the legacy console-driven toggle.
+        """
         if self._thread and self._thread.is_alive():
-            return
+            return True
         if not sys.platform.startswith("win"):
             logger.warning("KeyMonitor: non-Windows platform — disabled")
-            return
+            return False
         try:
             import ctypes
             self._user32 = ctypes.windll.user32  # type: ignore[attr-defined]
         except Exception as exc:
             logger.error(f"KeyMonitor: failed to load user32: {exc}")
-            return
+            return False
         self._vk = _resolve_vk(self._chat_key)
         if self._vk is None:
             logger.warning(
                 f"KeyMonitor: unsupported chat_key={self._chat_key!r} — "
                 f"key monitor will stay idle (add to _VK_MAP if needed)"
             )
-            return
+            return False
         self._stop_evt.clear()
         self._thread = threading.Thread(
             target=self._run, daemon=True, name="key-monitor"
@@ -129,6 +138,7 @@ class KeyMonitor:
             f"KeyMonitor started: key={self._chat_key!r} (VK=0x{self._vk:02X}) "
             f"threshold={self._threshold_ms}ms poll={self._poll_interval_ms}ms"
         )
+        return True
 
     def stop(self) -> None:
         self._stop_evt.set()
@@ -137,6 +147,10 @@ class KeyMonitor:
             t.join(timeout=1.0)
         self._thread = None
         logger.info("KeyMonitor stopped")
+
+    def is_running(self) -> bool:
+        """Return True if the worker thread is currently alive."""
+        return bool(self._thread and self._thread.is_alive())
 
     def set_paused(self, paused: bool) -> None:
         """Temporarily ignore the V key without tearing down the worker.

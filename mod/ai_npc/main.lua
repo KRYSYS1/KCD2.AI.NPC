@@ -1423,6 +1423,31 @@ function AI_NPC_HandleWebCommand(message, command_id)
             )
             return
         end
+        if message == "__AI_NPC_KEYMON_OFFLINE__" then
+            -- Sent by the Python server when the server-side KeyMonitor
+            -- cannot start (non-Windows / Proton, user32 load failure,
+            -- unsupported chat key, or STT disabled). When this flag is set,
+            -- AI_NPC_Toggle() falls back to the legacy console-driven toggle
+            -- so V still opens the text chat. Voice/PTT remains unavailable.
+            _G.AI_NPC_KEYMON_OFFLINE = true
+            System.LogAlways(
+                "[AI NPC] Web cmd: __AI_NPC_KEYMON_OFFLINE__ — " ..
+                "server KeyMonitor unavailable, using console-toggle fallback for V"
+            )
+            return
+        end
+        if message == "__AI_NPC_KEYMON_ONLINE__" then
+            -- Sent by the Python server when the server-side KeyMonitor
+            -- starts successfully (Windows + STT enabled + valid chat key).
+            -- Clears the offline flag so AI_NPC_Toggle() resumes the normal
+            -- PTT tap/hold pipeline.
+            _G.AI_NPC_KEYMON_OFFLINE = false
+            System.LogAlways(
+                "[AI NPC] Web cmd: __AI_NPC_KEYMON_ONLINE__ — " ..
+                "server KeyMonitor active, PTT tap/hold resumed"
+            )
+            return
+        end
         System.LogAlways("[AI NPC] Web cmd: unknown control message: " .. tostring(message))
         return
     end
@@ -1460,14 +1485,87 @@ end
 
 local function scene_action_feedback(npc_name, action, intent)
     local name = tostring(npc_name or "NPC")
+    -- Language-aware narrator text. _G.__ai_npc_language is set by the
+    -- server in the resp.lua prefix (config.language). Default to English
+    -- for non-Russian locales so English-speaking players don't see Russian
+    -- action descriptions.
+    local lang = tostring(_G.__ai_npc_language or "en")
+    local ru = lang:sub(1, 2):lower() == "ru"
     if action == "walk_away" then
-        return name .. " отворачивается и делает вид, что больше не слушает."
+        return ru and (name .. " отворачивается и делает вид, что больше не слушает.")
+            or (name .. " turns away and pretends not to listen anymore.")
     elseif action == "call_help" or intent == "call_help" then
-        return name .. " оглядывается, будто собирается позвать на помощь."
+        return ru and (name .. " оглядывается, будто собирается позвать на помощь.")
+            or (name .. " looks around as if about to call for help.")
     elseif action == "draw_weapon" then
-        return name .. " достаёт оружие и смотрит настороженно."
+        return ru and (name .. " достаёт оружие и смотрит настороженно.")
+            or (name .. " draws a weapon and eyes you warily.")
     elseif action == "step_back" then
-        return name .. " делает шаг назад и смотрит настороженно."
+        return ru and (name .. " делает шаг назад и смотрит настороженно.")
+            or (name .. " takes a step back and eyes you warily.")
+    elseif action == "come_closer" then
+        return ru and (name .. " подходит ближе.")
+            or (name .. " steps closer.")
+    elseif action == "turn_to_player" or action == "look_at_player" then
+        return ru and (name .. " поворачивается к вам.")
+            or (name .. " turns to face you.")
+    elseif action == "holster_weapon" then
+        return ru and (name .. " убирает оружие.")
+            or (name .. " holsters their weapon.")
+    elseif action == "gesture_wave" then
+        return ru and (name .. " машет рукой.")
+            or (name .. " waves.")
+    elseif action == "gesture_bow" then
+        return ru and (name .. " кланяется.")
+            or (name .. " bows.")
+    elseif action == "gesture_nod" then
+        return ru and (name .. " кивает.")
+            or (name .. " nods.")
+    elseif action == "gesture_point" then
+        return ru and (name .. " указывает рукой.")
+            or (name .. " points.")
+    elseif action == "gesture_cheer" then
+        return ru and (name .. " ликует.")
+            or (name .. " cheers.")
+    elseif action == "gesture_come_here" then
+        return ru and (name .. " манит вас рукой.")
+            or (name .. " beckons you to come closer.")
+    elseif action == "strip_outerwear" then
+        return ru and (name .. " снимает верхнюю одежду.")
+            or (name .. " removes outer clothing.")
+    elseif action == "dress_up" then
+        return ru and (name .. " одевается.")
+            or (name .. " gets dressed.")
+    elseif action == "sit_down" then
+        return ru and (name .. " садится.")
+            or (name .. " sits down.")
+    elseif action == "stand_up" then
+        return ru and (name .. " встаёт.")
+            or (name .. " stands up.")
+    elseif action == "laugh" then
+        return ru and (name .. " смеётся.")
+            or (name .. " laughs.")
+    elseif action == "emotion_nervous" then
+        return ru and (name .. " нервничает.")
+            or (name .. " looks nervous.")
+    elseif action == "emotion_sad" then
+        return ru and (name .. " выглядит грустным.")
+            or (name .. " looks sad.")
+    elseif action == "emotion_angry" then
+        return ru and (name .. " выглядит разъярённым.")
+            or (name .. " looks angry.")
+    elseif action == "emotion_drunk" then
+        return ru and (name .. " шатается, будто пьян.")
+            or (name .. " sways as if drunk.")
+    elseif action == "fear_stand" then
+        return ru and (name .. " замирает от страха.")
+            or (name .. " freezes in fear.")
+    elseif action == "injured_idle" then
+        return ru and (name .. " хватается за рану.")
+            or (name .. " clutches a wound.")
+    elseif action == "collapse_spell" then
+        return ru and (name .. " падает на землю.")
+            or (name .. " falls to the ground.")
     end
     return nil
 end
@@ -1676,6 +1774,23 @@ local function scene_play_anim(ent, anims)
         end
     end
     return ok_any
+end
+
+local function scene_play_animation_action(ent, fragment, tags, extra)
+    if not ent or not PlayerStateHandler or type(PlayerStateHandler.PlayAnimationAction) ~= "function" then return false end
+    local trigger_id = ent.id or NULL_ENTITY
+    local align = 0
+    local hold = false
+    local function try_call(label, fn)
+        local ok, result = pcall(fn)
+        System.LogAlways("[AI NPC] DIAG anim_action try " .. label .. " fragment=" .. tostring(fragment) .. " tags=" .. tostring(tags) .. " ok=" .. tostring(ok) .. " result=" .. tostring(result))
+        return ok and result ~= false
+    end
+    if type(extra) == "table" then
+        if try_call("PlayAnimationAction+extra", function() return PlayerStateHandler.PlayAnimationAction(align, fragment, tags or "", trigger_id, hold, extra) end) then return true end
+    end
+    if try_call("PlayAnimationAction", function() return PlayerStateHandler.PlayAnimationAction(align, fragment, tags or "", trigger_id, hold) end) then return true end
+    return false
 end
 
 local function scene_gesture_wave(ent)
@@ -1899,6 +2014,24 @@ local function scene_cooking(ent)
         ok = scene_look_at_player(ent)
     end
     System.LogAlways("[AI NPC] SCENE_ACTION cooking ok=" .. tostring(ok))
+    return ok
+end
+
+local function scene_play_flute(ent)
+    local ok = scene_play_anim(ent, { "stand_plaing_flute_loop_fast", "stand_plaing_flute_fast", "stand_plaing_flute_slow" })
+    if not ok then
+        ok = scene_look_at_player(ent)
+    end
+    System.LogAlways("[AI NPC] SCENE_ACTION play_flute ok=" .. tostring(ok))
+    return ok
+end
+
+local function scene_scarecrow_pose(ent)
+    local ok = scene_play_anim(ent, { "aimposes_pointing_01" })
+    if not ok then
+        ok = scene_look_at_player(ent)
+    end
+    System.LogAlways("[AI NPC] SCENE_ACTION scarecrow_pose ok=" .. tostring(ok))
     return ok
 end
 
@@ -2243,6 +2376,10 @@ local function scene_execute_game_action(scene, action, intent)
         ok = scene_fear_stand(ent) or ok
     elseif action == "cooking" then
         ok = scene_cooking(ent) or ok
+    elseif action == "play_flute" then
+        ok = scene_play_flute(ent) or ok
+    elseif action == "scarecrow_pose" then
+        ok = scene_scarecrow_pose(ent) or ok
     elseif action == "play_anim" then
         local anim_name = tostring(scene.animation_name or "")
         if anim_name ~= "" then
@@ -3337,6 +3474,17 @@ function AI_NPC_TestStartAnim(line)
     try_layer(1)
 end
 
+function AI_NPC_TestAnimationAction(line)
+    local raw = tostring(line or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    local fragment, tags = raw:match("^(%S+)%s*(.*)$")
+    if not fragment or fragment == "" then fragment = "Party_Standing_PlayingFlute_HoldingFlute" end
+    tags = tostring(tags or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    local ent = ai_npc_diag_target()
+    if not ent then return end
+    local ok = scene_play_animation_action(ent, fragment, tags)
+    System.LogAlways("[AI NPC] DIAG animation_action fragment=" .. tostring(fragment) .. " tags=" .. tostring(tags) .. " ok=" .. tostring(ok))
+end
+
 function AI_NPC_TestAudioMethods()
     local ent = ai_npc_diag_target()
     if not ent then return end
@@ -4057,6 +4205,49 @@ function AI_NPC_TestInventoryItems()
     System.LogAlways("[AI NPC] DIAG inv_items rows=" .. tostring(count))
 end
 
+function AI_NPC_TestHandItems()
+    local ent = ai_npc_diag_target()
+    if not ent then return end
+    if type(ent.human) ~= "table" or type(ent.human.GetItemInHand) ~= "function" then
+        System.LogAlways("[AI NPC] DIAG hand_items unavailable: human.GetItemInHand missing")
+        return
+    end
+    local has_item_manager = ItemManager and type(ItemManager.GetItem) == "function"
+    local function dump_hand(hand)
+        local ok_hand, hand_item = pcall(function() return ent.human:GetItemInHand(hand) end)
+        System.LogAlways("[AI NPC] DIAG hand_items hand=" .. tostring(hand) .. " ok=" .. tostring(ok_hand) .. " item=" .. tostring(hand_item))
+        if ok_hand and hand_item and has_item_manager then
+            local ok_item, item = pcall(function() return ItemManager.GetItem(hand_item) end)
+            if ok_item and type(item) == "table" then
+                local parts = {}
+                local inner = 0
+                for kk, vv in pairs(item) do
+                    inner = inner + 1
+                    if inner > 32 then
+                        table.insert(parts, "...")
+                        break
+                    end
+                    table.insert(parts, tostring(kk) .. "=" .. tostring(vv))
+                end
+                table.sort(parts)
+                local info = ai_npc_item_class_info(item.class)
+                if info then
+                    table.insert(parts, "kind=" .. tostring(info.kind or ""))
+                    table.insert(parts, "slot=" .. tostring(info.slot or ""))
+                    table.insert(parts, "weapon_type=" .. tostring(info.weapon_type or ""))
+                    table.insert(parts, "armor_type=" .. tostring(info.armor_type or ""))
+                    table.sort(parts)
+                end
+                System.LogAlways("[AI NPC] DIAG hand_items hand=" .. tostring(hand) .. " item_data {" .. table.concat(parts, ", ") .. "}")
+            else
+                System.LogAlways("[AI NPC] DIAG hand_items hand=" .. tostring(hand) .. " ok_item=" .. tostring(ok_item) .. " item_data=" .. tostring(item))
+            end
+        end
+    end
+    dump_hand("right")
+    dump_hand("left")
+end
+
 function AI_NPC_TestUnequip(line)
     local arg = tostring(line or ""):gsub("^%s+", ""):gsub("%s+$", "")
     local ent = ai_npc_diag_target()
@@ -4592,6 +4783,7 @@ if System and System.AddCCommand then
     local ok_diag_queue_anim = pcall(System.AddCCommand, "ai_npc_test_queue_anim", "AI_NPC_TestQueueAnim(%line)", "Test actor:QueueAnimationState on targeted NPC")
     local ok_diag_get_anim_state = pcall(System.AddCCommand, "ai_npc_test_get_anim_state", "AI_NPC_TestGetAnimState()", "Test actor:GetCurrentAnimationState on targeted NPC")
     local ok_diag_start_anim = pcall(System.AddCCommand, "ai_npc_test_start_anim", "AI_NPC_TestStartAnim(%line)", "Test entity:StartAnimation on targeted NPC")
+    local ok_diag_anim_action = pcall(System.AddCCommand, "ai_npc_test_anim_action", "AI_NPC_TestAnimationAction(%line)", "Test PlayerStateHandler.PlayAnimationAction on targeted NPC")
     local ok_diag_iact = pcall(System.AddCCommand, "ai_npc_test_iact", "AI_NPC_TestIAct(%line)", "Test actor:StartInteractiveActionByName on targeted NPC")
     local ok_diag_simact = pcall(System.AddCCommand, "ai_npc_test_simact", "AI_NPC_TestSimAct(%line)", "Test actor:SimulateOnAction on targeted NPC")
     local ok_diag_goal = pcall(System.AddCCommand, "ai_npc_test_goal_back", "AI_NPC_TestGoalBack()", "Test AI refpoint/goto_point step back on targeted NPC")
@@ -4613,6 +4805,7 @@ if System and System.AddCCommand then
     local ok_diag_refresh_model = pcall(System.AddCCommand, "ai_npc_test_refresh_model", "AI_NPC_TestRefreshModel(%line)", "Test ForceCharacterUpdate/SetActorModel refresh on targeted NPC")
     local ok_diag_inv_dump = pcall(System.AddCCommand, "ai_npc_test_inventory_dump", "AI_NPC_TestInventoryDump()", "Dump inventory table for targeted NPC")
     local ok_diag_inv_items = pcall(System.AddCCommand, "ai_npc_test_inventory_items", "AI_NPC_TestInventoryItems()", "Dump ItemManager data for targeted NPC inventory")
+    local ok_diag_hand_items = pcall(System.AddCCommand, "ai_npc_test_hand_items", "AI_NPC_TestHandItems()", "Dump left/right hand items for targeted NPC")
     local ok_diag_unequip = pcall(System.AddCCommand, "ai_npc_test_unequip", "AI_NPC_TestUnequip(%line)", "Test actor:UnequipInventoryItem on targeted NPC")
     local ok_diag_unequip_index = pcall(System.AddCCommand, "ai_npc_test_unequip_index", "AI_NPC_TestUnequipIndex(%line)", "Test actor:UnequipInventoryItem by inventory index")
     local ok_diag_unequip_slot = pcall(System.AddCCommand, "ai_npc_test_unequip_slot", "AI_NPC_TestUnequipSlot(%line)", "Test actor:UnequipInventoryItem by classified armor slot")
@@ -4652,6 +4845,7 @@ if System and System.AddCCommand then
     System.LogAlways("[AI NPC] Register ai_npc_test_queue_anim: " .. tostring(ok_diag_queue_anim))
     System.LogAlways("[AI NPC] Register ai_npc_test_get_anim_state: " .. tostring(ok_diag_get_anim_state))
     System.LogAlways("[AI NPC] Register ai_npc_test_start_anim: " .. tostring(ok_diag_start_anim))
+    System.LogAlways("[AI NPC] Register ai_npc_test_anim_action: " .. tostring(ok_diag_anim_action))
     System.LogAlways("[AI NPC] Register ai_npc_test_iact: " .. tostring(ok_diag_iact))
     System.LogAlways("[AI NPC] Register ai_npc_test_simact: " .. tostring(ok_diag_simact))
     System.LogAlways("[AI NPC] Register ai_npc_test_goal_back: " .. tostring(ok_diag_goal))
@@ -4673,6 +4867,7 @@ if System and System.AddCCommand then
     System.LogAlways("[AI NPC] Register ai_npc_test_refresh_model: " .. tostring(ok_diag_refresh_model))
     System.LogAlways("[AI NPC] Register ai_npc_test_inventory_dump: " .. tostring(ok_diag_inv_dump))
     System.LogAlways("[AI NPC] Register ai_npc_test_inventory_items: " .. tostring(ok_diag_inv_items))
+    System.LogAlways("[AI NPC] Register ai_npc_test_hand_items: " .. tostring(ok_diag_hand_items))
     System.LogAlways("[AI NPC] Register ai_npc_test_unequip: " .. tostring(ok_diag_unequip))
     System.LogAlways("[AI NPC] Register ai_npc_test_unequip_index: " .. tostring(ok_diag_unequip_index))
     System.LogAlways("[AI NPC] Register ai_npc_test_unequip_slot: " .. tostring(ok_diag_unequip_slot))
@@ -4998,6 +5193,22 @@ function AI_NPC_Toggle()
     -- Polling timer is unreliable on the rolled-back GOG build, so pump any
     -- pending NPC response right here, on every V press / ai_chat.
     pcall(process_resp_file)
+    -- KeyMonitor offline fallback (non-Windows / Proton, STT disabled, or
+    -- unsupported chat key): the server-side tap/hold pipeline is unavailable,
+    -- so V must toggle the chat directly.  We still send an HTTP POST to /tap
+    -- so the server can open the text overlay (same _on_v_tap callback the
+    -- KeyMonitor would normally invoke).  Voice/PTT is unavailable in this
+    -- mode; text chat works via the overlay or the ai_say console command.
+    if _G.AI_NPC_KEYMON_OFFLINE then
+        local was_open = state.chat_open
+        toggle_chat_with_debounce("console")
+        -- Only request the overlay when opening (not closing) the chat, and
+        -- only if the debounce actually allowed the toggle.
+        if not was_open and state.chat_open then
+            pcall(http_post, "/tap", {}, function() end)
+        end
+        return
+    end
     local ptt_on = (CONFIG.ptt_enabled == nil) or (CONFIG.ptt_enabled == true)
     if ptt_on then
         -- Suppress the legacy console-driven toggle: the server-side
