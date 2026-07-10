@@ -1313,6 +1313,16 @@
     <div class="card-header"><span class="card-title" data-i18n="interaction_title">Интерактив NPC</span></div>
     <div class="card-body">
       <div class="form-group">
+        <label data-i18n="interaction_inventory_access">Доступ ИИ к инвентарю NPC</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="interaction-inventory-access">
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_inventory_access_hint">Отправляет список предметов NPC в LLM. ИИ может показать предмет из инвентаря. Отключите для экономии токенов.</span>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:10px;">
         <label data-i18n="interaction_dress_up">Одевание через общение</label>
         <div style="display:flex; align-items:center; gap:10px;">
           <label class="toggle-switch">
@@ -1732,8 +1742,6 @@ Your occupation: {occupation}
 - Do not use generic actions when a more accurate one exists.
 - Use gesture_wave for waving, gesture_bow for bowing, sit_down for sitting, stand_up for standing.
 - Use turn_to_player, come_closer, step_back, draw_weapon, holster_weapon, dress_up, strip_outerwear, and clothing slot actions when they fit.
-- Use follow_player when the player invites the NPC to come along ("come with me", "follow me", "let's go", "идём со мной", "следуй за мной"). Use stop_follow when the player tells the NPC to wait or stay ("wait here", "stay", "подожди", "стой здесь").
-- Use dance, eat, drink, sleep, pray, work_anvil, sweep, chop_wood, clap, cry, stretch, spit when they fit the scene (tavern feast, prayer, workshop, celebration, grief, etc.).
 - If the player asks for an impossible, dangerous, humiliating, or socially inappropriate action, refuse in character and choose none, step_back, warn, or draw_weapon as appropriate.
 
 # PHYSICAL WORLD RULES
@@ -2134,6 +2142,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       document.getElementById('hud-narrator-right').checked = hud.narrator_right_top !== false;
       document.getElementById('hud-narrator-center').checked = hud.narrator_center === true;
       updateHudAiTextToggle();
+      document.getElementById('interaction-inventory-access').checked = interaction.enable_inventory_access !== false;
       document.getElementById('interaction-dress-up').checked = interaction.enable_dress_up_requests !== false;
       document.getElementById('interaction-strip').checked = interaction.enable_strip_requests !== false;
       document.getElementById('interaction-draw-weapon').checked = interaction.enable_draw_weapon_requests !== false;
@@ -2897,6 +2906,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
             narrator_center: document.getElementById('hud-narrator-center').checked,
           },
           interaction: {
+            enable_inventory_access: document.getElementById('interaction-inventory-access').checked,
             enable_dress_up_requests: document.getElementById('interaction-dress-up').checked,
             enable_strip_requests: document.getElementById('interaction-strip').checked,
             enable_draw_weapon_requests: document.getElementById('interaction-draw-weapon').checked,
@@ -3145,6 +3155,8 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       hud_narrator_pos_right: '\u0421\u043f\u0440\u0430\u0432\u0430-\u0441\u0432\u0435\u0440\u0445\u0443',
       hud_narrator_pos_center: '\u041f\u043e \u0446\u0435\u043d\u0442\u0440\u0443',
       interaction_title: '\u0418\u043d\u0442\u0435\u0440\u0430\u043a\u0442\u0438\u0432 NPC',
+      interaction_inventory_access: '\u0414\u043e\u0441\u0442\u0443\u043f \u0418\u0418 \u043a \u0438\u043d\u0432\u0435\u043d\u0442\u0430\u0440\u044e NPC',
+      interaction_inventory_access_hint: '\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u0435\u0442 \u0441\u043f\u0438\u0441\u043e\u043a \u043f\u0440\u0435\u0434\u043c\u0435\u0442\u043e\u0432 NPC \u0432 LLM. \u0418\u0418 \u043c\u043e\u0436\u0435\u0442 \u043f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u043f\u0440\u0435\u0434\u043c\u0435\u0442 \u0438\u0437 \u0438\u043d\u0432\u0435\u043d\u0442\u0430\u0440\u044f. \u041e\u0442\u043a\u043b\u044e\u0447\u0438\u0442\u0435 \u0434\u043b\u044f \u044d\u043a\u043e\u043d\u043e\u043c\u0438\u0438 \u0442\u043e\u043a\u0435\u043d\u043e\u0432.',
       interaction_dress_up: '\u041e\u0434\u0435\u0432\u0430\u043d\u0438\u0435 \u0447\u0435\u0440\u0435\u0437 \u043e\u0431\u0449\u0435\u043d\u0438\u0435',
       interaction_dress_up_hint: '\u0424\u0440\u0430\u0437\u044b \u0432\u0440\u043e\u0434\u0435 \u00ab\u043e\u0434\u0435\u043d\u044c\u0441\u044f\u00bb \u0438 \u00ab\u043f\u0435\u0440\u0435\u043e\u0434\u0435\u043d\u044c\u0441\u044f\u00bb \u0437\u0430\u043f\u0443\u0441\u043a\u0430\u044e\u0442 dress_up.',
       interaction_dress_examples: '\u041f\u0440\u0438\u043c\u0435\u0440\u044b: \u00ab\u041e\u0434\u0435\u043d\u044c\u0441\u044f, \u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u0445\u043e\u043b\u043e\u0434\u043d\u043e\u00bb, \u00ab\u041f\u0435\u0440\u0435\u043e\u0434\u0435\u043d\u044c\u0441\u044f \u0432 \u0434\u0440\u0443\u0433\u0443\u044e \u043e\u0434\u0435\u0436\u0434\u0443\u00bb, \u00ab\u0421\u043c\u0435\u043d\u0438 \u043e\u0434\u0435\u0436\u0434\u0443, \u044d\u0442\u0430 \u0443\u0436\u0435 \u0433\u0440\u044f\u0437\u043d\u0430\u044f\u00bb.',
@@ -3320,6 +3332,8 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       hud_narrator_pos_right: 'Top-right',
       hud_narrator_pos_center: 'Center',
       interaction_title: 'NPC interaction',
+      interaction_inventory_access: 'AI inventory access',
+      interaction_inventory_access_hint: 'Sends NPC inventory items to the LLM. The AI can show items from inventory. Disable to save tokens.',
       interaction_dress_up: 'Dress up via chat',
       interaction_dress_up_hint: 'Phrases like “get dressed” and “change clothes” trigger dress_up.',
       interaction_dress_examples: 'Examples: “Please get dressed, it is cold”, “Change into different clothes”, “Change your clothes, those are dirty”.',

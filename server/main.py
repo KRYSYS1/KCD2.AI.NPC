@@ -766,6 +766,9 @@ def format_recent_player_actions(
 def _merge_action_context(req: "ChatRequest") -> str:
     """Return extra_context augmented with recent_player_actions if any."""
     base = req.extra_context or ""
+    if not config.interaction.enable_inventory_access:
+        base = re.sub(r"\n?NPC inventory items: [^\n]*", "", base)
+        req.npc_inventory = None
     addendum = format_recent_player_actions(
         req.recent_player_actions, current_npc_name=req.npc_name
     )
@@ -792,10 +795,11 @@ SCENE_LAYER_PROMPT = """
 
 # AI NPC Scene Layer
 ALWAYS respond as a compact JSON object (no markdown, no code fences):
-{"speech":"what the NPC says aloud","mood":"neutral|friendly|suspicious|angry|afraid|respectful|annoyed","intent":"continue|end|refuse|warn|call_help","suggested_action":"none|look_at_player|turn_to_player|come_closer|step_back|walk_away|draw_weapon|holster_weapon|call_help|laugh|strip_outerwear|dress_up|strip_partial|strip_full|dress_partial|dress_full|collapse_spell|gesture_wave|gesture_bow|gesture_nod|gesture_point|gesture_cheer|gesture_come_here|gesture_look_around|emotion_nervous|emotion_sad|emotion_angry|emotion_drunk|sit_down|stand_up|pet_dog|knock_door|close_visor|open_visor|injured_idle|fear_stand|cooking|play_flute|scarecrow_pose|play_anim"}
+{"speech":"what the NPC says aloud","mood":"neutral|friendly|suspicious|angry|afraid|respectful|annoyed","intent":"continue|end|refuse|warn|call_help","suggested_action":"none|look_at_player|turn_to_player|come_closer|step_back|walk_away|draw_weapon|holster_weapon|call_help|laugh|strip_outerwear|dress_up|strip_partial|strip_full|dress_partial|dress_full|collapse_spell|gesture_wave|gesture_bow|gesture_nod|gesture_point|gesture_cheer|gesture_come_here|gesture_look_around|emotion_nervous|emotion_sad|emotion_angry|emotion_drunk|sit_down|stand_up|pet_dog|knock_door|close_visor|open_visor|injured_idle|fear_stand|cooking|play_flute|play_lute|scarecrow_pose|play_anim|show_item|hide_item","item_name":"name of the item to show (only when suggested_action is show_item)"}
 speech must still follow the length/language rules. Do not wrap JSON in markdown fences.
 If you absolutely cannot produce valid JSON, plain speech is accepted as a fallback, but scene actions will not execute without the JSON fields.
 Recognize player intent in ANY language, not only English/Russian. Map requests to actions:
+- Show/take out/draw an item from inventory → suggested_action="show_item" with item_name set to the item name from the NPC's inventory. Put it away → suggested_action="hide_item".
 - Get dressed (full outfit) → suggested_action="dress_up" or "dress_full"; partial dress (underwear/lower only) → "dress_partial".
 - Undress/remove outer clothing (partial) → "strip_partial"; fully undress → "strip_full". Legacy generic → "strip_outerwear".
 - Put on / take off specific clothing slots → "headwear_on|off", "footwear_on|off", "legwear_on|off", "armwear_on|off", "neckwear_on|off", "bodywear_on|off" (hats/hoods/caps/headwear; boots/shoes; pants/trousers/legwear; gloves/bracers/armwear; necklace/collar/neckwear; jacket/armor/vest/bodywear). Use slot actions instead of full dress_up.
@@ -805,8 +809,9 @@ Recognize player intent in ANY language, not only English/Russian. Map requests 
 - Gestures: wave → "gesture_wave"; bow → "gesture_bow"; nod → "gesture_nod"; point → "gesture_point"; cheer → "gesture_cheer"; beckon/call by hand → "gesture_come_here"; look around → "gesture_look_around".
 - Emotions/body language: nervous → "emotion_nervous"; sad → "emotion_sad"; angry → "emotion_angry"; drunk → "emotion_drunk"; laugh → "laugh"; afraid/scared stance → "fear_stand"; injured/sick stance → "injured_idle".
 - Sit/stand → "sit_down" / "stand_up"; pet/stroke dog → "pet_dog"; knock on door → "knock_door"; open/close visor → "open_visor" / "close_visor"; cooking/stirring → "cooking".
-- Musician/flute/pipe request → "play_flute".
+- Musician/flute/pipe request → "play_flute". Lute/guitar/string instrument request → "play_lute".
 - Absurd scarecrow/dummy/cross-shaped pose request → "scarecrow_pose".
+- Show/take out an item from inventory → suggested_action="show_item" with "item_name" set to the exact item name from the NPC's inventory list (provided in context). The NPC holds it up visibly. Put it away → "hide_item". Only use items that are actually in the NPC's inventory.
 - When the NPC reacts to a threat or provocation, always set suggested_action to a physical reaction (step_back, draw_weapon, walk_away, call_help) — do not describe the action only in speech.
 """
 
@@ -1066,6 +1071,9 @@ def _parse_scene_response(raw_text: str) -> dict[str, str]:
         value = str(data.get(key) or "").strip().lower()
         if value:
             scene[key] = value[:80]
+    item_name = str(data.get("item_name") or "").strip()
+    if item_name:
+        scene["item_name"] = item_name[:200]
     return scene
 
 
@@ -1172,6 +1180,17 @@ def _detect_action_from_npc_speech(text: str) -> str:
         "stand up", "i'll stand", "getting up",
     )):
         return "stand_up"
+    if any(t in value for t in (
+        "лютн", "гитар", "сыграю на инструмент",
+        "lute", "guitar", "play the instrument", "play my instrument",
+    )):
+        return "play_lute"
+    # show_item — NPC says they'll show/take out something
+    if any(t in value for t in (
+        "покажу", "вот мой", "держу в руках", "достану", "вот посмотрите",
+        "let me show", "here is my", "take a look", "i'll show you", "let me take out",
+    )):
+        return "show_item"
     return "none"
 
 
@@ -1724,8 +1743,11 @@ SCENE_ACTIONS = {
     "fear_stand",
     "cooking",
     "play_flute",
+    "play_lute",
     "scarecrow_pose",
     "play_anim",
+    "show_item",
+    "hide_item",
 }
 
 
@@ -1759,14 +1781,18 @@ def _clamp_scene_value(value: object, allowed: set[str], default: str) -> str:
 
 def normalize_scene_for_lua(scene: dict[str, str] | None) -> dict[str, str]:
     scene = scene or {}
+    action = _clamp_scene_value(scene.get("suggested_action"), SCENE_ACTIONS, "none")
+    if action in ("show_item", "hide_item") and not config.interaction.enable_inventory_access:
+        action = "none"
     return {
         "mood": _clamp_scene_value(scene.get("mood"), SCENE_MOODS, "neutral"),
         "intent": _clamp_scene_value(scene.get("intent"), SCENE_INTENTS, "continue"),
-        "suggested_action": _clamp_scene_value(scene.get("suggested_action"), SCENE_ACTIONS, "none"),
+        "suggested_action": action,
         "npc_id": str(scene.get("npc_id") or ""),
         "npc_name": str(scene.get("npc_name") or ""),
         "apology_attempt": "true" if str(scene.get("apology_attempt") or "false").strip().lower() == "true" else "false",
         "animation_name": str(scene.get("animation_name") or ""),
+        "item_name": str(scene.get("item_name") or "") if action == "show_item" else "",
     }
 
 
@@ -1780,7 +1806,8 @@ def lua_scene_literal(scene: dict[str, str] | None) -> str:
         f"npc_id={lua_string_literal(safe['npc_id'])},"
         f"npc_name={lua_string_literal(safe['npc_name'])},"
         f"apology_attempt={lua_string_literal(safe['apology_attempt'])},"
-        f"animation_name={lua_string_literal(safe['animation_name'])}"
+        f"animation_name={lua_string_literal(safe['animation_name'])},"
+        f"item_name={lua_string_literal(safe['item_name'])}"
         "}"
     )
 
@@ -1799,6 +1826,7 @@ def write_response_lua(npc_name: str, response_text: str, request_id: int, scene
         f"_G.__ai_npc_hud_narrator_right = {_lua_bool(hud.narrator_right_top)}\n"
         f"_G.__ai_npc_hud_narrator_center = {_lua_bool(hud.narrator_center)}\n"
         f"_G.__ai_npc_language = {lua_string_literal(config.language)}\n"
+        f"_G.__ai_npc_inventory_access = {_lua_bool(config.interaction.enable_inventory_access)}\n"
     )
     content = (
         hud_prefix
@@ -2032,6 +2060,7 @@ class ChatRequest(BaseModel):
         description="Recent notable player actions (pickpocket/kill/loot/...) from Player Event Dispatcher.",
     )
     npc_gender: int | None = Field(default=None, description="NPC gender code: 0=male, 1/2=female.")
+    npc_inventory: list[str] | None = Field(default=None, description="List of item names in the NPC's inventory.")
     npc_pos: dict[str, float] | None = Field(default=None, description="NPC world position {x,y,z}.")
     player_pos: dict[str, float] | None = Field(default=None, description="Player world position {x,y,z}.")
     player_fwd: dict[str, float] | None = Field(default=None, description="Player forward vector {x,y,z}.")

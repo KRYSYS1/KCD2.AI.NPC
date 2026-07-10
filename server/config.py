@@ -197,6 +197,7 @@ class InteractionConfig(BaseModel):
     enable_cooking_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC cooking scene action.")
     enable_play_flute_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC play_flute scene action.")
     enable_scarecrow_pose_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC scarecrow_pose scene action.")
+    enable_inventory_access: bool = Field(default=True, description="Send NPC inventory items to LLM and allow show_item/hide_item actions. Disable to save tokens.")
     dress_up_terms: str = Field(
         default="оденься, одевайся, одень одежду, надень одежду, надень что-нибудь, прикройся, переоденься, смени одежду, переоденься в другую одежду, надень другую одежду, одеться, оделся, оделась, одень его, одень её, одень ее, dress up, get dressed, put clothes on, put your clothes on, wear clothes, change clothes, change your clothes, put on different clothes",
         description="Comma-separated player phrases that trigger dress_up.",

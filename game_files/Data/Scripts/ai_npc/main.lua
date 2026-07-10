@@ -650,10 +650,62 @@ local function build_npc_from_entity(ent)
         context_lines[#context_lines + 1] = "Health: " .. tostring(health)
     end
 
+    -- Current activity detection
+    local anim_state = nil
+    if actor and type(actor.GetCurrentAnimationState) == "function" then
+        local ok_as, as = pcall(function() return actor:GetCurrentAnimationState() end)
+        if ok_as and type(as) == "string" and as ~= "" and as ~= "idle" and as ~= "Idle" then
+            anim_state = as
+        end
+    end
+    local is_weapon_drawn = bool_call(human, "IsWeaponDrawn")
+    local is_in_dialog = bool_call(human, "IsInDialog")
+    local is_mounted = bool_call(human, "IsMounted")
+    local is_on_ladder = bool_call(human, "IsOnLadder")
+    local is_moving = nil
+    if AI and type(AI.IsMoving) == "function" and ent.id then
+        local ok_im, im = pcall(AI.IsMoving, ent.id)
+        if ok_im and im then is_moving = true end
+    end
+    local ai_stance = nil
+    if AI and type(AI.GetStance) == "function" and ent.id then
+        local ok_st, st = pcall(AI.GetStance, ent.id)
+        if ok_st and st then ai_stance = tostring(st) end
+    end
+
+    local activity_parts = {}
+    if anim_state then activity_parts[#activity_parts + 1] = "animation: " .. anim_state end
+    if is_weapon_drawn then activity_parts[#activity_parts + 1] = "weapon drawn" end
+    if is_in_dialog then activity_parts[#activity_parts + 1] = "in dialogue" end
+    if is_mounted then activity_parts[#activity_parts + 1] = "mounted on horse" end
+    if is_on_ladder then activity_parts[#activity_parts + 1] = "on ladder" end
+    if is_moving then activity_parts[#activity_parts + 1] = "moving" end
+    if ai_stance and ai_stance ~= "0" and ai_stance ~= "" then activity_parts[#activity_parts + 1] = "stance: " .. ai_stance end
+    if #activity_parts > 0 then
+        context_lines[#context_lines + 1] = "Current activity: " .. table.concat(activity_parts, ", ")
+    end
+
     local npc_pos = nil
     local pos = safe_method_call(ent, "GetWorldPos") or safe_method_call(ent, "GetPos")
     if pos then
         npc_pos = { x = pos.x or 0, y = pos.y or 0, z = pos.z or 0 }
+    end
+
+    local npc_inventory = nil
+    if entity_kind == "human" and _G.__ai_npc_inventory_access ~= false then
+        local ok_inv, inv_items = pcall(AI_NPC_INV.build_inventory, ent)
+        if ok_inv and inv_items and #inv_items > 0 then
+            npc_inventory = {}
+            for _, it in ipairs(inv_items) do
+                if #it.name > 2 and it.name ~= it.guid then
+                    npc_inventory[#npc_inventory + 1] = it.name .. (it.amount > 1 and (" x" .. it.amount) or "")
+                    if #npc_inventory >= 20 then break end
+                end
+            end
+            if #npc_inventory > 0 then
+                context_lines[#context_lines + 1] = "NPC inventory items: " .. table.concat(npc_inventory, ", ")
+            end
+        end
     end
 
     return {
@@ -671,6 +723,7 @@ local function build_npc_from_entity(ent)
         soul_name_key = soul_name_key,
         extra_context = table.concat(context_lines, "\n"),
         pos = npc_pos,
+        inventory = npc_inventory,
     }
 end
 
@@ -1566,6 +1619,12 @@ local function scene_action_feedback(npc_name, action, intent)
     elseif action == "collapse_spell" then
         return ru and (name .. " падает на землю.")
             or (name .. " falls to the ground.")
+    elseif action == "play_flute" then
+        return ru and (name .. " играет на флейте.")
+            or (name .. " plays the flute.")
+    elseif action == "play_lute" then
+        return ru and (name .. " берёт лютню и играет.")
+            or (name .. " takes a lute and plays.")
     end
     return nil
 end
@@ -1784,7 +1843,7 @@ local function scene_play_animation_action(ent, fragment, tags, extra)
     local function try_call(label, fn)
         local ok, result = pcall(fn)
         System.LogAlways("[AI NPC] DIAG anim_action try " .. label .. " fragment=" .. tostring(fragment) .. " tags=" .. tostring(tags) .. " ok=" .. tostring(ok) .. " result=" .. tostring(result))
-        return ok and result ~= false
+        return ok and result == true
     end
     if type(extra) == "table" then
         if try_call("PlayAnimationAction+extra", function() return PlayerStateHandler.PlayAnimationAction(align, fragment, tags or "", trigger_id, hold, extra) end) then return true end
@@ -2017,12 +2076,195 @@ local function scene_cooking(ent)
     return ok
 end
 
+local function scene_attach_prop(ent, model_path, hand)
+    if not ent or type(ent.human) ~= "table" or type(ent.human.AttachEntityToHand) ~= "function" then
+        System.LogAlways("[AI NPC] DIAG attach_prop: no human.AttachEntityToHand")
+        return false
+    end
+    local pos = ent:GetWorldPos()
+    local spawn_params = {
+        class = "BasicEntity",
+        position = pos,
+        orientation = pos,
+        scale = 1,
+        properties = {
+            object_Model = model_path,
+            Physics = { bPhysicalize = false, bRigidBody = false },
+        },
+    }
+    local ok_sp, prop = pcall(function() return System.SpawnEntity(spawn_params) end)
+    System.LogAlways("[AI NPC] DIAG attach_prop spawn model=" .. model_path .. " ok=" .. tostring(ok_sp) .. " prop=" .. tostring(prop))
+    if not ok_sp or not prop then return false, nil end
+    local ok_att, att_res = pcall(function() return ent.human:AttachEntityToHand(prop.id, hand or 1) end)
+    System.LogAlways("[AI NPC] DIAG attach_prop AttachEntityToHand id=" .. tostring(prop.id) .. " hand=" .. tostring(hand or 1) .. " ok=" .. tostring(ok_att) .. " res=" .. tostring(att_res))
+    return ok_att, prop.id
+end
+
+-- Track spawned prop entities so we can detach/remove them later.
+ai_npc_attached_props = ai_npc_attached_props or {}
+AI_NPC_INV = AI_NPC_INV or {}
+
+function AI_NPC_INV.detach_props(ent)
+    if not ent or not ent.human or type(ent.human.DetachFromHand) ~= "function" then return end
+    local key = tostring(ent.id or ent)
+    local prop_id = ai_npc_attached_props[key]
+    if prop_id then
+        pcall(function() ent.human:DetachFromHand(1) end)
+        pcall(function() ent.human:DetachFromHand(0) end)
+        local prop = System.GetEntity(prop_id)
+        if prop then pcall(function() System.RemoveEntity(prop.id) end) end
+        ai_npc_attached_props[key] = nil
+        System.LogAlways("[AI NPC] detach_props removed prop=" .. tostring(prop_id) .. " for ent=" .. key)
+    end
+end
+
+-- Lazy-loaded item database: GUID -> { name, model }
+ai_npc_item_db = ai_npc_item_db or nil
+
+function AI_NPC_INV.load_item_db()
+    if ai_npc_item_db then return ai_npc_item_db end
+    ai_npc_item_db = {}
+    local ok_xml, xml_text = pcall(function() return System.LoadTextFile("libs/tables/item/item.xml") end)
+    if not ok_xml or not xml_text or xml_text == "" then
+        System.LogAlways("[AI NPC] item_db: failed to load item.xml")
+        return ai_npc_item_db
+    end
+    local count = 0
+    local guid, model, name
+    for tag, attrs in xml_text:gmatch("<(%w+) ([^>]+)/>") do
+        if tag ~= "ItemAlias" and tag ~= "ItemClasses" then
+            guid = attrs:match('%sId="([^"]+)"')
+            model = attrs:match('Model="([^"]+)"')
+            name = attrs:match('Name="([^"]+)"')
+            if guid then
+                ai_npc_item_db[guid:lower()] = {
+                    name = name or guid,
+                    model = model and (#model > 0 and model or nil),
+                    tag = tag,
+                }
+                count = count + 1
+            end
+        end
+    end
+    System.LogAlways("[AI NPC] item_db: loaded " .. count .. " items from item.xml")
+    return ai_npc_item_db
+end
+
+function AI_NPC_INV.build_inventory(ent)
+    if not ent or not ent.inventory or type(ent.inventory.GetInventoryTable) ~= "function" then
+        return nil
+    end
+    local db = AI_NPC_INV.load_item_db()
+    local ok_t, inv_t = pcall(function() return ent.inventory:GetInventoryTable() end)
+    if not ok_t or type(inv_t) ~= "table" then return nil end
+    local items = {}
+    local seen = {}
+    for _, wuid in pairs(inv_t) do
+        local ok_it, item = pcall(function() return ItemManager.GetItem(wuid) end)
+        if ok_it and item and item.class then
+            local class_guid = tostring(item.class):lower()
+            if not seen[class_guid] then
+                seen[class_guid] = true
+                local ok_name, disp_name = pcall(function() return ItemManager.GetItemName(item.class) end)
+                local db_entry = db[class_guid]
+                local entry = {
+                    name = tostring(disp_name or (db_entry and db_entry.name) or class_guid),
+                    guid = class_guid,
+                    amount = tonumber(item.amount) or 1,
+                    equipped = item.entity ~= 0 and item.entity ~= nil,
+                    model = db_entry and db_entry.model or nil,
+                    category = db_entry and db_entry.tag or nil,
+                }
+                items[#items + 1] = entry
+            end
+        end
+    end
+    return items
+end
+
+function AI_NPC_INV.show_item(ent, item_query)
+    if not ent or not ent.human then return false end
+    local items = AI_NPC_INV.build_inventory(ent)
+    if not items or #items == 0 then
+        System.LogAlways("[AI NPC] show_item: no inventory items found")
+        return false
+    end
+    local q = tostring(item_query or ""):lower()
+    if q == "" then return false end
+    local best_match = nil
+    local best_score = 0
+    for _, it in ipairs(items) do
+        local nm = tostring(it.name or ""):lower()
+        local score = 0
+        if nm == q then score = 100
+        elseif nm:find(q, 1, true) then score = 80
+        elseif q:find(nm, 1, true) and #nm > 2 then score = 60
+        end
+        if score > best_score then best_score = score; best_match = it end
+    end
+    if not best_match or best_score < 50 then
+        System.LogAlways("[AI NPC] show_item: no match for '" .. q .. "' in " .. #items .. " items")
+        return false
+    end
+    System.LogAlways("[AI NPC] show_item: matched '" .. best_match.name .. "' guid=" .. best_match.guid .. " model=" .. tostring(best_match.model))
+    AI_NPC_INV.detach_props(ent)
+    local model_path = best_match.model
+    if model_path then
+        if not model_path:find("^objects/") then
+            model_path = "objects/" .. model_path
+        end
+        if not model_path:find("%.cgf$") then
+            model_path = model_path .. ".cgf"
+        end
+    else
+        System.LogAlways("[AI NPC] show_item: no model for guid=" .. best_match.guid .. " (category=" .. tostring(best_match.category) .. ")")
+        return false
+    end
+    local ok, prop_id = scene_attach_prop(ent, model_path, 1)
+    if ok and prop_id then
+        ai_npc_attached_props[tostring(ent.id or ent)] = prop_id
+    end
+    return ok
+end
+
 local function scene_play_flute(ent)
-    local ok = scene_play_anim(ent, { "stand_plaing_flute_loop_fast", "stand_plaing_flute_fast", "stand_plaing_flute_slow" })
+    local ok = false
+    System.LogAlways("[AI NPC] DIAG flute ent=" .. tostring(ent) .. " human=" .. type(ent and ent.human) .. " AttachEntityToHand=" .. type(ent and ent.human and ent.human.AttachEntityToHand))
+    AI_NPC_INV.detach_props(ent)
+    local ok_att, prop_id = scene_attach_prop(ent, "objects/manmade/task_specific_props/entertainment/music/flute.cgf", 1)
+    if ok_att and prop_id then
+        ai_npc_attached_props[tostring(ent.id or ent)] = prop_id
+    end
+    ok = scene_play_anim(ent, { "stand_plaing_flute_loop_fast", "stand_plaing_flute_fast", "stand_plaing_flute_slow" })
+    if not ok then
+        ok = scene_play_animation_action(ent, "PlayFluteSong", "tempo_slow")
+    end
     if not ok then
         ok = scene_look_at_player(ent)
     end
     System.LogAlways("[AI NPC] SCENE_ACTION play_flute ok=" .. tostring(ok))
+    return ok
+end
+
+local function scene_play_lute(ent)
+    local ok = false
+    System.LogAlways("[AI NPC] DIAG lute ent=" .. tostring(ent) .. " human=" .. type(ent and ent.human) .. " AttachEntityToHand=" .. type(ent and ent.human and ent.human.AttachEntityToHand))
+    AI_NPC_INV.detach_props(ent)
+    local ok_att, prop_id = scene_attach_prop(ent, "objects/quest_items/lute/lute_small.cgf", 1)
+    if ok_att and prop_id then
+        ai_npc_attached_props[tostring(ent.id or ent)] = prop_id
+    end
+    ok = scene_play_anim(ent, { "party_standing_playingLute_holdingLute_01", "stand_plaing_lute_loop", "stand_plaing_lute" })
+    if not ok then
+        ok = scene_play_animation_action(ent, "Party_Standing_PlayingLute_HoldingLute")
+    end
+    if not ok then
+        ok = scene_play_animation_action(ent, "PlayLuteSong", "tempo_slow")
+    end
+    if not ok then
+        ok = scene_look_at_player(ent)
+    end
+    System.LogAlways("[AI NPC] SCENE_ACTION play_lute ok=" .. tostring(ok))
     return ok
 end
 
@@ -2378,6 +2620,19 @@ local function scene_execute_game_action(scene, action, intent)
         ok = scene_cooking(ent) or ok
     elseif action == "play_flute" then
         ok = scene_play_flute(ent) or ok
+    elseif action == "play_lute" then
+        ok = scene_play_lute(ent) or ok
+    elseif action == "show_item" then
+        local item_q = tostring(scene.item_name or "")
+        if item_q ~= "" then
+            ok = AI_NPC_INV.show_item(ent, item_q) or ok
+            System.LogAlways("[AI NPC] SCENE_ACTION show_item query='" .. item_q .. "' ok=" .. tostring(ok))
+        else
+            System.LogAlways("[AI NPC] SCENE_ACTION show_item missing item_name")
+        end
+    elseif action == "hide_item" then
+        AI_NPC_INV.detach_props(ent)
+        ok = true
     elseif action == "scarecrow_pose" then
         ok = scene_scarecrow_pose(ent) or ok
     elseif action == "play_anim" then
@@ -2877,6 +3132,7 @@ local function send_message(text)
         npc_class = state.current_npc.class,
         npc_location = state.current_npc.location,
         npc_gender = state.current_npc.gender or "unknown",
+        npc_inventory = state.current_npc.inventory or nil,
         player_message = text,
         extra_context = state.current_npc.extra_context or "",
         recent_player_actions = build_recent_player_actions(state.current_npc.id),
