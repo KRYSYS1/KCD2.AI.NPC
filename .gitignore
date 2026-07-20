@@ -12,7 +12,7 @@ venv/
 .vscode/
 *.egg-info/
 dist/
-build/
+
 *.log
 workshop_package/
 handoff_ai_session/
