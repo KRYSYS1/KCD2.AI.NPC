@@ -29,16 +29,13 @@ Player holds V near NPC → Lua mod detects NPC → HTTP request →
 
 ## Requirements
 
-### Server
-- Python 3.10+
+- Kingdom Come: Deliverance II (Steam or GOG, **build 15345** or newer)
+- Python 3.12.10 (recommended) — see `requirements.txt`
 - One of:
-  - [Groq](https://console.groq.com/) (free tier, cloud) — recommended
+  - [Groq](https://groq.com/) (free tier, cloud) — recommended
   - [Ollama](https://ollama.ai/) (free, local)
   - [OpenAI API](https://platform.openai.com/) key
   - Any OpenAI-compatible API endpoint
-
-### Game Mod
-- Kingdom Come: Deliverance II (Steam, GOG, Epic)
 
 ## Quick Start
 
@@ -46,7 +43,7 @@ Player holds V near NPC → Lua mod detects NPC → HTTP request →
 
 **Option A — Steam Workshop:** Subscribe to **[AI NPC Dialogue](https://steamcommunity.com/sharedfiles/filedetails/?id=3729594101)**
 
-**Option B — Manual install:** Copy the contents of `game_files/` into your KCD2 game root. See [Manual Installation](#manual-installation-without-steam-workshop) below.
+**Option B — Manual install (GOG / non-Workshop):** Copy `mod/ai_npc/` into `<game_root>/mods/`. See [Manual Installation](#manual-installation-without-steam-workshop) below.
 
 ### 2. Server Setup
 
@@ -144,6 +141,7 @@ Then call `POST /reload_characters` or restart the server.
 kcd2-ai-npc/
 ├── run_server.py               # Server startup script
 ├── requirements.txt            # Python dependencies
+├── config.json                 # Server configuration
 ├── server/                     # Python FastAPI server
 │   ├── main.py                 # FastAPI app & endpoints
 │   ├── config.py               # Configuration models
@@ -154,19 +152,25 @@ kcd2-ai-npc/
 │   ├── conversation.py         # Conversation history manager
 │   ├── npc_context.py          # NPC prompt builder
 │   └── static/                 # Web UI (config panel)
-├── mod/                        # KCD2 Lua mod
-│   └── ai_npc/
-│       ├── main.lua            # Mod entry point
-│       ├── npc_token_names.lua # NPC name database
-│       └── ui_name_keys.lua    # UI localization keys
-├── game_files/                 # Mod files — copy into KCD2 game root for manual install
-│   ├── scripts/
-│   │   └── mods/
-│   │       └── ai_npc.lua      # Bootstrap script
+├── mod/ai_npc/                 # Ready-to-install mod package (copy to <game>/mods/ai_npc/)
+│   ├── main.lua                # Mod entry point
+│   ├── mod.cfg                 # ReturnOfModding config
+│   ├── mod.manifest            # Mod descriptor
+│   ├── npc_token_names.lua     # NPC name database
+│   ├── ui_name_keys.lua        # UI localization keys
 │   ├── Data/
-│   │   ├── Scripts/ai_npc/     # Lua mod scripts
-│   │   └── Libs/Config/        # Action map (V key binding)
-│   └── Localization/           # UI text (en, ru)
+│   │   └── ai_npc.pak          # Packed mod scripts (ZIP_STORED)
+│   └── Localization/
+│       ├── English_xml.pak     # English localization
+│       └── Russian_xml.pak     # Russian localization
+└── build/                      # Pre-packaging source files (Lua scripts, XML, config)
+    ├── Data/
+    │   ├── Scripts/ai_npc/     # Lua scripts, command.lua
+    │   ├── Libs/Config/        # Action map (V key binding)
+    │   └── Scripts/Utils/      # Bootstrap script
+    ├── Localization/           # Localization XML source
+    ├── mods/ai_npc/            # mod.cfg, mod.manifest
+    └── scripts/mods/           # ai_npc.lua bootstrap
 ```
 
 ## Roadmap
@@ -184,7 +188,7 @@ kcd2-ai-npc/
 
 ## Tech Stack
 
-- **Server:** Python 3.10+, FastAPI, OpenAI SDK
+- **Server:** Python 3.12+, FastAPI, OpenAI SDK
 - **LLM:** Groq, Ollama, OpenAI, any OpenAI-compatible API
 - **TTS:** Edge TTS, ElevenLabs, OpenAI TTS
 - **STT:** Groq Whisper, faster-whisper, OpenAI Whisper
@@ -192,100 +196,29 @@ kcd2-ai-npc/
 
 ## Manual Installation (without Steam Workshop)
 
-Copy the contents of `game_files/` into your KCD2 game root (the folder containing `Bin\`):
+> Works on GOG, Epic, and Steam. Requires KCD2 **build 153645 or newer**.
+
+1. Find your KCD2 game root — the folder where `Bin/Win64MasterMasterGogPGO/KingdomCome.exe` (GOG) or `Bin/Win64MasterMasterSteamPGO/KingdomCome.exe` (Steam) is located.
+
+2. Copy `mod/ai_npc/` into `<game_root>/mods/`:
 
 ```
-Kingdom Come Deliverance II\          ← game root (e.g. E:\Games\Kingdom Come Deliverance II)
-├── Bin\Win64MasterMasterGogPGO\
-│   ├── KingdomCome.exe               ← game executable
-│   ├── version.dll                   ← add DLL (modified KCD2ModLoader by xiaoxiao921)
-│   └── plugins\ai_npc\               ← add folder
-│       ├── main.lua
-│       └── manifest.json
-├── Bin\Win64MasterMasterSteamPGO\
-│   ├── KingdomCome.exe               ← game executable
-│   ├── version.dll                   ← add DLL (same build as GOG package)
-│   └── plugins\ai_npc\               ← add folder
-│       ├── main.lua
-│       └── manifest.json
-├── scripts\
-│   └── mods\
-│       └── ai_npc.lua                ← add file
-├── Data\\
-|   ├── Scripts\\
-|   |   ├── ai_npc\\                   <- add folder
-|   |   |   ├── main.lua
-|   |   |   ├── command.lua
-|   |   |   ├── npc_token_names.lua
-|   |   |   └── ui_name_keys.lua
-|   |   └── Utils\\
-|   |       └── ai_npc_init.lua        <- Lua bootstrap used by manual installs
-|   └── Libs\\Config\\
-|       └── ai_npc_actions.xml        <- add file
-├── Localization\\                     <- add folder (merge)
-|   ├── text__ai_npc.xml
-|   ├── English_xml\\
-|   |   └── text__ai_npc.xml
-|   └── Russian_xml\\
-|       └── text__ai_npc.xml
-└── mods\\ai_npc\\                      <- add folder
-    ├── mod.cfg
-    ├── mod.manifest
-    └── Localization\\
-        ├── English_xml.pak
-        └── Russian_xml.pak
+<game_root>/mods/ai_npc/
+├── main.lua
+├── mod.cfg
+├── mod.manifest
+├── npc_token_names.lua
+├── ui_name_keys.lua
+├── Data/
+│   └── ai_npc.pak
+└── Localization/
+    ├── English_xml.pak
+    └── Russian_xml.pak
 ```
 
-**One-command install:**
+3. Launch KCD2 — the mod is loaded automatically (no additional DLLs or dependencies needed).
 
-Run this from the extracted repository folder:
-
-```bat
-python install_mod.py "C:\SteamLibrary\steamapps\common\KingdomComeDeliverance2"
-python install_mod.py "D:\Program Files (x86)\Steam\steamapps\common\KingdomComeDeliverance2"
-```
-
-GOG examples:
-
-```bat
-python install_mod.py "E:\Games\Kingdom Come Deliverance II"
-python install_mod.py "C:\GOG Games\KingdomComeDeliverance2"
-```
-
-The installer copies everything from `game_files\` into the game root automatically.
-
-**Manual copy steps:**
-1. Find your game root — the folder where `Bin\Win64MasterMasterGogPGO\KingdomCome.exe` (GOG) or `Bin\Win64MasterMasterSteamPGO\KingdomCome.exe` (Steam) is located
-2. Copy everything from `game_files\` into the game root, merging folders when prompted
-3. The mod loads automatically on next launch
-
-The repository ships both `Win64MasterMasterGogPGO` and `Win64MasterMasterSteamPGO` so manual installs work for either storefront without renaming folders by hand.
-
-**One-command uninstall:**
-
-Remove installed game mod files from Steam/GOG game folder:
-
-```bat
-python uninstall_mod.py "C:\SteamLibrary\steamapps\common\KingdomComeDeliverance2"
-python uninstall_mod.py "D:\Program Files (x86)\Steam\steamapps\common\KingdomComeDeliverance2"
-python uninstall_mod.py "C:\GOG Games\KingdomComeDeliverance2"
-```
-
-Skip the confirmation prompt if needed:
-
-```bat
-python uninstall_mod.py "C:\SteamLibrary\steamapps\common\KingdomComeDeliverance2" --yes
-```
-
-**Remove Python dependencies:**
-
-If you installed dependencies globally and want to remove them:
-
-```bat
-pip uninstall -r requirements.txt -y
-```
-
-If you used a virtual environment, just delete the virtual environment folder instead.
+**Note:** For Steam users, it's recommended to use [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3729594101).
 
 ## License
 

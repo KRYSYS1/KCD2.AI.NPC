@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<kcd_mod xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<kcd_mod>
   <info>
-    <name>AI NPC Dialogue</name>
+    <name>KCD2 AI NPC</name>
     <description>Talk to any NPC using AI-powered dialogue (LLM + TTS)</description>
-    <author>kcd2-ai-npc</author>
-    <version>0.1.0</version>
+    <author>KRYSYS</author>
+    <version>0.2.0</version>
     <modid>ai_npc</modid>
     <modifies_level>false</modifies_level>
   </info>

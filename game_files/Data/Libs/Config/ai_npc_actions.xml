@@ -1,5 +1,0 @@
-<ActionMaps version="22">
-  <ActionMap name="ai_npc">
-    <Action name="ai_npc_chat" onPress="1" keyboard="v"/>
-  </ActionMap>
-</ActionMaps>

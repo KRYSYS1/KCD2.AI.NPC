@@ -1624,13 +1624,10 @@ async def lifespan(app: FastAPI):
     key_monitor.on_hold_start = _on_v_hold_start
     key_monitor.on_hold_end = _on_v_hold_end
     _keymon_started = False
-    if config.stt.enabled:
-        try:
-            _keymon_started = key_monitor.start()
-        except Exception as e:
-            logger.warning(f"KeyMonitor start failed: {e}")
-    else:
-        logger.info("KeyMonitor not started (STT disabled in config)")
+    try:
+        _keymon_started = key_monitor.start()
+    except Exception as e:
+        logger.warning(f"KeyMonitor start failed: {e}")
     # Notify the Lua mod whether the server-side tap/hold pipeline is
     # available.  When the KeyMonitor cannot start (non-Windows / Proton,
     # user32 load failure, unsupported chat key, or STT disabled), the Lua
