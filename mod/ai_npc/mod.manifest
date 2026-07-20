@@ -2,10 +2,11 @@
 <kcd_mod>
   <info>
     <name>KCD2 AI NPC</name>
-    <description>Talk to any NPC using AI-powered dialogue (LLM + TTS)</description>
+    <description>Talk to NPCs using AI-powered voice dialogue. Requires running the external Python AI NPC server. Experimental Workshop version: hold V near an NPC to speak; tap/text mode is currently WIP.</description>
     <author>KRYSYS</author>
-    <version>0.2.0</version>
+    <version>0.1.0-workshop-voice</version>
     <modid>ai_npc</modid>
     <modifies_level>false</modifies_level>
+    <created_on>2026-05-20</created_on>
   </info>
 </kcd_mod>
