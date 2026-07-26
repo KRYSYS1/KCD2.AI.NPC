@@ -93,7 +93,7 @@ NPCs can perform in-game actions suggested by the LLM:
 
 ### 1. Install the Game Mod
 
-**Option A — Steam Workshop:** Subscribe to **[AI NPC Dialogue](https://steamcommunity.com/sharedfiles/filedetails/?id=3729594101)**
+**Option A — Steam Workshop:** Subscribe to **[KCD2 AI NPC](https://steamcommunity.com/sharedfiles/filedetails/?id=3729594101)**
 
 **Option B — Manual install (GOG / non-Workshop):** Copy `mod/ai_npc/` into `<game_root>/mods/`. See [Manual Installation](#manual-installation-without-steam-workshop) below.
 
