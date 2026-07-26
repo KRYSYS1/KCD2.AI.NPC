@@ -224,7 +224,7 @@ kcd2-ai-npc/
 
 ## Companion Mod (optional)
 
-- **[Player Event Dispatcher](https://steamcommunity.com/sharedfiles/filedetails/?id=1430)** — recommended. Lets AI NPCs know about recent player actions (fighting, stealing, looting, etc.) for richer context. If installed and detected, the mod automatically uses it.
+- **Player Event Dispatcher** — recommended. Lets AI NPCs know about recent player actions (fighting, stealing, looting, etc.) for richer context. If installed and detected, the mod automatically uses it.
 
 Not required — the mod works on vanilla KCD2 without any DLLs or additional loaders.
 
