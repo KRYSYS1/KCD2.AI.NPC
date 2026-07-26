@@ -231,27 +231,25 @@ Not required — the mod works on vanilla KCD2 without any DLLs or additional lo
 ## Roadmap
 
 - ✅ Text chat with LLM
-- ✅ TTS integration (Edge, ElevenLabs, OpenAI)
-- ✅ STT integration (Groq, faster-whisper, OpenAI) — push-to-talk
-- ✅ Web UI for configuration
-- ✅ Steam Workshop distribution
-- ✅ Multi-language UI and speech support
-- ✅ Voice cloning for individual NPCs
-- ✅ NPC memory persistence (save/load)
-- ✅ NPC movement (walk animations)
-- ✅ Lip sync (facial animation layer)
-- ✅ Facial emotions per dialogue mood
-- ✅ 3D spatial audio (distance, panning, rear muffling)
-- ✅ Background NPC life (chatter, solo initiative, re-engage, beckon)
-- ✅ NPC interjections during player conversations
-- ✅ NPC internal thoughts
-- ✅ Vision (screenshots by trigger word)
-- ✅ Context compression for long conversations
-- ✅ Custom player name (roleplay beyond Henry)
-- ✅ Time-of-day and weather context
-- ❌ Native dialogue system integration
-- ❌ Engine-native 3D audio (FMOD programmer sound)
-- ❌ Phoneme-based lip sync (native track)
+- [x] Text chat with LLM
+- [x] TTS integration (Edge, ElevenLabs, OpenAI)
+- [x] STT integration (Groq, faster-whisper, OpenAI) — push-to-talk
+- [x] Web UI for configuration
+- [x] Steam Workshop distribution
+- [x] Multi-language UI and speech support
+- [x] Voice cloning for individual NPCs
+- [x] NPC memory persistence (save/load)
+- [x] NPC movement (walk animations)
+- [x] Lip sync (facial animation layer)
+- [x] Facial emotions per dialogue mood
+- [x] 3D spatial audio (distance, panning, rear muffling)
+- [x] Background NPC life (chatter, solo initiative, re-engage, beckon)
+- [x] NPC interjections during player conversations
+- [x] NPC internal thoughts
+- [x] Vision (screenshots by trigger word)
+- [x] Context compression for long conversations
+- [x] Custom player name (roleplay beyond Henry)
+- [x] Time-of-day and weather context
 
 ## Tech Stack
 
