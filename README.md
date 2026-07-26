@@ -230,7 +230,7 @@ Not required — the mod works on vanilla KCD2 without any DLLs or additional lo
 
 ## Roadmap
 
-- ✅ Text chat with LLM
+- [x] Text chat with LLM
 - [x] Text chat with LLM
 - [x] TTS integration (Edge, ElevenLabs, OpenAI)
 - [x] STT integration (Groq, faster-whisper, OpenAI) — push-to-talk
