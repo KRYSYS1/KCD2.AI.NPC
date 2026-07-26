@@ -44,9 +44,9 @@
   "input": {
     "chat_key": "v",
     "end_key": "",
-    "overlay_enabled": false,
+    "overlay_enabled": true,
     "overlay_style": "plain",
-    "tap_overlay_enabled": false,
+    "tap_overlay_enabled": true,
     "tap_mode": "direct_overlay"
   },
   "prompt_template": "You are {name}, {description}.\nYour name: {name}.\nYou live in {location} in the Kingdom of Bohemia, in the year 1403.\n\nYour personality: {personality}\nYour occupation: {occupation}\n\n# CORE ROLEPLAY RULES\n- Stay fully in character at all times. You are a real person in medieval Bohemia, not an AI.\n- Treat the world, Henry, your work, your fears, and your social standing as real.\n- Never mention AI, prompts, hidden systems, scripts, APIs, game mechanics, JSON, or internal logic.\n- Speak naturally as a {occupation} from this era would, without modern slang or theatrical exposition.\n- You have no knowledge of anything after the 15th century. If asked, react with confusion or suspicion.\n\n# LANGUAGE AND LENGTH\n- Follow the requested response language exactly.\n- Keep ordinary replies concise: 1-3 sentences.\n- Be longer only when the player clearly asks for a story, directions, explanation, or serious advice.\n\n# ACTION PRIORITY RULES\n- If the player's intent matches an available scene action, you MUST select that action through suggested_action.\n- Never pretend a physical action happened only through dialogue text.\n- Prefer action execution over narration whenever an action exists.\n- Speech is only what your NPC says aloud. Physical behavior belongs in suggested_action.\n- Never write physical roleplay actions in asterisks or brackets, such as *waves*, *bows*, [steps back], or [draws sword].\n\n# ACTION SELECTION LOGIC\n- Choose the most specific valid action for the player's request or the NPC's response.\n- Do not use generic actions when a more accurate one exists.\n- Use gesture_wave for waving, gesture_bow for bowing, sit_down for sitting, stand_up for standing.\n- Use turn_to_player, come_closer, step_back, draw_weapon, holster_weapon, dress_up, strip_outerwear, and clothing slot actions when they fit.\n- If the player asks for an impossible, dangerous, humiliating, or socially inappropriate action, refuse in character and choose none, step_back, warn, or draw_weapon as appropriate.\n\n# PHYSICAL WORLD RULES\n- Physical world changes require scene actions: movement, sitting, standing, gestures, clothing changes, weapons, intimidation, falling, or refusal behavior.\n- Never invent that an item was given, clothing changed, a weapon was drawn, or the NPC moved unless the matching action is selected.\n- If the NPC refuses a request, the speech should make the refusal clear and suggested_action should reflect the reaction if useful.\n\n# SOCIAL BEHAVIOR\n- React logically to Henry's tone, reputation, violence, theft, insults, rank, and your own personality.\n- Avoid robotic repetition and excessive exposition.\n- Do not become helpful, submissive, flirtatious, or aggressive unless it fits the NPC and situation.\n- You may reference local events, rumors, daily work, hardship, class, church, guards, market life, ale, mud, animals, and weather in {location}.\n\n{extra_context}\n{language_instruction}",
@@ -154,6 +154,28 @@
     "enable_play_flute_requests": true,
     "play_flute_terms": "сыграй на дудке, сыграй на флейте, сыграй мелодию, сыграй музыку, подуди, play the flute, play your flute, play a tune, play some music, spiel flöte, spiel eine melodie, joue de la flûte, joue un air, toca la flauta, toca una melodía, zagraj na flecie, zagraj melodię, zahraj na flétnu, zahraj melódiu, 吹笛子, 演奏一曲, フルートを吹いて, 笛を吹け",
     "enable_scarecrow_pose_requests": true,
-    "scarecrow_pose_terms": "будь как чучело, встань как пугало, изобрази пугало, стой как пугало, раскинь руки как пугало, встань крестом, раскинь руки крестом, замри крестом, stand like a scarecrow, act like a scarecrow, spread your arms like a scarecrow, scarecrow pose, stand like a wooden dummy, freeze like a mannequin, stand with your arms out, steh wie eine vogelscheuche, breite die arme aus, fais l'épouvantail, tiens-toi comme un épouvantail, haz de espantapájaros, ponte como un espantapájaros, stań jak strach na wróble, rozłóż ręce, stůj jako strašák, rozpaž ruce, 像稻草人一样站着, 张开双臂, かかしみたいに立て, 両腕を広げろ"
+    "scarecrow_pose_terms": "будь как чучело, встань как пугало, изобрази пугало, стой как пугало, раскинь руки как пугало, встань крестом, раскинь руки крестом, замри крестом, stand like a scarecrow, act like a scarecrow, spread your arms like a scarecrow, scarecrow pose, stand like a wooden dummy, freeze like a mannequin, stand with your arms out, steh wie eine vogelscheuche, breite die arme aus, fais l'épouvantail, tiens-toi comme un épouvantail, haz de espantapájaros, ponte como un espantapájaros, stań jak strach na wróble, rozłóż ręce, stůj jako strašák, rozpaž ruce, 像稻草人一样站着, 张开双臂, かかしみたいに立て, 両腕を広げろ",
+    "enable_inventory_access": true,
+    "enable_beckon_initiative": true,
+    "enable_lipsync": true,
+    "enable_spatial_audio": true,
+    "enable_npc_thoughts": true,
+    "enable_npc_interjections": true,
+    "spatial_falloff": 0,
+    "interject_intensity": 100,
+    "enable_npc_chatter": true,
+    "enable_npc_solo_initiative": true,
+    "ambient_intensity": 100,
+    "enable_vision_screenshots": true,
+    "vision_trigger_words": "посмотри,взгляни,глянь,смотри,look at,look here,see this",
+    "enable_npc_reengage": true,
+    "player_name": "Henry",
+    "player_description": ""
+  },
+  "llm_light": {
+    "enabled": false,
+    "api_url": "",
+    "api_key": "",
+    "model": ""
   }
 }

@@ -21,17 +21,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from server.config import HUDConfig, InputConfig, InteractionConfig, LLMConfig, STTConfig, TTSConfig, ServerConfig
+from server.config import HUDConfig, InputConfig, InteractionConfig, LightLLMConfig, LLMConfig, STTConfig, TTSConfig, ServerConfig
 from server.conversation import ConversationManager
 from server.llm_client import LLMClient
 from server.npc_context import (
     build_system_prompt,
+    get_character_db,
     normalize_game_extra_context,
     reload_character_db,
     resolve_npc_name,
+    set_player_name,
     set_prompt_template,
 )
-from server.tts_client import TTSClient, warmup as tts_warmup
+from server.tts_client import TTSClient, set_face_callback as tts_set_face_callback, set_position_provider as tts_set_position_provider, set_spatial_enabled as tts_set_spatial_enabled, set_spatial_falloff as tts_set_spatial_falloff, warmup as tts_warmup
+from server import initiative as npc_initiative
+from server import ambient as npc_ambient
 from server.stt_client import STTClient
 from server.input_overlay import InputOverlay
 from server.key_monitor import KeyMonitor
@@ -68,8 +72,95 @@ def load_config() -> ServerConfig:
 
 config = load_config()
 llm_client = LLMClient(config.llm)
+light_llm_client = None
+
+
+def _rebuild_light_llm(quiet: bool = False) -> None:
+    """(Пере)собрать вспомогательную LLM для фоновых вызовов."""
+    global light_llm_client
+    lc = getattr(config, "llm_light", None)
+    if lc is not None and getattr(lc, "enabled", False) and (getattr(lc, "model", "") or "").strip():
+        try:
+            light_llm_client = LLMClient(LLMConfig(
+                api_url=(lc.api_url or config.llm.api_url),
+                api_key=(lc.api_key or config.llm.api_key),
+                model=lc.model,
+                max_tokens=150,
+                temperature=0.9,
+            ))
+            if not quiet:
+                logger.info(f"Light LLM enabled: {lc.model} @ {lc.api_url or config.llm.api_url}")
+            return
+        except Exception as exc:
+            logger.warning(f"Light LLM init failed: {exc}")
+    light_llm_client = None
+
+
+def _light_llm():
+    """Клиент для фоновых вызовов: вспомогательная LLM или основная (fallback)."""
+    return light_llm_client or llm_client
+
+
+_rebuild_light_llm(quiet=True)
 tts_client = TTSClient(config.tts)
 stt_client = STTClient(config.stt)
+
+
+_last_scene_mood: dict = {}
+_latest_pos: dict = {}
+_world_state: dict = {}
+_overlay_shown_for: dict = {"id": None}
+
+
+def _template_style_hint() -> str:
+    """Стилевой блок (# STYLE) активного системного шаблона — чтобы фоновая
+    речь NPC (болтовня, оклики, встревания) звучала в том же тоне, что и чат."""
+    tpl = getattr(config, "prompt_template", "") or ""
+    m = re.search(r"#\s*STYLE\s*\n(.*?)(?:\n\s*\n|\n#|\Z)", tpl, re.S | re.I)
+    if not m:
+        return ""
+    hint = m.group(1).strip()
+    return hint[:600]
+
+
+def _world_context_line() -> str:
+    """Игровое время/погода для промптов (WORLD|-фид Lua, свежесть 10 мин)."""
+    if not _world_state or time.time() - float(_world_state.get("ts") or 0.0) > 600.0:
+        return ""
+    parts = []
+    h = int(_world_state.get("h", -1))
+    if h >= 0:
+        parts.append(f"In-game time: about {h}:00 ({'night' if _world_state.get('night') else 'daytime'})")
+    rain = float(_world_state.get("rain", -1))
+    if rain >= 0:
+        if rain < 0.05:
+            w = "dry weather"
+        elif rain < 0.35:
+            w = "light rain"
+        elif rain < 0.7:
+            w = "steady rain"
+        else:
+            w = "heavy downpour"
+        parts.append("weather: " + w)
+    return (". ".join(parts) + ".") if parts else ""
+
+
+def _face_talk_dispatch(npc_id, duration_ms):
+    # Lipsync-lite: Lua loops a talking facial anim (layer 12) for the reply
+    # duration; mood picks talk clip + emotion tail on the Lua side.
+    if not getattr(config.interaction, "enable_lipsync", True):
+        return
+    try:
+        mood = _last_scene_mood.get(str(npc_id or ""), "")
+        write_command_lua("__AI_NPC_FACETALK__|%s|%d|%s" % (str(npc_id or ""), int(duration_ms), mood))
+    except Exception as exc:
+        logger.warning(f"facetalk dispatch failed: {exc}")
+
+
+tts_set_face_callback(_face_talk_dispatch)
+tts_set_position_provider(lambda: dict(_latest_pos))
+tts_set_spatial_enabled(getattr(config.interaction, "enable_spatial_audio", True))
+tts_set_spatial_falloff(getattr(config.interaction, "spatial_falloff", 100))
 conversations = ConversationManager()
 input_overlay = InputOverlay(style=config.input.overlay_style)
 HOSTILE_EVENTS = {"Pickpocketing", "StealthKill", "Knockout", "Loot", "GrabCorpse", "MercyKill", "Hit"}
@@ -459,6 +550,58 @@ async def file_ipc_watcher() -> None:
                     logger.warning(f"[PTT] cancel failed: {exc}")
                 continue
 
+            if "[AI NPC] NEARBY|" in line:
+                try:
+                    raw_nb = line.split("[AI NPC] NEARBY|", 1)[1].strip()
+                    _nb_parsed = None
+                    try:
+                        _nb_parsed = json.loads(raw_nb)
+                        if isinstance(_nb_parsed, dict):
+                            _last_nearby.clear()
+                            _last_nearby.update(_nb_parsed)
+                            _last_nearby["ts"] = time.time()
+                    except Exception:
+                        pass
+                    asyncio.create_task(npc_initiative.on_nearby(raw_nb, _initiative_ctx()))
+                    if isinstance(_nb_parsed, dict):
+                        asyncio.create_task(npc_ambient.on_scan(_nb_parsed, _ambient_ctx()))
+                except Exception as exc:
+                    logger.warning(f"[initiative] nearby dispatch failed: {exc}")
+                continue
+            if "[AI NPC] BECKON_FORCE|" in line:
+                try:
+                    raw_bf = line.split("[AI NPC] BECKON_FORCE|", 1)[1].strip()
+                    asyncio.create_task(npc_initiative.on_force(raw_bf, _initiative_ctx()))
+                except Exception as exc:
+                    logger.warning(f"[initiative] force dispatch failed: {exc}")
+                continue
+
+            if "[AI NPC] WORLD|" in line:
+                try:
+                    _world_state.update(json.loads(line.split("[AI NPC] WORLD|", 1)[1].strip()))
+                    _world_state["ts"] = time.time()
+                except Exception:
+                    pass
+                continue
+
+            if "[AI NPC] POS|" in line:
+                # Real-time позиции во время реплики (панораму рулит tts_client).
+                try:
+                    raw_pos = line.split("[AI NPC] POS|", 1)[1].strip()
+                    d = json.loads(raw_pos)
+                    p = d.get("p") or []
+                    n = d.get("n") or []
+                    if len(p) >= 6 and len(n) >= 3:
+                        _latest_pos.update({
+                            "player_pos": {"x": p[0], "y": p[1], "z": p[2]},
+                            "player_fwd": {"x": p[3], "y": p[4], "z": p[5]},
+                            "npc_pos": {"x": n[0], "y": n[1], "z": n[2]},
+                            "ts": time.time(),
+                        })
+                except Exception:
+                    pass
+                continue
+
             active_marker = "[AI NPC] ACTIVE|"
             if active_marker in line:
                 try:
@@ -483,9 +626,16 @@ async def file_ipc_watcher() -> None:
                     logger.info(f"Log IPC: active NPC = {active_npc}")
                     if config.input.overlay_enabled:
                         if active_npc:
-                            input_overlay.show(active_npc.get("npc_name_resolved") or active_npc.get("npc_name") or "NPC")
+                            _ov_key = str(active_npc.get("npc_id") or "")
+                            # show() чистит поле ввода (_entry.delete) — НЕ дёргаем его
+                            # на повторных ACTIVE| того же NPC, иначе буквы игрока
+                            # стираются во время печати (Lua спамит ACTIVE| в чате).
+                            if _ov_key != _overlay_shown_for.get("id"):
+                                input_overlay.show(active_npc.get("npc_name_resolved") or active_npc.get("npc_name") or "NPC")
+                                _overlay_shown_for["id"] = _ov_key
                         else:
                             input_overlay.hide()
+                            _overlay_shown_for["id"] = None
                         # Note: key_monitor pause/resume is wired through the
                         # overlay visibility callback (see lifespan), not here,
                         # so Enter/Escape hides re-enable V detection even when
@@ -748,7 +898,7 @@ def format_recent_player_actions(
     parts: list[str] = []
     if against_you:
         parts.append(
-            "IMPORTANT — Henry just committed these acts AGAINST YOU "
+            f"IMPORTANT — {_player_name()} just committed these acts AGAINST YOU "
             "(you witnessed them and you remember; do NOT pretend they did not happen):\n"
             + "\n".join(against_you)
             + "\nYou MUST acknowledge this in your response — be angry, frightened, "
@@ -757,7 +907,7 @@ def format_recent_player_actions(
         )
     if other:
         parts.append(
-            "Henry's other recent actions nearby (for context, not necessarily against you):\n"
+            f"{_player_name()}'s other recent actions nearby (for context, not necessarily against you):\n"
             + "\n".join(other)
         )
     return "\n\n".join(parts)
@@ -769,6 +919,11 @@ def _merge_action_context(req: "ChatRequest") -> str:
     if not config.interaction.enable_inventory_access:
         base = re.sub(r"\n?NPC inventory items: [^\n]*", "", base)
         req.npc_inventory = None
+    world = _world_context_line()
+    if world:
+        if base and not base.endswith("\n"):
+            base += "\n"
+        base += world
     addendum = format_recent_player_actions(
         req.recent_player_actions, current_npc_name=req.npc_name
     )
@@ -840,6 +995,39 @@ def _save_relationships(data: dict) -> None:
         logger.warning(f"[relationships] failed to save: {exc}")
 
 
+def _player_name() -> str:
+    """Имя игрока для промптов (ролеплей не обязательно за Генри)."""
+    return (getattr(config.interaction, "player_name", "") or "").strip() or "Henry"
+
+
+def _scene_layer() -> str:
+    """SCENE_LAYER_PROMPT с подставленным именем игрока."""
+    pname = _player_name()
+    return SCENE_LAYER_PROMPT if pname == "Henry" else SCENE_LAYER_PROMPT.replace("Henry", pname)
+
+
+async def _vision_screenshot_for(player_text: str) -> str | None:
+    """Зрение ИИ: скриншот игры, если включено и в сообщении есть кодовое слово."""
+    try:
+        if not getattr(config.interaction, "enable_vision_screenshots", False):
+            return None
+        raw_words = str(getattr(config.interaction, "vision_trigger_words", "") or "")
+        words = [w.strip().lower() for w in raw_words.split(",") if w.strip()]
+        low = (player_text or "").lower()
+        if not words or not any(w in low for w in words):
+            return None
+        from server import vision
+        img = await vision.capture_b64()
+        if img:
+            logger.info(f"[vision] screenshot attached (~{len(img) // 1024} KB base64)")
+        else:
+            logger.info("[vision] trigger word matched but capture failed/unavailable")
+        return img
+    except Exception as exc:
+        logger.warning(f"[vision] failed: {exc}")
+        return None
+
+
 def _relationship_context(req: "ChatRequest") -> str:
     data = _load_relationships()
     key = _relationship_key(req.npc_id, req.npc_name)
@@ -850,21 +1038,29 @@ def _relationship_context(req: "ChatRequest") -> str:
     fear = int(rel.get("fear", 0))
     annoyance = int(rel.get("annoyance", 0))
     familiarity = int(rel.get("familiarity", 0))
+    pname = _player_name()
     guidance: list[str] = []
     if annoyance >= 8:
-        guidance.append("This NPC is deeply annoyed with Henry: be terse, hostile, and likely to warn or refuse unless Henry de-escalates.")
+        guidance.append(f"This NPC is deeply annoyed with {pname}: be terse, hostile, and likely to warn or refuse unless {pname} de-escalates.")
     elif annoyance >= 4:
-        guidance.append("This NPC is annoyed with Henry: be guarded, impatient, and do not become friendly too quickly.")
+        guidance.append(f"This NPC is annoyed with {pname}: be guarded, impatient, and do not become friendly too quickly.")
     if fear >= 8:
-        guidance.append("This NPC is afraid of Henry: keep distance verbally, avoid risky cooperation, and consider calling for help or ending the talk.")
+        guidance.append(f"This NPC is afraid of {pname}: keep distance verbally, avoid risky cooperation, and consider calling for help or ending the talk.")
     elif fear >= 4:
         guidance.append("This NPC is wary or intimidated: be cautious and suspicious.")
     if trust >= 5 and annoyance < 4:
-        guidance.append("This NPC has some trust in Henry: they may be warmer or more helpful, but still stay in character.")
+        guidance.append(f"This NPC has some trust in {pname}: they may be warmer or more helpful, but still stay in character.")
     if familiarity >= 5:
-        guidance.append("This NPC recognizes Henry from previous interactions; they may refer to that familiarity naturally, without quoting numbers.")
+        guidance.append(f"This NPC recognizes {pname} from previous interactions; they may refer to that familiarity naturally, without quoting numbers.")
     if not guidance:
         guidance.append("Use this subtly. Do not mention these numbers.")
+    thoughts = rel.get("recent_thoughts")
+    thoughts_block = ""
+    if isinstance(thoughts, list) and thoughts:
+        thoughts_block = (
+            "\nYour recent private thoughts (no one heard them; they color your attitude, do not quote them verbatim):\n"
+            + "\n".join(f"- {t}" for t in thoughts[-4:])
+        )
     return (
         "Relationship memory for this NPC:\n"
         f"- trust: {trust}\n"
@@ -873,7 +1069,216 @@ def _relationship_context(req: "ChatRequest") -> str:
         f"- familiarity: {familiarity}\n"
         "Behavior guidance:\n"
         + "\n".join(f"- {line}" for line in guidance)
+        + thoughts_block
     )
+
+
+# --- NPC internal thoughts (SkyrimNet style) -------------------------------
+THOUGHTS_MAX_KEEP = 4
+
+
+async def _generate_npc_thought(req, scene, speech_text) -> None:
+    """После обмена репликами генерируем ЛИЧНУЮ мысль NPC (игрок её не слышит).
+
+    Мысль сохраняется в npc_relationships.json (recent_thoughts, кап 4) и
+    подмешивается в системный промпт следующих ответов через
+    _relationship_context — NPC приходит в диалог с "прогретым" отношением.
+    """
+    if not getattr(config.interaction, "enable_npc_thoughts", True):
+        return
+    try:
+        rel = _get_relationship(req)
+        mood = str(scene.get("mood") or "neutral")
+        sys_prompt = (
+            f"You are {req.npc_name or 'a villager'}, a real person in the Kingdom of Bohemia, 1403.\n"
+            "Write ONE private internal thought this character has right after the exchange below.\n"
+            "Rules:\n"
+            "- 1-2 sentences, 8-30 words. The character's own voice, vocabulary and register - NOT a narrator describing them.\n"
+            "- Silent and unvoiced: no quoted speech, no addressing anyone, no actions in asterisks.\n"
+            "- React to what the player said or did; let your mood and relationship color it.\n"
+            "- No recaps, no 'let me think' openings - the thought picks up mid-stride.\n"
+            f"- Current mood: {mood}. Trust: {int(rel.get('trust', 0))}, fear: {int(rel.get('fear', 0))}, annoyance: {int(rel.get('annoyance', 0))}.\n"
+            f"- Write the thought in this language: {config.language or 'ru'}.\n"
+            "Respond with the thought text only."
+        )
+        if _world_context_line():
+            sys_prompt += "\n- " + _world_context_line()
+        user_msg = (
+            f"Player said: {req.player_message}\n"
+            f"You answered aloud: {speech_text}"
+        )
+        thought = await _light_llm().generate(
+            system_prompt=sys_prompt,
+            messages=[{"role": "user", "content": user_msg}],
+        )
+        thought = (thought or "").strip().strip('"').strip()
+        if not thought or len(thought) > 400:
+            return
+        data = _load_relationships()
+        key = _relationship_key(req.npc_id, req.npc_name)
+        rel_row = data.get(key)
+        if not isinstance(rel_row, dict):
+            rel_row = {"npc_id": req.npc_id, "npc_name": req.npc_name}
+            data[key] = rel_row
+        thoughts = rel_row.get("recent_thoughts")
+        if not isinstance(thoughts, list):
+            thoughts = []
+        thoughts.append(thought)
+        rel_row["recent_thoughts"] = thoughts[-THOUGHTS_MAX_KEEP:]
+        _save_relationships(data)
+        logger.info(f"[thoughts] {req.npc_name}: {thought}")
+    except Exception as exc:
+        logger.warning(f"[thoughts] generation failed: {exc}")
+
+
+# --- Сжатие истории разговора (context compression) -------------------------
+async def _compress_conversation(npc_id: str, conv, force: bool = False) -> None:
+    """Фоново сжать старые реплики диалога в короткую выжимку (лёгкая LLM).
+
+    Триггер: > COMPRESS_THRESHOLD сообщений. Старые (кроме последних KEEP_TAIL)
+    сливаются с прежней выжимкой в 3-5 предложений; get_messages() подмешивает
+    её первым system-сообщением. Экономит токены на длинных разговорах.
+    """
+    try:
+        if conv is None:
+            return
+        if not force and not conv.needs_compression():
+            return
+        if getattr(conv, "_compressing", False):
+            return
+        conv._compressing = True
+        try:
+            keep = 2 if force else conv.KEEP_TAIL
+            head = conv.messages[:-keep] if len(conv.messages) > keep else []
+            if not head:
+                return
+            lines = "\n".join(
+                f"{'Player' if m.get('role') == 'user' else conv.npc_name}: {m.get('content', '')}"
+                for m in head
+            )
+            sys_p = (
+                f"You maintain a compressed memory of a dialogue between the player ({_player_name()}) "
+                "and an NPC in medieval Bohemia (year 1403).\n"
+                "Merge the previous summary (if any) with the new dialogue lines into ONE "
+                "concise summary: 3-5 sentences. Keep only what matters going forward: "
+                f"facts learned, promises, requests, quarrels, the NPC's attitude to {_player_name()}.\n"
+                f"Write the summary in this language: {config.language or 'ru'}.\n"
+                "Respond with the summary text only."
+            )
+            user_msg = f"Previous summary: {conv.summary or '(none)'}\n\nNew dialogue lines:\n{lines}"
+            summary = await _light_llm().generate(
+                system_prompt=sys_p,
+                messages=[{"role": "user", "content": user_msg}],
+            )
+            summary = (summary or "").strip()
+            if not summary or len(summary) > 1500:
+                return
+            conv.messages = conv.messages[-keep:]
+            conv.summary = summary
+            conversations.save(npc_id)
+            logger.info(f"[compress] {conv.npc_name}: history -> {len(summary)} chars summary, tail {len(conv.messages)} msgs")
+        finally:
+            conv._compressing = False
+    except Exception as exc:
+        logger.warning(f"[compress] failed: {exc}")
+
+
+# --- Bystander interjections (SkyrimNet-style speaker selector) -------------
+_last_nearby: dict = {}
+_interject_state: dict = {"last_global": 0.0, "per_npc": {}}
+INTERJECT_CHANCE = 0.40
+INTERJECT_GLOBAL_CD = 75.0
+INTERJECT_PER_NPC_CD = 240.0
+INTERJECT_MAX_DIST = 8.0
+INTERJECT_NEARBY_MAX_AGE = 600.0
+
+
+async def _maybe_interject(req, scene, speech_text) -> None:
+    """Сосед-прохожий изредка встревает в разговор игрока с NPC.
+
+    Данные о соседях — из последнего NEARBY|-скана Lua. LLM сам решает,
+    есть ли повод (может ответить SILENCE). Реплика озвучивается
+    спатиализованно с позиции соседа; липсинк подхватывается через FACETALK.
+    """
+    if not getattr(config.interaction, "enable_npc_interjections", True):
+        return
+    try:
+        now = time.time()
+        # Интенсивность (слайдер 0-100, дефолт 50): масштабирует шанс и кулдауны.
+        _iv = max(0, min(100, int(getattr(config.interaction, "interject_intensity", 50))))
+        _chance = 0.10 + 0.006 * _iv          # 50 -> 0.40, 100 -> 0.70
+        _global_cd = max(20.0, 150.0 - 1.5 * _iv)   # 50 -> 75 c
+        _per_cd = max(60.0, 480.0 - 4.8 * _iv)      # 50 -> 240 c
+        if now - float(_interject_state.get("last_global") or 0.0) < _global_cd:
+            return
+        if random.random() > _chance:
+            return
+        if not _last_nearby or now - float(_last_nearby.get("ts") or 0.0) > 30.0:
+            # Скан по требованию: просим Lua обновить соседей и ждём watcher.
+            try:
+                write_command_lua("__AI_NPC_NEARBY_SCAN__")
+            except Exception:
+                pass
+            await asyncio.sleep(2.5)
+        if not _last_nearby or time.time() - float(_last_nearby.get("ts") or 0.0) > INTERJECT_NEARBY_MAX_AGE:
+            return
+        neighbors = _last_nearby.get("n") or []
+        p = _last_nearby.get("p") or []
+        if len(p) < 6:
+            return
+        cur_id = str(req.npc_id or "")
+        candidate = None
+        for nb in neighbors:  # скан отсортирован по дистанции
+            nb_id = str(nb.get("i") or "")
+            if not nb_id or nb_id == cur_id:
+                continue
+            if float(nb.get("d") or 99.0) > INTERJECT_MAX_DIST:
+                continue
+            per = _interject_state["per_npc"].get(nb_id) or 0.0
+            if now - per < _per_cd:
+                continue
+            candidate = nb
+            break
+        if not candidate:
+            return
+        # Дать основной реплике зазвучать первой.
+        await asyncio.sleep(random.uniform(2.5, 4.5))
+        gender = int(candidate.get("g") or 0)
+        who = "a woman" if gender == 2 else "a man"
+        sys_prompt = (
+            f"You are a random bystander in {req.npc_location or 'a Bohemian village'}, Kingdom of Bohemia, 1403 - "
+            f"{who}, a commoner who just overheard a conversation a few steps away.\n"
+            "If (and only if) the exchange gives a real reason to react, write ONE short line they call out: "
+            "teasing, grumbling, gossiping, agreeing or scoffing. Max 12 words.\n"
+            "- Medieval commoner register, plain and grounded. No modern words.\n"
+            "- Speech only: no narrator, no asterisks, no quotes around the line.\n"
+            f"- Language: {config.language or 'ru'}.\n"
+            "If there is nothing worth reacting to, respond with exactly: SILENCE"
+        )
+        _style = _template_style_hint()
+        if _style:
+            sys_prompt += "\nSpeech style of locals in this world (match it):\n" + _style
+        user_msg = (
+            f"Overheard exchange:\n"
+            f"Traveler: {req.player_message}\n"
+            f"Local: {speech_text}"
+        )
+        line = await _light_llm().generate(system_prompt=sys_prompt, messages=[{"role": "user", "content": user_msg}])
+        line = (line or "").strip().strip('"').strip()
+        if not line or "SILENCE" in line.upper() or len(line) > 200:
+            return
+        _interject_state["last_global"] = now
+        _interject_state["per_npc"][str(candidate.get("i"))] = now
+        npc_pos = {"x": candidate.get("x") or 0, "y": candidate.get("y") or 0, "z": candidate.get("z") or 0}
+        player_pos = {"x": p[0], "y": p[1], "z": p[2]}
+        player_fwd = {"x": p[3], "y": p[4], "z": p[5]}
+        logger.info(f"[interject] {candidate.get('i')} d={candidate.get('d')}: {line}")
+        await tts_client.speak(
+            line, gender, str(candidate.get("i")), "bystander", "bystander",
+            npc_pos, player_pos, player_fwd,
+        )
+    except Exception as exc:
+        logger.warning(f"[interject] failed: {exc}")
 
 
 def _get_relationship(req: "ChatRequest") -> dict:
@@ -1038,6 +1443,12 @@ def _update_relationship_memory(req: "ChatRequest", scene: dict[str, str]) -> No
         f"[relationships] {req.npc_name}: trust={rel['trust']} fear={rel['fear']} "
         f"annoyance={rel['annoyance']} familiarity={rel['familiarity']}"
     )
+    # Ре-энгейдж: отмечаем факт обмена репликами (ambient.on_scan окликнет
+    # игрока этим NPC, если тот замолчит на 3+ минуты рядом).
+    try:
+        npc_ambient.note_conversation(req.npc_id)
+    except Exception:
+        pass
 
 
 def _parse_scene_response(raw_text: str) -> dict[str, str]:
@@ -1502,7 +1913,7 @@ async def _process_chat_request(req: "ChatRequest", source: str = "log") -> str 
     if apology_attempt:
         _apply_apology_context(req, cooldown_item)
         apology_context = (
-            "Henry is trying to apologize after annoying or frightening this NPC.\n"
+            f"{_player_name()} is trying to apologize after annoying or frightening this NPC.\n"
             "The NPC may soften slightly, but should remain cautious and should not become friendly immediately.\n"
             "If the apology is weak or manipulative, the NPC may still refuse."
         )
@@ -1531,11 +1942,13 @@ async def _process_chat_request(req: "ChatRequest", source: str = "log") -> str 
     )
     conv = conversations.get_or_create(req.npc_id, resolved_name, system_prompt)
     conv.add_user_message(req.player_message)
+    vision_img = await _vision_screenshot_for(req.player_message)
     t_llm = time.perf_counter()
     try:
         response_text = await llm_client.generate(
-            system_prompt=conv.system_prompt + SCENE_LAYER_PROMPT,
+            system_prompt=conv.system_prompt + _scene_layer(),
             messages=conv.get_messages(),
+            image_b64=vision_img,
         )
     except Exception as e:
         logger.error(f"[{source}] LLM generate failed: {e}")
@@ -1564,9 +1977,13 @@ async def _process_chat_request(req: "ChatRequest", source: str = "log") -> str 
         f"action={scene['suggested_action']}"
     )
     logger.info(f"[{resolved_name}] LLM gen in {llm_ms:.0f} ms, chars={len(speech_text)} (source={source})")
+    _last_scene_mood[str(req.npc_id)] = str(scene.get("mood") or "")
     if config.tts.enabled:
         asyncio.create_task(tts_client.speak(speech_text, req.npc_gender, req.npc_id, req.npc_name, resolved_name, req.npc_pos, req.player_pos, req.player_fwd))
     write_response_lua(resolved_name, speech_text, req.request_id, scene)
+    asyncio.create_task(_generate_npc_thought(req, scene, speech_text))
+    asyncio.create_task(_maybe_interject(req, scene, speech_text))
+    asyncio.create_task(_compress_conversation(req.npc_id, conv))
     return speech_text
 
 
@@ -1577,6 +1994,8 @@ async def lifespan(app: FastAPI):
     logger.info(f"Bin dir: {BIN_DIR or 'N/A'}")
     logger.info(f"kcd.log path: {KCD_LOG_PATH or 'N/A'}")
     logger.info(f"LLM: {config.llm.model} @ {config.llm.api_url}")
+    if light_llm_client is not None:
+        logger.info(f"Light LLM: {config.llm_light.model} @ {config.llm_light.api_url or config.llm.api_url}")
     logger.info(f"Language: {config.language}")
     if config.tts.engine == "edge":
         tts_voice_info = f"male={config.tts.voice}, female={config.tts.voice_female}"
@@ -1596,6 +2015,7 @@ async def lifespan(app: FastAPI):
     reload_character_db()
     if config.prompt_template:
         set_prompt_template(config.prompt_template)
+    set_player_name(getattr(config.interaction, "player_name", "Henry"), getattr(config.interaction, "player_description", ""))
     if config.tts.enabled:
         try:
             tts_warmup()
@@ -1653,6 +2073,7 @@ async def lifespan(app: FastAPI):
             logger.exception("Failed to queue __AI_NPC_KEYMON_ONLINE__")
 
     watcher_task = asyncio.create_task(file_ipc_watcher())
+    asyncio.create_task(ambient_scan_pump())
     yield
     watcher_task.cancel()
     try:
@@ -1662,7 +2083,7 @@ async def lifespan(app: FastAPI):
     logger.info("Server shutting down.")
 
 
-app = FastAPI(title="KCD2 AI NPC", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="KCD2 AI NPC", version="1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -1872,6 +2293,61 @@ def _force_unbind_chat_key_in_game() -> None:
         )
     except Exception:
         logger.exception("Failed to queue __AI_NPC_FORCE_UNBIND_V__")
+
+
+async def ambient_scan_pump() -> None:
+    """Интервал фоновой жизни привязан к интенсивности: при высокой — сервер
+    сам запрашивает NEARBY-сканы чаще, чем штатный Lua-цикл (25 c).
+    Интервал: 0 -> 40 c, 50 -> 25 c, 100 -> 10 c."""
+    while True:
+        try:
+            v = max(0, min(100, int(getattr(config.interaction, "ambient_intensity", 50))))
+            interval = max(8.0, 40.0 - 0.3 * v)
+            await asyncio.sleep(interval)
+            if v <= 30:
+                continue  # на низкой интенсивности хватает штатного Lua-цикла (25 c)
+            if not (getattr(config.interaction, "enable_npc_chatter", True)
+                    or getattr(config.interaction, "enable_npc_solo_initiative", True)):
+                continue
+            if active_npc is not None:
+                continue  # идёт разговор игрока — не дёргаем
+            if _last_nearby and time.time() - float(_last_nearby.get("ts") or 0.0) < interval * 0.5:
+                continue  # свежий скан уже есть
+            write_command_lua("__AI_NPC_NEARBY_SCAN__")
+        except asyncio.CancelledError:
+            return
+        except Exception:
+            pass
+
+
+def _ambient_ctx() -> dict:
+    """Зависимости для npc_ambient (болтовня NPC-NPC и соло-инициатива)."""
+    return {
+        "tts": tts_client,
+        "llm": _light_llm(),
+        "language": getattr(config, "language", "en"),
+        "chatter_enabled": getattr(config.interaction, "enable_npc_chatter", True),
+        "solo_enabled": getattr(config.interaction, "enable_npc_solo_initiative", True),
+        "reengage_enabled": getattr(config.interaction, "enable_npc_reengage", True),
+        "player_name": _player_name(),
+        "player_desc": (getattr(config.interaction, "player_description", "") or "").strip(),
+        "intensity": getattr(config.interaction, "ambient_intensity", 50),
+        "world": _world_context_line(),
+        "style": _template_style_hint(),
+        "chat_active": active_npc is not None,
+        "chat_active_fn": lambda: active_npc is not None,
+    }
+
+
+def _initiative_ctx() -> dict:
+    """Зависимости для npc_initiative (beckon-инициатива знакомых NPC)."""
+    return {
+        "write_command": write_command_lua,
+        "tts": tts_client,
+        "llm": _light_llm(),
+        "language": getattr(config, "language", "en"),
+        "enabled": getattr(config.interaction, "enable_beckon_initiative", True),
+    }
 
 
 def write_command_lua(message: str) -> int:
@@ -2140,9 +2616,17 @@ class STTUpdateRequest(BaseModel):
     hold_threshold_ms: int | None = None
 
 
+class LightLLMUpdateRequest(BaseModel):
+    enabled: bool | None = None
+    api_url: str | None = None
+    api_key: str | None = None
+    model: str | None = None
+
+
 class ConfigUpdateRequest(BaseModel):
     language: str | None = None
     llm: LLMUpdateRequest | None = None
+    llm_light: LightLLMUpdateRequest | None = None
     tts: TTSUpdateRequest | None = None
     stt: STTUpdateRequest | None = None
     input: InputUpdateRequest | None = None
@@ -2155,7 +2639,7 @@ class ConfigUpdateRequest(BaseModel):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "0.1.0", "model": config.llm.model}
+    return {"status": "ok", "version": "1.0", "model": config.llm.model}
 
 
 @app.post("/tap")
@@ -2206,10 +2690,12 @@ async def chat(req: ChatRequest):
     conv = conversations.get_or_create(req.npc_id, resolved_name, system_prompt)
     conv.add_user_message(req.player_message)
 
+    vision_img = await _vision_screenshot_for(req.player_message)
     try:
         response_text = await llm_client.generate(
-            system_prompt=conv.system_prompt + SCENE_LAYER_PROMPT,
+            system_prompt=conv.system_prompt + _scene_layer(),
             messages=conv.get_messages(),
+            image_b64=vision_img,
         )
     except Exception as e:
         logger.error(f"LLM generate failed: {e}")
@@ -2228,10 +2714,14 @@ async def chat(req: ChatRequest):
         f"action={scene['suggested_action']}"
     )
 
+    _last_scene_mood[str(req.npc_id)] = str(scene.get("mood") or "")
     if config.tts.enabled:
         asyncio.create_task(tts_client.speak(speech_text, req.npc_gender, req.npc_id, req.npc_name, resolved_name, req.npc_pos, req.player_pos, req.player_fwd))
 
     write_response_lua(resolved_name, speech_text, req.request_id, scene)
+    asyncio.create_task(_generate_npc_thought(req, scene, speech_text))
+    asyncio.create_task(_maybe_interject(req, scene, speech_text))
+    asyncio.create_task(_compress_conversation(req.npc_id, conv))
 
     return ChatResponse(
         npc_name=resolved_name,
@@ -2286,10 +2776,12 @@ async def overlay_send(req: WebChatRequest):
     )
     conv = conversations.get_or_create(npc_id, resolved_name, system_prompt)
     conv.add_user_message(message)
+    vision_img = await _vision_screenshot_for(message)
     try:
         response_text = await llm_client.generate(
-            system_prompt=conv.system_prompt + SCENE_LAYER_PROMPT,
+            system_prompt=conv.system_prompt + _scene_layer(),
             messages=conv.get_messages(),
+            image_b64=vision_img,
         )
     except Exception as e:
         logger.error(f"overlay_send LLM failed: {e}")
@@ -2322,6 +2814,233 @@ async def game_chat_send(req: WebChatRequest):
     return {"status": "queued", "command_id": command_id, "active_npc": active_npc}
 
 
+def _character_override_names() -> tuple[set, set]:
+    """(имена в overrides.json, имена в базовых файлах) — в нижнем регистре."""
+    chars_dir = Path(__file__).parent / "characters"
+    def _names(path: Path) -> set:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, list):
+                return {str(c.get("name") or "").lower() for c in data if isinstance(c, dict)}
+        except Exception:
+            pass
+        return set()
+    override = _names(chars_dir / "overrides.json")
+    base = set()
+    for f in chars_dir.glob("*.json"):
+        if f.name != "overrides.json":
+            base |= _names(f)
+    return override, base
+
+
+@app.get("/characters")
+async def list_characters():
+    """Ключевые NPC (kcd2_npcs.json + overrides.json, слитые загрузчиком)."""
+    db = get_character_db()
+    override, base = _character_override_names()
+    chars = []
+    for c in db.values():
+        if not (isinstance(c, dict) and c.get("name")):
+            continue
+        c = dict(c)
+        low = str(c["name"]).lower()
+        c["has_override"] = low in override
+        c["is_custom"] = low in override and low not in base
+        chars.append(c)
+    chars.sort(key=lambda c: str(c.get("name")))
+    return {"characters": chars}
+
+
+class CharacterDeleteRequest(BaseModel):
+    name: str
+
+
+@app.post("/characters/delete")
+async def delete_character(req: CharacterDeleteRequest):
+    """Убрать запись из overrides.json: кастомный NPC удаляется, у дефолтного
+    откатываются правки (kcd2_npcs.json не трогаем)."""
+    overrides_path = Path(__file__).parent / "characters" / "overrides.json"
+    chars: list = []
+    if overrides_path.exists():
+        try:
+            loaded = json.loads(overrides_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, list):
+                chars = loaded
+        except Exception:
+            chars = []
+    before = len(chars)
+    chars = [c for c in chars if str(c.get("name") or "").lower() != req.name.lower()]
+    overrides_path.write_text(json.dumps(chars, ensure_ascii=False, indent=1), encoding="utf-8")
+    reload_character_db()
+    logger.info(f"[characters] override removed: {req.name} ({before - len(chars)})")
+    return {"ok": True, "removed": before - len(chars)}
+
+
+class CharacterUpdateRequest(BaseModel):
+    name: str
+    description: str | None = None
+    location: str | None = None
+    personality: str | None = None
+    occupation: str | None = None
+    extra_context: str | None = None
+
+
+@app.post("/characters/update")
+async def update_character(req: CharacterUpdateRequest):
+    """Правка ключевого NPC. Дефолтный kcd2_npcs.json не трогаем: изменения
+    пишутся в characters/overrides.json (загрузчик читает все *.json по
+    алфавиту, 'o' > 'k' — override перекрывает дефолт)."""
+    db = get_character_db()
+    base = dict(db.get(req.name.lower()) or {})
+    if not base:
+        base = {"name": req.name}  # новый NPC, создаётся кнопкой «+ Добавить NPC»
+    base.update(req.model_dump(exclude_none=True))
+    overrides_path = Path(__file__).parent / "characters" / "overrides.json"
+    chars: list = []
+    if overrides_path.exists():
+        try:
+            loaded = json.loads(overrides_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, list):
+                chars = loaded
+        except Exception:
+            chars = []
+    chars = [c for c in chars if str(c.get("name") or "").lower() != req.name.lower()]
+    chars.append(base)
+    overrides_path.write_text(json.dumps(chars, ensure_ascii=False, indent=1), encoding="utf-8")
+    reload_character_db()
+    logger.info(f"[characters] override saved: {req.name}")
+    return {"ok": True, "character": base}
+
+
+@app.get("/conversations")
+async def list_conversations():
+    """Сохранённые разговоры: имя, число реплик, сжатая выжимка."""
+    rows = {}
+    # с диска
+    try:
+        for path in Path("memory/conversations").glob("*.json"):
+            try:
+                d = json.loads(path.read_text(encoding="utf-8"))
+                nid = str(d.get("npc_id") or path.stem)
+                rows[nid] = {
+                    "npc_id": nid,
+                    "npc_name": d.get("npc_name") or nid,
+                    "messages": len(d.get("messages") or []),
+                    "summary": str(d.get("summary") or ""),
+                    "last_active": float(d.get("last_active") or 0),
+                }
+            except Exception:
+                continue
+    except Exception:
+        pass
+    # поверх — живые (в памяти)
+    try:
+        for nid, conv in getattr(conversations, "_conversations", {}).items():
+            rows[str(nid)] = {
+                "npc_id": str(nid),
+                "npc_name": conv.npc_name,
+                "messages": len(conv.messages),
+                "summary": conv.summary,
+                "last_active": conv.last_active,
+            }
+    except Exception:
+        pass
+    out = sorted(rows.values(), key=lambda r: -float(r.get("last_active") or 0))
+    return {"conversations": out}
+
+
+class ConversationCompressRequest(BaseModel):
+    npc_id: str
+
+
+@app.post("/conversations/compress")
+async def compress_conversation_now(req: ConversationCompressRequest):
+    """Принудительно сжать разговор, не дожидаясь порога (~14 реплик)."""
+    conv = getattr(conversations, "_conversations", {}).get(req.npc_id)
+    if conv is None:
+        path = conversations._path_for(req.npc_id)
+        if not path.exists():
+            raise HTTPException(status_code=404, detail=f"Conversation not found: {req.npc_id}")
+        try:
+            d = json.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc))
+        conv = conversations.get_or_create(req.npc_id, d.get("npc_name") or req.npc_id, "")
+    if len(conv.messages) <= 2:
+        raise HTTPException(status_code=400, detail="Nothing to compress (2 or fewer messages)")
+    await _compress_conversation(req.npc_id, conv, force=True)
+    return {"ok": True, "summary": conv.summary, "messages": len(conv.messages)}
+
+
+class ConversationForgetRequest(BaseModel):
+    npc_id: str
+
+
+@app.post("/conversations/forget")
+async def forget_conversation(req: ConversationForgetRequest):
+    """Забыть одного NPC: разговор (память+диск), отношения, мысли, кулдауны."""
+    removed = []
+    # разговор
+    if req.npc_id in getattr(conversations, "_conversations", {}):
+        conversations._conversations.pop(req.npc_id, None)
+        removed.append("conversation(mem)")
+    try:
+        path = conversations._path_for(req.npc_id)
+        if path.exists():
+            path.unlink()
+            removed.append("conversation(file)")
+    except Exception as exc:
+        logger.warning(f"[forget] conversation file: {exc}")
+    # отношения + мысли (общий ключ)
+    try:
+        data = _load_relationships()
+        key = _relationship_key(req.npc_id, "")
+        if key in data:
+            data.pop(key, None)
+            _save_relationships(data)
+            removed.append("relationship")
+    except Exception as exc:
+        logger.warning(f"[forget] relationships: {exc}")
+    # кулдауны по этому NPC
+    _interject_state["per_npc"].pop(req.npc_id, None)
+    _last_scene_mood.pop(str(req.npc_id), None)
+    _scene_cooldowns.pop(_relationship_key(req.npc_id, ""), None)
+    logger.info(f"[forget] {req.npc_id}: {', '.join(removed) or 'nothing found'}")
+    return {"ok": True, "removed": removed}
+
+
+class ConversationSummaryUpdate(BaseModel):
+    npc_id: str
+    summary: str
+
+
+@app.post("/conversations/summary")
+async def update_conversation_summary(req: ConversationSummaryUpdate):
+    """Ручная правка сжатой выжимки разговора (память NPC)."""
+    new_summary = (req.summary or "").strip()
+    updated = False
+    conv = getattr(conversations, "_conversations", {}).get(req.npc_id)
+    if conv is not None:
+        conv.summary = new_summary
+        conversations.save(req.npc_id)
+        updated = True
+    else:
+        # только на диске
+        try:
+            path = conversations._path_for(req.npc_id)
+            if path.exists():
+                d = json.loads(path.read_text(encoding="utf-8"))
+                d["summary"] = new_summary
+                path.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+                updated = True
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc))
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Conversation not found: {req.npc_id}")
+    logger.info(f"[conversations] summary edited for {req.npc_id} ({len(new_summary)} chars)")
+    return {"ok": True}
+
+
 @app.post("/reload_characters")
 async def reload_characters():
     db = reload_character_db()
@@ -2333,6 +3052,15 @@ async def clear_history():
     """Wipe all NPC conversation memory (in-RAM + on-disk JSON files)."""
     deleted = conversations.clear_all()
     _scene_cooldowns.clear()
+    _interject_state["last_global"] = 0.0
+    _interject_state["per_npc"].clear()
+    _last_scene_mood.clear()
+    # Кулдауны beckon-инициативы — тоже с чистого листа
+    try:
+        if npc_initiative.STATE_PATH.exists():
+            npc_initiative.STATE_PATH.unlink()
+    except Exception as exc:
+        logger.warning(f"[clear_history] failed to reset initiative state: {exc}")
     relationships_deleted = 0
     try:
         if RELATIONSHIPS_PATH.exists():
@@ -2455,6 +3183,34 @@ async def test_tts():
         raise HTTPException(status_code=502, detail=str(e))
 
 
+@app.get("/tts/test_spatial")
+async def test_tts_spatial():
+    """Проиграть тест-фразу из 4 точек, чтобы услышать 3D-модель:
+    спереди-вблизи, далеко-слева, далеко-справа, за спиной."""
+    try:
+        phrase = TTSClient._TEST_PHRASES.get(config.language, TTSClient._TEST_PHRASES["en"])
+        player_pos = {"x": 0.0, "y": 0.0, "z": 0.0}
+        player_fwd = {"x": 0.0, "y": 1.0, "z": 0.0}
+        spots = [
+            ("front_near", {"x": 0.0, "y": 2.0, "z": 0.0}),
+            ("left_far", {"x": -8.0, "y": 1.0, "z": 0.0}),
+            ("right_far", {"x": 8.0, "y": 1.0, "z": 0.0}),
+            ("behind", {"x": 0.0, "y": -6.0, "z": 0.0}),
+        ]
+        for name, npc_pos in spots:
+            logger.info(f"[tts_test_spatial] playing from {name} pos={npc_pos}")
+            try:
+                await tts_client.speak(phrase, gender=0, npc_id="spatial_test",
+                                       npc_name="SpatialTest", npc_name_resolved="SpatialTest",
+                                       npc_pos=npc_pos, player_pos=player_pos, player_fwd=player_fwd)
+            except Exception as e:
+                logger.warning(f"[tts_test_spatial] {name} failed: {e}")
+            await asyncio.sleep(3.0)
+        return {"status": "ok", "played": [s[0] for s in spots]}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
 @app.post("/shutdown")
 async def shutdown_server():
     threading.Timer(0.5, lambda: os._exit(0)).start()
@@ -2540,6 +3296,13 @@ async def update_config(req: ConfigUpdateRequest):
         config.llm = LLMConfig(**data["llm"])
         llm_client = LLMClient(config.llm)
         logger.info(f"LLM reloaded: {config.llm.model} @ {config.llm.api_url}")
+
+    if req.llm_light is not None:
+        light_patch = req.llm_light.model_dump(exclude_none=True)
+        data.setdefault("llm_light", {})
+        data["llm_light"].update(light_patch)
+        config.llm_light = LightLLMConfig(**data["llm_light"])
+        _rebuild_light_llm()
 
     if req.tts is not None:
         global tts_client
@@ -2647,6 +3410,9 @@ async def update_config(req: ConfigUpdateRequest):
         data.setdefault("interaction", {})
         data["interaction"].update(interaction_patch)
         config.interaction = InteractionConfig(**data["interaction"])
+        tts_set_spatial_enabled(getattr(config.interaction, "enable_spatial_audio", True))
+        tts_set_spatial_falloff(getattr(config.interaction, "spatial_falloff", 100))
+        set_player_name(getattr(config.interaction, "player_name", "Henry"), getattr(config.interaction, "player_description", ""))
         logger.info(
             f"Interaction reloaded: dress_up={config.interaction.enable_dress_up_requests} "
             f"strip={config.interaction.enable_strip_requests}"

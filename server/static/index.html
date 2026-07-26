@@ -406,6 +406,22 @@
 
     /* â”€â”€ PRESET BUTTONS â”€â”€ */
     .preset-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .prompt-3col { display: flex; gap: 12px; align-items: flex-start; }
+    .prompt-3col .prompt-main { flex: 1; min-width: 0; }
+    .prompt-3col .prompt-main textarea#prompt-template { min-height: 96px; width: 100%; }
+    .prompt-side { display: flex; flex-direction: column; gap: 5px; width: 118px; flex-shrink: 0; }
+    .prompt-side .preset-btn { text-align: center; width: 100%; font-size: 11px; padding: 4px 8px; line-height: 1.25; }
+    .prompt-3col .prompt-main textarea#prompt-template { overflow-y: hidden; resize: vertical; }
+    .prompt-side-title { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px; }
+    .npc-row { display: flex; gap: 4px; align-items: stretch; }
+    .npc-row .preset-btn { flex: 1; min-width: 0; }
+    .npc-btn.selected { color: var(--text-body); border-color: var(--border-hi); background: rgba(255,255,255,0.07); }
+    body.day .npc-btn.selected { background: rgba(0,0,0,0.06); }
+    .npc-row .preset-btn, #npc-add-row .preset-btn { width: auto; }
+    .npc-row .npc-btn { flex: 1 1 auto; min-width: 0; }
+    .npc-del { flex: 0 0 22px; width: 22px; padding: 0; font-size: 12px; line-height: 1; }
+    #npc-add-row input { flex: 1 1 auto; min-width: 0; }
+
     .preset-btn {
       padding: 7px 16px; border: 1px solid var(--border); border-radius: 999px;
       background: rgba(255,255,255,0.03); color: var(--text-muted);
@@ -737,7 +753,7 @@
     <div class="header-icon"><img class="header-logo" src="https://images.steamusercontent.com/ugc/11071720402767191456/0FBEA45D789CB83CBE101C0F5767A58356660C12/" alt="KCD2 AI NPC"></div>
     <div class="header-info">
       <div class="header-title" data-i18n="title">KCD2 AI NPC &mdash; &#1053;&#1072;&#1089;&#1090;&#1088;&#1086;&#1081;&#1082;&#1080;</div>
-      <div class="header-sub" data-i18n="sub">127.0.0.1:4999 &middot; &#1082;&#1086;&#1085;&#1092;&#1080;&#1075;&#1091;&#1088;&#1072;&#1094;&#1080;&#1103; &#1089;&#1077;&#1088;&#1074;&#1077;&#1088;&#1072; &middot; v0.2.0</div>
+      <div class="header-sub" data-i18n="sub">127.0.0.1:4999 &middot; &#1082;&#1086;&#1085;&#1092;&#1080;&#1075;&#1091;&#1088;&#1072;&#1094;&#1080;&#1103; &#1089;&#1077;&#1088;&#1074;&#1077;&#1088;&#1072; &middot; v1.0</div>
     </div>
     <div class="header-spacer"></div>
     <div class="header-promo">
@@ -781,6 +797,78 @@
           <button class="preset-btn" data-lang="ja"  onclick="setLang('ja')">&#26085;&#26412;&#35486;</button>
         </div>
         <input type="hidden" id="language" value="en">
+      </div>
+    </div>
+  </div>
+
+  <!-- HUD positions -->
+  <div class="card">
+    <div class="card-header"><span class="card-title" data-i18n="hud_title">&#1054;&#1090;&#1086;&#1073;&#1088;&#1072;&#1078;&#1077;&#1085;&#1080;&#1077; HUD</span></div>
+    <div class="card-body">
+      <div class="hud-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:22px;">
+        <div>
+          <div class="form-group">
+            <label data-i18n="hud_ai_text">Текстовые ответы ИИ</label>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label class="toggle-switch">
+                <input type="checkbox" id="hud-ai-text" onchange="setHudAiTextEnabled(this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_ai_text_hint">Показывать текст ответа NPC.</span>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:18px;">
+            <label data-i18n="hud_left_top">&#1057;&#1083;&#1077;&#1074;&#1072;-&#1089;&#1074;&#1077;&#1088;&#1093;&#1091; (&#1087;&#1083;&#1072;&#1096;&#1082;&#1072;)</label>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label class="toggle-switch"><input type="checkbox" id="hud-left-top" onchange="saveHudFlags()"><span class="toggle-slider"></span></label>
+              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_left_top_hint">&#1095;&#1105;&#1088;&#1085;&#1072;&#1103; &#1087;&#1083;&#1072;&#1096;&#1082;&#1072; &#1089; &#1079;&#1086;&#1083;&#1086;&#1090;&#1086;&#1081; &#1088;&#1072;&#1084;&#1082;&#1086;&#1081; (HUD.ShowTutorial)</span>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label data-i18n="hud_right_top">&#1057;&#1087;&#1088;&#1072;&#1074;&#1072;-&#1089;&#1074;&#1077;&#1088;&#1093;&#1091; (&#1091;&#1074;&#1077;&#1076;&#1086;&#1084;&#1083;&#1077;&#1085;&#1080;&#1077;)</label>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label class="toggle-switch"><input type="checkbox" id="hud-right-top" onchange="saveHudFlags()"><span class="toggle-slider"></span></label>
+              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_right_top_hint">quest-style notification (HUD.ShowNotification)</span>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label data-i18n="hud_center">&#1055;&#1086; &#1094;&#1077;&#1085;&#1090;&#1088;&#1091; (&#1089;&#1091;&#1073;&#1090;&#1080;&#1090;&#1088;)</label>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label class="toggle-switch"><input type="checkbox" id="hud-center" onchange="saveHudFlags()"><span class="toggle-slider"></span></label>
+              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_center_hint">&#1079;&#1086;&#1083;&#1086;&#1090;&#1086;&#1081; &#1082;&#1091;&#1088;&#1089;&#1080;&#1074; &#1089; &#1086;&#1088;&#1085;&#1072;&#1084;&#1077;&#1085;&#1090;&#1086;&#1084; (Game.ShowTutorial)</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="form-group">
+            <label data-i18n="hud_narrator">Текст рассказчика</label>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label class="toggle-switch"><input type="checkbox" id="hud-narrator" onchange="setHudNarratorEnabled(this.checked)"><span class="toggle-slider"></span></label>
+              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_narrator_hint">Показывать описания действий: «Путник делает шаг назад».</span>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:18px;">
+            <label data-i18n="hud_left_top">&#1057;&#1083;&#1077;&#1074;&#1072;-&#1089;&#1074;&#1077;&#1088;&#1093;&#1091; (&#1087;&#1083;&#1072;&#1096;&#1082;&#1072;)</label>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label class="toggle-switch"><input type="checkbox" id="hud-narrator-left" onchange="saveHudFlags()"><span class="toggle-slider"></span></label>
+              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_left_top_hint">&#1095;&#1105;&#1088;&#1085;&#1072;&#1103; &#1087;&#1083;&#1072;&#1096;&#1082;&#1072; &#1089; &#1079;&#1086;&#1083;&#1086;&#1090;&#1086;&#1081; &#1088;&#1072;&#1084;&#1082;&#1086;&#1081; (HUD.ShowTutorial)</span>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label data-i18n="hud_right_top">&#1057;&#1087;&#1088;&#1072;&#1074;&#1072;-&#1089;&#1074;&#1077;&#1088;&#1093;&#1091; (&#1091;&#1074;&#1077;&#1076;&#1086;&#1084;&#1083;&#1077;&#1085;&#1080;&#1077;)</label>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label class="toggle-switch"><input type="checkbox" id="hud-narrator-right" onchange="saveHudFlags()"><span class="toggle-slider"></span></label>
+              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_right_top_hint">quest-style notification (HUD.ShowNotification)</span>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:10px;">
+            <label data-i18n="hud_center">&#1055;&#1086; &#1094;&#1077;&#1085;&#1090;&#1088;&#1091; (&#1089;&#1091;&#1073;&#1090;&#1080;&#1090;&#1088;)</label>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label class="toggle-switch"><input type="checkbox" id="hud-narrator-center" onchange="saveHudFlags()"><span class="toggle-slider"></span></label>
+              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_center_hint">&#1079;&#1086;&#1083;&#1086;&#1090;&#1086;&#1081; &#1082;&#1091;&#1088;&#1089;&#1080;&#1074; &#1089; &#1086;&#1088;&#1085;&#1072;&#1084;&#1077;&#1085;&#1090;&#1086;&#1084; (Game.ShowTutorial)</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -837,6 +925,148 @@
           <input type="range" id="temperature" min="0" max="2" step="0.05"
             oninput="document.getElementById('temp-val').textContent=parseFloat(this.value).toFixed(2)">
           <span class="slider-value" id="temp-val">0.80</span>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border-hi);">
+        <label data-i18n="light_llm_title">Auxiliary LLM</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="light-llm-enabled">
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:12px; color:var(--text-muted);" data-i18n="light_llm_hint"></span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="light-llm-url" data-i18n="light_llm_url">API URL</label>
+        <input type="url" id="light-llm-url" placeholder="">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="light-llm-key" data-i18n="light_llm_key">API key</label>
+          <input type="password" id="light-llm-key" placeholder="">
+        </div>
+        <div class="form-group">
+          <label for="light-llm-model" data-i18n="model">Model</label>
+          <input type="text" id="light-llm-model" placeholder="llama-3.1-8b-instant">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STT (push-to-talk) -->
+  <div class="card">
+    <div class="card-header"><span class="card-title" data-i18n="stt_title">Голосовой ввод (STT)</span></div>
+    <div class="card-body">
+      <div class="form-group">
+        <label data-i18n="stt_enabled">Зажми V в игре — говорю; отпустил — отправилось</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="stt-enabled" onchange="onSttToggle(this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+          <span id="stt-status-text" style="font-size:12px; color:var(--text-muted);" data-i18n="stt_off">выключено</span>
+        </div>
+        <div class="form-hint" data-i18n="stt_hint">Короткое нажатие V = текстовый оверлей. Удержание дольше порога = запись с микрофона → Whisper → ответ NPC.</div>
+      </div>
+
+      <div class="form-group" style="margin-top:10px;">
+        <label data-i18n="stt_provider">Провайдер</label>
+        <div class="preset-row" id="stt-provider-row">
+          <button class="preset-btn" data-stt-prov="faster-whisper" data-i18n="stt_provider_local" onclick="setSttProvider('faster-whisper')">faster-whisper (локально)</button>
+          <button class="preset-btn" data-stt-prov="openai"         onclick="setSttProvider('openai')">OpenAI</button>
+          <button class="preset-btn" data-stt-prov="groq"           onclick="setSttProvider('groq')">Groq</button>
+          <button class="preset-btn" data-stt-prov="custom" data-i18n="stt_provider_custom" onclick="setSttProvider('custom')">Свой</button>
+        </div>
+        <input type="hidden" id="stt-provider" value="faster-whisper">
+      </div>
+
+      <div class="form-group" id="stt-row-api" style="margin-top:10px; display:none;">
+        <label for="stt-api-url" data-i18n="stt_api_url">API URL</label>
+        <input type="text" id="stt-api-url" placeholder="https://api.openai.com/v1">
+      </div>
+      <div class="form-row" style="margin-top:10px;">
+        <div class="form-group" id="stt-row-key" style="display:none;">
+          <div class="label-row">
+            <label for="stt-api-key" data-i18n="stt_api_key">API ключ</label>
+            <a id="stt-api-key-link" class="key-link" target="_blank" rel="noopener noreferrer" hidden><span data-i18n="get_key">Получить ключ</span><span class="key-link-arrow">&#8599;</span></a>
+          </div>
+          <input type="password" id="stt-api-key" placeholder="sk-...">
+        </div>
+        <div class="form-group">
+          <label for="stt-model" data-i18n="stt_model">Модель</label>
+          <input type="text" id="stt-model" placeholder="base">
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:6px;">
+        <div class="form-hint" id="stt-model-hint">
+          faster-whisper: <code>tiny</code> <code>base</code> <code>small</code> <code>medium</code> <code>large-v3</code>.
+          OpenAI: <code>whisper-1</code>.
+          Groq: <code>whisper-large-v3-turbo</code> <code>whisper-large-v3</code>.
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:10px;">
+        <label for="stt-language" data-i18n="stt_language">Язык речи</label>
+        <select id="stt-language">
+          <option value="auto" data-i18n="stt_lang_auto">авто-детект</option>
+          <option value="en">English</option>
+          <option value="ru">Русский</option>
+          <option value="cs">Čeština</option>
+          <option value="de">Deutsch</option>
+          <option value="fr">Français</option>
+          <option value="es">Español</option>
+          <option value="pl">Polski</option>
+          <option value="zh">中文</option>
+          <option value="ja">日本語</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="stt-row-device" style="margin-top:10px;">
+        <label for="stt-input-device" data-i18n="stt_input_device">Микрофон</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <select id="stt-input-device" style="flex:1;"></select>
+          <button class="btn btn-sm icon-btn" id="stt-refresh-btn" type="button" onclick="refreshSttDevices()" data-i18n-title="stt_refresh_title" title="Обновить список микрофонов" style="width:42px; min-width:42px; padding:8px 0;"><span class="icon-spin" data-i18n="stt_refresh">⟳</span></button>
+        </div>
+      </div>
+
+      <div class="form-group" id="stt-row-fw" style="margin-top:10px;">
+        <label data-i18n="stt_local_opts">Локальные настройки (faster-whisper)</label>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:130px;">
+            <label for="stt-device" data-i18n="stt_device" style="font-size:11px; color:var(--text-muted);">Устройство</label>
+            <select id="stt-device">
+              <option value="cpu">CPU</option>
+              <option value="cuda">CUDA (NVIDIA)</option>
+            </select>
+          </div>
+          <div style="flex:1; min-width:160px;">
+            <label for="stt-compute" data-i18n="stt_compute" style="font-size:11px; color:var(--text-muted);">compute_type</label>
+            <select id="stt-compute">
+              <option value="int8" data-i18n="stt_compute_int8">int8 (быстро, CPU)</option>
+              <option value="int8_float16">int8_float16 (GPU)</option>
+              <option value="float16">float16 (GPU)</option>
+              <option value="float32">float32 (baseline)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:10px;">
+        <label data-i18n="stt_timing">Тайминги</label>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:140px;">
+            <label for="stt-hold-threshold" data-i18n="stt_hold_threshold" style="font-size:11px; color:var(--text-muted);">Порог hold, мс</label>
+            <input type="number" id="stt-hold-threshold" min="50" max="1000" step="10" value="200">
+          </div>
+          <div style="flex:1; min-width:140px;">
+            <label for="stt-min-duration" data-i18n="stt_min_duration" style="font-size:11px; color:var(--text-muted);">Мин. длина, мс</label>
+            <input type="number" id="stt-min-duration" min="50" max="2000" step="10" value="300">
+          </div>
+          <div style="flex:1; min-width:140px;">
+            <label for="stt-max-duration" data-i18n="stt_max_duration" style="font-size:11px; color:var(--text-muted);">Макс. длина, сек</label>
+            <input type="number" id="stt-max-duration" min="3" max="120" step="1" value="30">
+          </div>
         </div>
       </div>
     </div>
@@ -1147,124 +1377,6 @@
     </div>
   </div>
 
-  <!-- STT (push-to-talk) -->
-  <div class="card">
-    <div class="card-header"><span class="card-title" data-i18n="stt_title">Голосовой ввод (STT)</span></div>
-    <div class="card-body">
-      <div class="form-group">
-        <label data-i18n="stt_enabled">Зажми V в игре — говорю; отпустил — отправилось</label>
-        <div style="display:flex; align-items:center; gap:10px;">
-          <label class="toggle-switch">
-            <input type="checkbox" id="stt-enabled" onchange="onSttToggle(this.checked)">
-            <span class="toggle-slider"></span>
-          </label>
-          <span id="stt-status-text" style="font-size:12px; color:var(--text-muted);" data-i18n="stt_off">выключено</span>
-        </div>
-        <div class="form-hint" data-i18n="stt_hint">Короткое нажатие V = текстовый оверлей. Удержание дольше порога = запись с микрофона → Whisper → ответ NPC.</div>
-      </div>
-
-      <div class="form-group" style="margin-top:10px;">
-        <label data-i18n="stt_provider">Провайдер</label>
-        <div class="preset-row" id="stt-provider-row">
-          <button class="preset-btn" data-stt-prov="faster-whisper" data-i18n="stt_provider_local" onclick="setSttProvider('faster-whisper')">faster-whisper (локально)</button>
-          <button class="preset-btn" data-stt-prov="openai"         onclick="setSttProvider('openai')">OpenAI</button>
-          <button class="preset-btn" data-stt-prov="groq"           onclick="setSttProvider('groq')">Groq</button>
-          <button class="preset-btn" data-stt-prov="custom" data-i18n="stt_provider_custom" onclick="setSttProvider('custom')">Свой</button>
-        </div>
-        <input type="hidden" id="stt-provider" value="faster-whisper">
-      </div>
-
-      <div class="form-group" id="stt-row-api" style="margin-top:10px; display:none;">
-        <label for="stt-api-url" data-i18n="stt_api_url">API URL</label>
-        <input type="text" id="stt-api-url" placeholder="https://api.openai.com/v1">
-      </div>
-      <div class="form-row" style="margin-top:10px;">
-        <div class="form-group" id="stt-row-key" style="display:none;">
-          <div class="label-row">
-            <label for="stt-api-key" data-i18n="stt_api_key">API ключ</label>
-            <a id="stt-api-key-link" class="key-link" target="_blank" rel="noopener noreferrer" hidden><span data-i18n="get_key">Получить ключ</span><span class="key-link-arrow">&#8599;</span></a>
-          </div>
-          <input type="password" id="stt-api-key" placeholder="sk-...">
-        </div>
-        <div class="form-group">
-          <label for="stt-model" data-i18n="stt_model">Модель</label>
-          <input type="text" id="stt-model" placeholder="base">
-        </div>
-      </div>
-      <div class="form-group" style="margin-top:6px;">
-        <div class="form-hint" id="stt-model-hint">
-          faster-whisper: <code>tiny</code> <code>base</code> <code>small</code> <code>medium</code> <code>large-v3</code>.
-          OpenAI: <code>whisper-1</code>.
-          Groq: <code>whisper-large-v3-turbo</code> <code>whisper-large-v3</code>.
-        </div>
-      </div>
-
-      <div class="form-group" style="margin-top:10px;">
-        <label for="stt-language" data-i18n="stt_language">Язык речи</label>
-        <select id="stt-language">
-          <option value="auto" data-i18n="stt_lang_auto">авто-детект</option>
-          <option value="en">English</option>
-          <option value="ru">Русский</option>
-          <option value="cs">Čeština</option>
-          <option value="de">Deutsch</option>
-          <option value="fr">Français</option>
-          <option value="es">Español</option>
-          <option value="pl">Polski</option>
-          <option value="zh">中文</option>
-          <option value="ja">日本語</option>
-        </select>
-      </div>
-
-      <div class="form-group" id="stt-row-device" style="margin-top:10px;">
-        <label for="stt-input-device" data-i18n="stt_input_device">Микрофон</label>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <select id="stt-input-device" style="flex:1;"></select>
-          <button class="btn btn-sm icon-btn" id="stt-refresh-btn" type="button" onclick="refreshSttDevices()" data-i18n-title="stt_refresh_title" title="Обновить список микрофонов" style="width:42px; min-width:42px; padding:8px 0;"><span class="icon-spin" data-i18n="stt_refresh">⟳</span></button>
-        </div>
-      </div>
-
-      <div class="form-group" id="stt-row-fw" style="margin-top:10px;">
-        <label data-i18n="stt_local_opts">Локальные настройки (faster-whisper)</label>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <div style="flex:1; min-width:130px;">
-            <label for="stt-device" data-i18n="stt_device" style="font-size:11px; color:var(--text-muted);">Устройство</label>
-            <select id="stt-device">
-              <option value="cpu">CPU</option>
-              <option value="cuda">CUDA (NVIDIA)</option>
-            </select>
-          </div>
-          <div style="flex:1; min-width:160px;">
-            <label for="stt-compute" data-i18n="stt_compute" style="font-size:11px; color:var(--text-muted);">compute_type</label>
-            <select id="stt-compute">
-              <option value="int8" data-i18n="stt_compute_int8">int8 (быстро, CPU)</option>
-              <option value="int8_float16">int8_float16 (GPU)</option>
-              <option value="float16">float16 (GPU)</option>
-              <option value="float32">float32 (baseline)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div class="form-group" style="margin-top:10px;">
-        <label data-i18n="stt_timing">Тайминги</label>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <div style="flex:1; min-width:140px;">
-            <label for="stt-hold-threshold" data-i18n="stt_hold_threshold" style="font-size:11px; color:var(--text-muted);">Порог hold, мс</label>
-            <input type="number" id="stt-hold-threshold" min="50" max="1000" step="10" value="200">
-          </div>
-          <div style="flex:1; min-width:140px;">
-            <label for="stt-min-duration" data-i18n="stt_min_duration" style="font-size:11px; color:var(--text-muted);">Мин. длина, мс</label>
-            <input type="number" id="stt-min-duration" min="50" max="2000" step="10" value="300">
-          </div>
-          <div style="flex:1; min-width:140px;">
-            <label for="stt-max-duration" data-i18n="stt_max_duration" style="font-size:11px; color:var(--text-muted);">Макс. длина, сек</label>
-            <input type="number" id="stt-max-duration" min="3" max="120" step="1" value="30">
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- INPUT -->
   <div class="card">
     <div class="card-header"><span class="card-title" data-i18n="input_title">Input / Keybinds</span></div>
@@ -1312,6 +1424,120 @@
   <div class="card">
     <div class="card-header"><span class="card-title" data-i18n="interaction_title">Интерактив NPC</span></div>
     <div class="card-body">
+      <div class="form-group">
+        <label data-i18n="interaction_lipsync">Lipsync</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="interaction-lipsync">
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_lipsync_hint"></span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label data-i18n="interaction_spatial_audio">Spatial audio</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="interaction-spatial-audio">
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_spatial_audio_hint"></span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="interaction_spatial_falloff">Distance falloff</span></label>
+        <div class="slider-row">
+          <input type="range" id="interaction-spatial-falloff" min="0" max="100" step="5"
+            oninput="document.getElementById('spatial-falloff-val').textContent=this.value">
+          <span class="slider-value" id="spatial-falloff-val">100</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label data-i18n="interaction_npc_thoughts">NPC thoughts</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="interaction-npc-thoughts">
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_npc_thoughts_hint"></span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label data-i18n="interaction_npc_interjections">Interjections</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="interaction-npc-interjections">
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_npc_interjections_hint"></span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="interaction_interject_intensity">Interjection intensity</span></label>
+        <div class="slider-row">
+          <input type="range" id="interaction-interject-intensity" min="0" max="100" step="5"
+            oninput="document.getElementById('interject-intensity-val').textContent=this.value">
+          <span class="slider-value" id="interject-intensity-val">50</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label data-i18n="interaction_npc_chatter">NPC chatter</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="interaction-npc-chatter">
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_npc_chatter_hint"></span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label data-i18n="interaction_npc_solo">Solo initiative</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="interaction-npc-solo">
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_npc_solo_hint"></span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label><span data-i18n="interaction_ambient_intensity">Ambient intensity</span></label>
+        <div class="slider-row">
+          <input type="range" id="interaction-ambient-intensity" min="0" max="100" step="5"
+            oninput="document.getElementById('ambient-intensity-val').textContent=this.value">
+          <span class="slider-value" id="ambient-intensity-val">50</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label data-i18n="interaction_vision">Зрение ИИ (скриншоты)</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="interaction-vision-screenshots">
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_vision_hint">Скажите NPC, используя слово «посмотри» — ИИ получит скриншот игры и увидит сцену. Нужна vision-модель. Например: провайдер Mistral, модель pixtral-12b-2409</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label data-i18n="interaction_reengage">Оклик замолчавшего игрока</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="interaction-reengage">
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_reengage_hint">Если после разговора молчать 3 минуты рядом с недавним собеседником (помнит последних 5) — он сам обратится к вам.</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label data-i18n="interaction_beckon_initiative">Инициатива NPC (сами зовут)</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="interaction-beckon-initiative">
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_beckon_initiative_hint">Знакомые NPC иногда сами подзывают вас жестом и голосом. Редко (кулдауны 10/45 мин).</span>
+        </div>
+      </div>
       <div class="form-group">
         <label data-i18n="interaction_inventory_access">Доступ ИИ к инвентарю NPC</label>
         <div style="display:flex; align-items:center; gap:10px;">
@@ -1523,95 +1749,22 @@
     </div>
   </div>
 
-  <!-- HUD positions -->
-  <div class="card">
-    <div class="card-header"><span class="card-title" data-i18n="hud_title">&#1054;&#1090;&#1086;&#1073;&#1088;&#1072;&#1078;&#1077;&#1085;&#1080;&#1077; HUD</span></div>
-    <div class="card-body">
-      <div class="hud-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:22px;">
-        <div>
-          <div class="form-group">
-            <label data-i18n="hud_ai_text">Текстовые ответы ИИ</label>
-            <div style="display:flex; align-items:center; gap:10px;">
-              <label class="toggle-switch">
-                <input type="checkbox" id="hud-ai-text" onchange="setHudAiTextEnabled(this.checked)">
-                <span class="toggle-slider"></span>
-              </label>
-              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_ai_text_hint">Показывать текст ответа NPC.</span>
-            </div>
-          </div>
-          <div class="form-group" style="margin-top:18px;">
-            <label data-i18n="hud_left_top">&#1057;&#1083;&#1077;&#1074;&#1072;-&#1089;&#1074;&#1077;&#1088;&#1093;&#1091; (&#1087;&#1083;&#1072;&#1096;&#1082;&#1072;)</label>
-            <div style="display:flex; align-items:center; gap:10px;">
-              <label class="toggle-switch"><input type="checkbox" id="hud-left-top" onchange="saveHudFlags()"><span class="toggle-slider"></span></label>
-              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_left_top_hint">&#1095;&#1105;&#1088;&#1085;&#1072;&#1103; &#1087;&#1083;&#1072;&#1096;&#1082;&#1072; &#1089; &#1079;&#1086;&#1083;&#1086;&#1090;&#1086;&#1081; &#1088;&#1072;&#1084;&#1082;&#1086;&#1081; (HUD.ShowTutorial)</span>
-            </div>
-          </div>
-          <div class="form-group" style="margin-top:10px;">
-            <label data-i18n="hud_right_top">&#1057;&#1087;&#1088;&#1072;&#1074;&#1072;-&#1089;&#1074;&#1077;&#1088;&#1093;&#1091; (&#1091;&#1074;&#1077;&#1076;&#1086;&#1084;&#1083;&#1077;&#1085;&#1080;&#1077;)</label>
-            <div style="display:flex; align-items:center; gap:10px;">
-              <label class="toggle-switch"><input type="checkbox" id="hud-right-top" onchange="saveHudFlags()"><span class="toggle-slider"></span></label>
-              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_right_top_hint">quest-style notification (HUD.ShowNotification)</span>
-            </div>
-          </div>
-          <div class="form-group" style="margin-top:10px;">
-            <label data-i18n="hud_center">&#1055;&#1086; &#1094;&#1077;&#1085;&#1090;&#1088;&#1091; (&#1089;&#1091;&#1073;&#1090;&#1080;&#1090;&#1088;)</label>
-            <div style="display:flex; align-items:center; gap:10px;">
-              <label class="toggle-switch"><input type="checkbox" id="hud-center" onchange="saveHudFlags()"><span class="toggle-slider"></span></label>
-              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_center_hint">&#1079;&#1086;&#1083;&#1086;&#1090;&#1086;&#1081; &#1082;&#1091;&#1088;&#1089;&#1080;&#1074; &#1089; &#1086;&#1088;&#1085;&#1072;&#1084;&#1077;&#1085;&#1090;&#1086;&#1084; (Game.ShowTutorial)</span>
-            </div>
-          </div>
-        </div>
-        <div>
-          <div class="form-group">
-            <label data-i18n="hud_narrator">Текст рассказчика</label>
-            <div style="display:flex; align-items:center; gap:10px;">
-              <label class="toggle-switch"><input type="checkbox" id="hud-narrator" onchange="setHudNarratorEnabled(this.checked)"><span class="toggle-slider"></span></label>
-              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_narrator_hint">Показывать описания действий: «Путник делает шаг назад».</span>
-            </div>
-          </div>
-          <div class="form-group" style="margin-top:18px;">
-            <label data-i18n="hud_left_top">&#1057;&#1083;&#1077;&#1074;&#1072;-&#1089;&#1074;&#1077;&#1088;&#1093;&#1091; (&#1087;&#1083;&#1072;&#1096;&#1082;&#1072;)</label>
-            <div style="display:flex; align-items:center; gap:10px;">
-              <label class="toggle-switch"><input type="checkbox" id="hud-narrator-left" onchange="saveHudFlags()"><span class="toggle-slider"></span></label>
-              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_left_top_hint">&#1095;&#1105;&#1088;&#1085;&#1072;&#1103; &#1087;&#1083;&#1072;&#1096;&#1082;&#1072; &#1089; &#1079;&#1086;&#1083;&#1086;&#1090;&#1086;&#1081; &#1088;&#1072;&#1084;&#1082;&#1086;&#1081; (HUD.ShowTutorial)</span>
-            </div>
-          </div>
-          <div class="form-group" style="margin-top:10px;">
-            <label data-i18n="hud_right_top">&#1057;&#1087;&#1088;&#1072;&#1074;&#1072;-&#1089;&#1074;&#1077;&#1088;&#1093;&#1091; (&#1091;&#1074;&#1077;&#1076;&#1086;&#1084;&#1083;&#1077;&#1085;&#1080;&#1077;)</label>
-            <div style="display:flex; align-items:center; gap:10px;">
-              <label class="toggle-switch"><input type="checkbox" id="hud-narrator-right" onchange="saveHudFlags()"><span class="toggle-slider"></span></label>
-              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_right_top_hint">quest-style notification (HUD.ShowNotification)</span>
-            </div>
-          </div>
-          <div class="form-group" style="margin-top:10px;">
-            <label data-i18n="hud_center">&#1055;&#1086; &#1094;&#1077;&#1085;&#1090;&#1088;&#1091; (&#1089;&#1091;&#1073;&#1090;&#1080;&#1090;&#1088;)</label>
-            <div style="display:flex; align-items:center; gap:10px;">
-              <label class="toggle-switch"><input type="checkbox" id="hud-narrator-center" onchange="saveHudFlags()"><span class="toggle-slider"></span></label>
-              <span style="font-size:12px; color:var(--text-muted);" data-i18n="hud_center_hint">&#1079;&#1086;&#1083;&#1086;&#1090;&#1086;&#1081; &#1082;&#1091;&#1088;&#1089;&#1080;&#1074; &#1089; &#1086;&#1088;&#1085;&#1072;&#1084;&#1077;&#1085;&#1090;&#1086;&#1084; (Game.ShowTutorial)</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- SYSTEM PROMPT -->
   <div class="card">
     <div class="card-header"><span class="card-title" data-i18n="prompt_title">&#1064;&#1072;&#1073;&#1083;&#1086;&#1085; &#1089;&#1080;&#1089;&#1090;&#1077;&#1084;&#1085;&#1086;&#1075;&#1086; &#1087;&#1088;&#1086;&#1084;&#1087;&#1090;&#1072;</span></div>
     <div class="card-body">
-      <div class="form-group">
-        <label data-i18n="template">&#1064;&#1072;&#1073;&#1083;&#1086;&#1085;</label>
-        <textarea id="prompt-template" spellcheck="false" autocomplete="off"></textarea>
-        <div class="form-hint">
-          <span data-i18n="variables">&#1055;&#1077;&#1088;&#1077;&#1084;&#1077;&#1085;&#1085;&#1099;&#1077;</span>: <code>{name}</code> <code>{description}</code> <code>{location}</code>
-          <code>{personality}</code> <code>{occupation}</code>
-          <code>{extra_context}</code> <code>{language_instruction}</code>
-        </div>
+      <div class="form-hint" style="text-align:center; margin-bottom:10px;">
+        <span data-i18n="variables">&#1055;&#1077;&#1088;&#1077;&#1084;&#1077;&#1085;&#1085;&#1099;&#1077;</span>: <code>{name}</code> <code>{description}</code> <code>{location}</code>
+        <code>{personality}</code> <code>{occupation}</code>
+        <code>{extra_context}</code> <code>{language_instruction}</code>
       </div>
-      <div class="preset-row" style="margin-top:12px; margin-bottom:8px;">
-        <button class="preset-btn" data-prompt-preset="default" data-i18n="prompt_preset_default" onclick="setPromptPreset('default')">Дефолт</button>
+      <div class="prompt-3col">
+        <div class="prompt-side" id="prompt-preset-col">
+          <div class="prompt-side-title" data-i18n="preset_col_title" style="text-align:center;">&#1055;&#1088;&#1077;&#1089;&#1077;&#1090;&#1099;</div>
+          <button class="preset-btn" data-prompt-preset="default" data-i18n="prompt_preset_default" onclick="setPromptPreset('default')">Дефолт</button>
         <button class="preset-btn" data-prompt-preset="original" data-i18n="prompt_preset_original" onclick="setPromptPreset('original')">Оригинал</button>
         <button class="preset-btn" data-prompt-preset="original_v2" data-i18n="prompt_preset_original_v2" onclick="setPromptPreset('original_v2')">Новый</button>
+        <button class="preset-btn" data-prompt-preset="skyrimnet" data-i18n="prompt_preset_skyrimnet" onclick="setPromptPreset('skyrimnet')">Живой</button>
         <button class="preset-btn" data-prompt-preset="charming" data-i18n="prompt_preset_charming" onclick="setPromptPreset('charming')">Харизматичный</button>
         <button class="preset-btn" data-prompt-preset="sarcastic" data-i18n="prompt_preset_sarcastic" onclick="setPromptPreset('sarcastic')">Саркастичный</button>
         <button class="preset-btn" data-prompt-preset="barbed" data-i18n="prompt_preset_barbed" onclick="setPromptPreset('barbed')">Язвительный</button>
@@ -1622,11 +1775,57 @@
         <button class="preset-btn" data-prompt-preset="absurd" data-i18n="prompt_preset_absurd" onclick="setPromptPreset('absurd')">Абсурдный</button>
         <button class="preset-btn" data-prompt-preset="uncensored" data-i18n="prompt_preset_uncensored" onclick="setPromptPreset('uncensored')">Без цензуры</button>
         <button class="preset-btn" data-prompt-preset="custom" data-i18n="prompt_preset_custom" onclick="setPromptPreset('custom')">Свой</button>
+        </div>
+        <div class="prompt-main">
+          <div class="form-group">
+            <div class="prompt-side-title" data-i18n="template" style="text-align:center;">&#1064;&#1072;&#1073;&#1083;&#1086;&#1085;</div>
+            <textarea id="prompt-template" spellcheck="false" autocomplete="off"></textarea>
+          </div>
+          <div id="npc-actions" style="display:none; margin-top:8px;">
+            <div class="form-hint"><span data-i18n="npc_reset_hint">&#1055;&#1088;&#1072;&#1074;&#1082;&#1080; &#1089;&#1086;&#1093;&#1088;&#1072;&#1085;&#1103;&#1102;&#1090;&#1089;&#1103; &#1086;&#1073;&#1097;&#1077;&#1081; &#1082;&#1085;&#1086;&#1087;&#1082;&#1086;&#1081;.</span></div>
+          </div>
+        </div>
+        <div class="prompt-side" id="npc-col">
+          <div class="prompt-side-title" data-i18n="npc_col_title" style="text-align:center;">&#1050;&#1083;&#1102;&#1095;&#1077;&#1074;&#1099;&#1077; NPC</div>
+          <div id="npc-add-row" style="display:none; gap:4px;">
+            <input type="text" id="npc-add-name" placeholder="&#1048;&#1084;&#1103; NPC" style="flex:1; min-width:0; font-size:11px; padding:4px 6px;"
+              onkeydown="if(event.key==='Enter')confirmAddNpc(); if(event.key==='Escape')cancelAddNpc();"
+              onblur="setTimeout(function(){ var i=document.getElementById('npc-add-name'); if(i && !i.value.trim()) cancelAddNpc(); }, 200);">
+            <button class="preset-btn npc-del" onclick="confirmAddNpc()" title="&#1044;&#1086;&#1073;&#1072;&#1074;&#1080;&#1090;&#1100;">&#10003;</button>
+          </div>
+          <button class="preset-btn" id="npc-add-btn" data-i18n="npc_add" onclick="addNpc()">+ &#1044;&#1086;&#1073;&#1072;&#1074;&#1080;&#1090;&#1100; NPC</button>
+        </div>
       </div>
-      <button class="btn btn-sm" data-i18n="reset" onclick="resetPrompt()">&#1057;&#1073;&#1088;&#1086;&#1089;&#1080;&#1090;&#1100;</button>
+      <div class="form-group" style="margin-top:16px; padding-top:12px; border-top:1px solid var(--border-hi);">
+        <label data-i18n="conv_summary_title">&#1055;&#1072;&#1084;&#1103;&#1090;&#1100; &#1088;&#1072;&#1079;&#1075;&#1086;&#1074;&#1086;&#1088;&#1086;&#1074; (&#1074;&#1099;&#1078;&#1080;&#1084;&#1082;&#1072;)</label>
+        <div style="display:flex; gap:8px; margin-bottom:6px;">
+          <select id="conv-select" style="flex:1; min-width:0;" onchange="loadConvSummary()"></select>
+          <button class="btn btn-sm" onclick="refreshConversations()" data-i18n="conv_refresh">&#1054;&#1073;&#1085;&#1086;&#1074;&#1080;&#1090;&#1100;</button>
+        </div>
+        <textarea id="conv-summary" rows="4" spellcheck="false"></textarea>
+        <div style="margin-top:6px;">
+          <button class="btn btn-sm" onclick="forceCompress()" data-i18n="conv_compress">&#1057;&#1078;&#1072;&#1090;&#1100; &#1089;&#1077;&#1081;&#1095;&#1072;&#1089;</button>
+          <button class="btn btn-sm" onclick="forgetNpc()" data-i18n="conv_forget">&#1047;&#1072;&#1073;&#1099;&#1090;&#1100; &#1101;&#1090;&#1086;&#1075;&#1086; NPC</button>
+          <span id="conv-compress-status" style="font-size:12px; margin-left:8px; color:var(--text-muted);"></span>
+        </div>
+        <div class="form-hint"><span data-i18n="conv_hint">&#1057;&#1078;&#1072;&#1090;&#1072;&#1103; &#1087;&#1072;&#1084;&#1103;&#1090;&#1100; &#1076;&#1083;&#1080;&#1085;&#1085;&#1099;&#1093; &#1088;&#1072;&#1079;&#1075;&#1086;&#1074;&#1086;&#1088;&#1086;&#1074;. &#1052;&#1086;&#1078;&#1085;&#1086; &#1087;&#1088;&#1072;&#1074;&#1080;&#1090;&#1100; &#1074;&#1088;&#1091;&#1095;&#1085;&#1091;&#1102;.</span></div>
+      </div>
+      <div class="form-group" style="margin-top:16px; padding-top:12px; border-top:1px solid var(--border-hi);">
+        <label data-i18n="player_persona_title">Персона игрока</label>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <div style="flex:0 0 200px; min-width:160px;">
+            <label data-i18n="interaction_player_name" style="font-size:12px;">Имя игрока для NPC</label>
+            <input type="text" id="interaction-player-name" placeholder="Henry" style="width:100%;">
+          </div>
+          <div style="flex:1; min-width:240px;">
+            <label data-i18n="interaction_player_desc" style="font-size:12px;">Характеристики (как его видят NPC)</label>
+            <input type="text" id="interaction-player-desc" placeholder="напр.: грузный бородатый мужик, вечно сонный" style="width:100%;">
+          </div>
+        </div>
+        <div class="form-hint"><span data-i18n="interaction_player_desc_hint">Имя и характеристика идут во все промпты: NPC будут знать вас под этим именем и видеть таким. Пусто — обычный Henry.</span></div>
+      </div>
     </div>
   </div>
-
   <!-- BOTTOM STACK: test result panels + action bar are wrapped together so
        the whole stack sticks to the bottom of the viewport. The result panels
        sit directly ABOVE the buttons, never covered by them. -->
@@ -1692,8 +1891,251 @@ Your occupation: {occupation}
 
 REMINDER: 1-2 short sentences. Max 25 words. No filler. Answer and stop.`;
 
+  // ── Ключевые NPC: промпт персонажа открывается прямо в поле «Шаблон» ──
+  let CHARACTERS = [];
+  let currentNpc = null;
+  let npcMode = false;
+  let templateStash = '';
+  const NPC_FIELDS = ['description', 'location', 'occupation', 'personality', 'extra_context'];
+  function formatNpcText(ch) {
+    let out = '# ' + ch.name + '\n\n';
+    for (const k of NPC_FIELDS) out += k + ': ' + (ch[k] || '') + '\n';
+    return out;
+  }
+  function parseNpcText(text) {
+    const out = {};
+    let cur = null;
+    for (const raw of text.split('\n')) {
+      const m = raw.match(/^(description|location|occupation|personality|extra_context)\s*:\s*(.*)$/i);
+      if (m) { cur = m[1].toLowerCase(); out[cur] = m[2]; }
+      else if (cur !== null && !raw.startsWith('#')) out[cur] += (out[cur] ? '\n' : '') + raw;
+    }
+    for (const k of Object.keys(out)) out[k] = out[k].trim();
+    return out;
+  }
+  function openNpcPrompt(name) {
+    const ch = CHARACTERS.find(c => c.name === name);
+    if (!ch) return;
+    const ta = document.getElementById('prompt-template');
+    if (!npcMode) templateStash = ta.value;  // спрятать шаблон, вернём по выходу
+    npcMode = true;
+    currentNpc = ch.name;
+    ta.value = formatNpcText(ch);
+    if (typeof autosizePromptTa === 'function') autosizePromptTa();
+    document.getElementById('npc-actions').style.display = '';
+    document.querySelectorAll('.npc-btn').forEach(b => b.classList.toggle('selected', b.textContent === name));
+  }
+  function exitNpcMode(restore) {
+    if (!npcMode) return;
+    npcMode = false;
+    currentNpc = null;
+    document.querySelectorAll('.npc-btn').forEach(b => b.classList.remove('selected'));
+    document.getElementById('npc-actions').style.display = 'none';
+    if (restore) document.getElementById('prompt-template').value = templateStash;
+    if (typeof autosizePromptTa === 'function') autosizePromptTa();
+  }
+  function getTemplateForSave() {
+    // В режиме NPC в textarea лежит карточка персонажа — шаблон берём из тайника.
+    return npcMode ? templateStash : document.getElementById('prompt-template').value;
+  }
+  async function saveCharacter() {
+    if (!npcMode || !currentNpc) return;
+    const parsed = parseNpcText(document.getElementById('prompt-template').value);
+    const payload = Object.assign({ name: currentNpc }, parsed);
+    try {
+      const res = await fetch('/characters/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const d = await res.json();
+      const i = CHARACTERS.findIndex(c => c.name === currentNpc);
+      if (i >= 0) CHARACTERS[i] = Object.assign({}, CHARACTERS[i], payload, { has_override: true });
+      if (res.ok && d.ok) { const keep = currentNpc; await loadCharacters(); if (keep) { currentNpc = keep; } }
+    } catch (e) { /* ignore */ }
+  }
+  async function loadCharacters() {
+    try {
+      const d = await fetch('/characters').then(r => r.json());
+      CHARACTERS = d.characters || [];
+      renderNpcList();
+    } catch (e) { /* сервер без /characters — колонка останется пустой */ }
+  }
+  function renderNpcList() {
+    const col = document.getElementById('npc-col');
+    if (!col) return;
+    col.querySelectorAll('.npc-row').forEach(r => r.remove());
+    const anchor = document.getElementById('npc-add-row');
+    for (const ch of CHARACTERS) {
+      const row = document.createElement('div');
+      row.className = 'npc-row';
+      const b = document.createElement('button');
+      b.className = 'preset-btn npc-btn';
+      b.textContent = ch.name;
+      b.onclick = () => openNpcPrompt(ch.name);
+      row.appendChild(b);
+      if (ch.is_custom || ch.has_override) {
+        const x = document.createElement('button');
+        x.className = 'preset-btn npc-del';
+        x.textContent = '\u00d7';
+        x.title = ch.is_custom ? '\u0423\u0434\u0430\u043b\u0438\u0442\u044c NPC' : '\u0421\u0431\u0440\u043e\u0441\u0438\u0442\u044c \u043a \u0434\u0435\u0444\u043e\u043b\u0442\u0443';
+        x.onclick = (ev) => { ev.stopPropagation(); deleteNpc(ch.name, ch.is_custom); };
+        row.appendChild(x);
+      }
+      col.insertBefore(row, anchor);
+    }
+  }
+  async function deleteNpc(name, isCustom) {
+    try {
+      await fetch('/characters/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name }) });
+      if (currentNpc === name) exitNpcMode(true);
+      await loadCharacters();
+    } catch (e) { /* ignore */ }
+  }
+  function addNpc() {
+    const row = document.getElementById('npc-add-row');
+    row.style.display = 'flex';
+    const inp = document.getElementById('npc-add-name');
+    inp.value = '';
+    inp.focus();
+  }
+  function cancelAddNpc() {
+    document.getElementById('npc-add-row').style.display = 'none';
+  }
+  function confirmAddNpc() {
+    const name = (document.getElementById('npc-add-name').value || '').trim();
+    cancelAddNpc();
+    if (!name) return;
+    if (!CHARACTERS.find(c => (c.name || '').toLowerCase() === name.toLowerCase())) {
+      CHARACTERS.push({ name: name, description: '', location: '', occupation: '', personality: '', extra_context: '', is_custom: true, has_override: false });
+      renderNpcList();
+    }
+    openNpcPrompt(name);
+  }
+  loadCharacters();
+
+  // ── Память разговоров: просмотр/правка сжатой выжимки ──
+  let CONVERSATIONS = [];
+  async function refreshConversations() {
+    try {
+      const d = await fetch('/conversations').then(r => r.json());
+      CONVERSATIONS = d.conversations || [];
+      const sel = document.getElementById('conv-select');
+      if (!sel) return;
+      const prev = sel.value;
+      sel.innerHTML = '';
+      for (const c of CONVERSATIONS) {
+        const o = document.createElement('option');
+        o.value = c.npc_id;
+        o.textContent = (c.npc_name || c.npc_id) + ' (' + c.messages + ')' + (c.summary ? ' \u2713' : '');
+        sel.appendChild(o);
+      }
+      if (CONVERSATIONS.length === 0) {
+        const o = document.createElement('option');
+        o.value = '';
+        o.textContent = '\u2014 \u0440\u0430\u0437\u0433\u043e\u0432\u043e\u0440\u043e\u0432 \u043f\u043e\u043a\u0430 \u043d\u0435\u0442 \u2014';
+        o.disabled = true;
+        o.selected = true;
+        sel.appendChild(o);
+        sel.disabled = true;
+      } else {
+        sel.disabled = false;
+        if (prev && CONVERSATIONS.some(c => c.npc_id === prev)) sel.value = prev;
+      }
+      loadConvSummary();
+    } catch (e) { /* сервер без /conversations */ }
+  }
+  function loadConvSummary() {
+    const sel = document.getElementById('conv-select');
+    const ta = document.getElementById('conv-summary');
+    if (!sel || !ta) return;
+    const c = CONVERSATIONS.find(x => x.npc_id === sel.value);
+    ta.value = (c && c.summary) || '';
+    ta.dataset.orig = ta.value;
+  }
+  async function forceCompress() {
+    const sel = document.getElementById('conv-select');
+    const st = document.getElementById('conv-compress-status');
+    if (!sel || !sel.value) return;
+    st.textContent = '...';
+    try {
+      const res = await fetch('/conversations/compress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ npc_id: sel.value }) });
+      const d = await res.json();
+      if (res.ok && d.ok) {
+        st.textContent = '\u2713';
+        const c = CONVERSATIONS.find(x => x.npc_id === sel.value);
+        if (c) { c.summary = d.summary || ''; c.messages = d.messages; }
+        const ta = document.getElementById('conv-summary');
+        ta.value = d.summary || '';
+        ta.dataset.orig = ta.value;
+      } else {
+        st.textContent = '\u2717 ' + (d.detail || '');
+      }
+    } catch (e) { st.textContent = '\u2717'; }
+  }
+  async function forgetNpc() {
+    const sel = document.getElementById('conv-select');
+    const st = document.getElementById('conv-compress-status');
+    if (!sel || !sel.value) return;
+    try {
+      const res = await fetch('/conversations/forget', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ npc_id: sel.value }) });
+      const d = await res.json();
+      st.textContent = (res.ok && d.ok) ? '\u2713' : '\u2717';
+      await refreshConversations();
+    } catch (e) { st.textContent = '\u2717'; }
+  }
+  async function saveConvSummaryIfChanged() {
+    // Вызывается общей кнопкой «Сохранить»: шлём выжимку, только если правилась.
+    const sel = document.getElementById('conv-select');
+    const ta = document.getElementById('conv-summary');
+    if (!sel || !sel.value || !ta) return;
+    if (ta.value === (ta.dataset.orig || '')) return;
+    try {
+      await fetch('/conversations/summary', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ npc_id: sel.value, summary: ta.value }) });
+      const c = CONVERSATIONS.find(x => x.npc_id === sel.value);
+      if (c) c.summary = ta.value;
+      ta.dataset.orig = ta.value;
+    } catch (e) { /* ignore */ }
+  }
+  refreshConversations();
+
+  // Пресеты/сброс выводят из NPC-режима (без восстановления — пресет перезапишет).
+  window.addEventListener('DOMContentLoaded', function () {
+    if (typeof setPromptPreset === 'function') {
+      const _sp = setPromptPreset;
+      setPromptPreset = function (n) { exitNpcMode(false); const r = _sp(n); if (typeof autosizePromptTa === 'function') autosizePromptTa(); return r; };
+    }
+    if (typeof resetPrompt === 'function') {
+      const _rp = resetPrompt;
+      resetPrompt = function () { exitNpcMode(false); const r = _rp(); if (typeof autosizePromptTa === 'function') autosizePromptTa(); return r; };
+    }
+  });
+
   const PROMPT_PRESETS = {
     default: DEFAULT_PROMPT,
+    skyrimnet: `You are {name}, {description}.
+Your name: {name}.
+You live in {location} in the Kingdom of Bohemia, in the year 1403.
+
+Your personality: {personality}
+Your occupation: {occupation}
+
+# EMBODIMENT
+- Embody {name} fully. Your background, personality, work, fears and social standing shape every word.
+- You have your own life, chores, worries and opinions. You are NOT a servant of the conversation: you may complain, gossip, ask Henry questions back, or steer talk to what matters to YOU.
+- React authentically to what is happening around you right now and to recent events - not only to the last line said.
+- Vocabulary and mannerisms of a {occupation} from 1403 Bohemia. No modern words, no theatre.
+
+# SPEECH DISCIPLINE
+- Speak mid-stride, like a person already living this moment: no recaps, no restating what was said, no openings like "well then" or "let me think".
+- 1-3 sentences, 8-40 words. Hard cap 60 words. In danger or combat: one urgent sentence, max 14 words.
+- Plain, grounded, human. Vary rhythm: sometimes a single word is the best answer.
+- Speech only. Never write actions in asterisks or brackets. Physical behavior goes through suggested_action.
+
+# GROUNDING
+- Base every reply only on what you know: your life, {location}, rumors, daily work, and what the player actually said or did.
+- Never invent facts, items or events. No knowledge past the 15th century - react with confusion or suspicion.
+- Stay in character always. Never mention AI, prompts or game mechanics.
+{extra_context}
+{language_instruction}
+
+REMINDER: alive, brief, mid-conversation. You are a person with your own agenda, not an assistant.`,
     original: `You are {name}, {description}.
 You live in {location} in the Kingdom of Bohemia, in the year 1403.
 
@@ -2088,6 +2530,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
   let customPromptText = '';
 
   function detectPromptPreset() {
+    if (typeof npcMode !== 'undefined' && npcMode) return;  // в поле карточка NPC, подсветка пресета не меняется
     const current = normalizePromptText(document.getElementById('prompt-template')?.value || '');
     for (const [name, template] of Object.entries(PROMPT_PRESETS)) {
       if (name !== 'custom' && normalizePromptText(template) === current) {
@@ -2122,6 +2565,10 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       document.getElementById('api-url').value = d.llm?.api_url ?? PRESETS.groq.url;
       document.getElementById('api-key').value = d.llm?.api_key ?? PRESETS.groq.key;
       document.getElementById('model').value   = d.llm?.model   ?? PRESETS.groq.model;
+      document.getElementById('light-llm-enabled').checked = d.llm_light?.enabled === true;
+      document.getElementById('light-llm-url').value = d.llm_light?.api_url ?? '';
+      document.getElementById('light-llm-key').value = d.llm_light?.api_key ?? '';
+      document.getElementById('light-llm-model').value = d.llm_light?.model ?? 'llama-3.1-8b-instant';
       const mt = d.llm?.max_tokens ?? 200;
       document.getElementById('max-tokens').value = mt;
       document.getElementById('max-tokens-val').textContent = mt;
@@ -2143,6 +2590,26 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       document.getElementById('hud-narrator-center').checked = hud.narrator_center === true;
       updateHudAiTextToggle();
       document.getElementById('interaction-inventory-access').checked = interaction.enable_inventory_access !== false;
+      document.getElementById('interaction-beckon-initiative').checked = interaction.enable_beckon_initiative !== false;
+      document.getElementById('interaction-lipsync').checked = interaction.enable_lipsync !== false;
+      document.getElementById('interaction-spatial-audio').checked = interaction.enable_spatial_audio !== false;
+      document.getElementById('interaction-npc-thoughts').checked = interaction.enable_npc_thoughts !== false;
+      document.getElementById('interaction-npc-interjections').checked = interaction.enable_npc_interjections !== false;
+      var _sfv = (interaction.spatial_falloff !== undefined && interaction.spatial_falloff !== null) ? interaction.spatial_falloff : 100;
+      document.getElementById('interaction-spatial-falloff').value = _sfv;
+      document.getElementById('spatial-falloff-val').textContent = _sfv;
+      var _iiv = (interaction.interject_intensity !== undefined && interaction.interject_intensity !== null) ? interaction.interject_intensity : 50;
+      document.getElementById('interaction-interject-intensity').value = _iiv;
+      document.getElementById('interject-intensity-val').textContent = _iiv;
+      document.getElementById('interaction-npc-chatter').checked = interaction.enable_npc_chatter !== false;
+      document.getElementById('interaction-npc-solo').checked = interaction.enable_npc_solo_initiative !== false;
+      document.getElementById('interaction-vision-screenshots').checked = interaction.enable_vision_screenshots === true;
+      document.getElementById('interaction-reengage').checked = interaction.enable_npc_reengage !== false;
+      document.getElementById('interaction-player-name').value = interaction.player_name || 'Henry';
+      document.getElementById('interaction-player-desc').value = interaction.player_description || '';
+      var _aiv = (interaction.ambient_intensity !== undefined && interaction.ambient_intensity !== null) ? interaction.ambient_intensity : 50;
+      document.getElementById('interaction-ambient-intensity').value = _aiv;
+      document.getElementById('ambient-intensity-val').textContent = _aiv;
       document.getElementById('interaction-dress-up').checked = interaction.enable_dress_up_requests !== false;
       document.getElementById('interaction-strip').checked = interaction.enable_strip_requests !== false;
       document.getElementById('interaction-draw-weapon').checked = interaction.enable_draw_weapon_requests !== false;
@@ -2220,6 +2687,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       setOaiVoiceFemale(tts.openai_voice_female || 'nova');
       loadNpcVoices(tts.npc_voices);
       document.getElementById('prompt-template').value = d.prompt_template || PROMPT_PRESETS.original;
+      if (typeof autosizePromptTa === 'function') autosizePromptTa();
       detectPromptPreset();
 
       // --- STT settings ---
@@ -2799,6 +3267,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json();
       showToast('info', t.clear_history_done, `${t.clear_history_deleted} ${d.deleted}`);
+      try { await refreshConversations(); } catch (e) {}
     } catch (e) {
       showToast('error', t.clear_history_error, String(e));
     } finally { btn.disabled = false; }
@@ -2821,7 +3290,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
           max_tokens:  parseInt(document.getElementById('max-tokens').value),
           temperature: parseFloat(document.getElementById('temperature').value),
           language:    document.getElementById('language').value,
-          prompt_template: document.getElementById('prompt-template').value,
+          prompt_template: getTemplateForSave(),
         }),
       });
       const d = await res.json();
@@ -2870,6 +3339,12 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
             max_tokens:  parseInt(document.getElementById('max-tokens').value),
             temperature: parseFloat(document.getElementById('temperature').value),
           },
+          llm_light: {
+            enabled: document.getElementById('light-llm-enabled').checked,
+            api_url: document.getElementById('light-llm-url').value.trim(),
+            api_key: document.getElementById('light-llm-key').value.trim(),
+            model:   document.getElementById('light-llm-model').value.trim(),
+          },
           tts: (() => {
             const eng = document.getElementById('tts-engine').value;
             return {
@@ -2907,6 +3382,20 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
           },
           interaction: {
             enable_inventory_access: document.getElementById('interaction-inventory-access').checked,
+            enable_beckon_initiative: document.getElementById('interaction-beckon-initiative').checked,
+            enable_lipsync: document.getElementById('interaction-lipsync').checked,
+            enable_spatial_audio: document.getElementById('interaction-spatial-audio').checked,
+            enable_npc_thoughts: document.getElementById('interaction-npc-thoughts').checked,
+            enable_npc_interjections: document.getElementById('interaction-npc-interjections').checked,
+            spatial_falloff: parseInt(document.getElementById('interaction-spatial-falloff').value),
+            interject_intensity: parseInt(document.getElementById('interaction-interject-intensity').value),
+            enable_npc_chatter: document.getElementById('interaction-npc-chatter').checked,
+            enable_npc_solo_initiative: document.getElementById('interaction-npc-solo').checked,
+            enable_vision_screenshots: document.getElementById('interaction-vision-screenshots').checked,
+            enable_npc_reengage: document.getElementById('interaction-reengage').checked,
+            player_name: (document.getElementById('interaction-player-name').value || 'Henry').trim() || 'Henry',
+            player_description: (document.getElementById('interaction-player-desc').value || '').trim(),
+            ambient_intensity: parseInt(document.getElementById('interaction-ambient-intensity').value),
             enable_dress_up_requests: document.getElementById('interaction-dress-up').checked,
             enable_strip_requests: document.getElementById('interaction-strip').checked,
             enable_draw_weapon_requests: document.getElementById('interaction-draw-weapon').checked,
@@ -2968,11 +3457,13 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
             play_flute_terms: document.getElementById('interaction-play-flute-terms').value.trim(),
             scarecrow_pose_terms: document.getElementById('interaction-scarecrow-pose-terms').value.trim(),
           },
-          prompt_template: document.getElementById('prompt-template').value,
+          prompt_template: getTemplateForSave(),
         };
   }
 
   async function saveConfig() {
+    if (typeof npcMode !== 'undefined' && npcMode) { try { await saveCharacter(); } catch (e) {} }
+    try { await saveConvSummaryIfChanged(); } catch (e) {}
     const btn = document.getElementById('save-btn');
     btn.disabled = true;
     try {
@@ -3032,7 +3523,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
   const I18N = {
     ru: {
       title: 'KCD2 AI NPC \u2014 \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438',
-      sub: '127.0.0.1:4999 \u00b7 \u043a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044f \u0441\u0435\u0440\u0432\u0435\u0440\u0430 \u00b7 v0.2.0',
+      sub: '127.0.0.1:4999 \u00b7 \u043a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044f \u0441\u0435\u0440\u0432\u0435\u0440\u0430 \u00b7 v1.0',
       link_workshop: '\u041c\u0430\u0441\u0442\u0435\u0440\u0441\u043a\u0430\u044f',
       link_guide: '\u0420\u0443\u043a\u043e\u0432\u043e\u0434\u0441\u0442\u0432\u043e',
       link_github: 'GitHub',
@@ -3064,7 +3555,25 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       prompt_preset_laconic: '\u0422\u0430\u0440\u0430\u043d\u0442\u0438\u043d\u043e\u0432\u0441\u043a\u0438\u0439',
       prompt_preset_absurd: 'Абсурдный',
       prompt_preset_uncensored: '\u0411\u0435\u0437 \u0446\u0435\u043d\u0437\u0443\u0440\u044b',
+      prompt_preset_skyrimnet: 'Живой',
       prompt_preset_custom: '\u0421\u0432\u043e\u0439',
+      preset_col_title: 'Пресеты',
+      npc_col_title: 'Ключевые NPC',
+      npc_description: 'Описание',
+      npc_location: 'Локация',
+      npc_occupation: 'Занятие',
+      npc_personality: 'Характер',
+      npc_extra: 'Доп. контекст',
+      npc_save: 'Сохранить NPC',
+      npc_reset_hint: 'Правки сохраняются общей кнопкой «Сохранить». Дефолтных ключевых NPC можно смело менять — крестик × вернёт их к заводским настройкам. Добавленный вручную NPC крестиком удаляется насовсем.',
+      npc_back: 'К шаблону',
+      npc_add: '+ Добавить NPC',
+      conv_summary_title: 'Память разговоров (выжимка)',
+      conv_refresh: 'Обновить',
+      conv_compress: 'Сжать сейчас',
+      conv_forget: 'Забыть этого NPC',
+      conv_save: 'Сохранить выжимку',
+      conv_hint: 'Сжатая память длинных разговоров (создаётся автоматически после ~14 реплик). Можно править вручную — NPC будет это «помнить».',
       reset: '\u0421\u0431\u0440\u043e\u0441\u0438\u0442\u044c',
       test_conn: '\u0422\u0435\u0441\u0442 \u0441\u0435\u0440\u0432\u0435\u0440\u0430',
       test_llm: '\u0422\u0435\u0441\u0442 LLM',
@@ -3157,6 +3666,36 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       interaction_title: '\u0418\u043d\u0442\u0435\u0440\u0430\u043a\u0442\u0438\u0432 NPC',
       interaction_inventory_access: '\u0414\u043e\u0441\u0442\u0443\u043f \u0418\u0418 \u043a \u0438\u043d\u0432\u0435\u043d\u0442\u0430\u0440\u044e NPC',
       interaction_inventory_access_hint: '\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u0435\u0442 \u0441\u043f\u0438\u0441\u043e\u043a \u043f\u0440\u0435\u0434\u043c\u0435\u0442\u043e\u0432 NPC \u0432 LLM. \u0418\u0418 \u043c\u043e\u0436\u0435\u0442 \u043f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u043f\u0440\u0435\u0434\u043c\u0435\u0442 \u0438\u0437 \u0438\u043d\u0432\u0435\u043d\u0442\u0430\u0440\u044f. \u041e\u0442\u043a\u043b\u044e\u0447\u0438\u0442\u0435 \u0434\u043b\u044f \u044d\u043a\u043e\u043d\u043e\u043c\u0438\u0438 \u0442\u043e\u043a\u0435\u043d\u043e\u0432.',
+      interaction_beckon_initiative: 'Инициатива NPC (сами зовут)',
+      interaction_beckon_initiative_hint: 'Знакомые NPC иногда сами подзывают вас жестом и голосом. Редко (кулдауны 10/45 мин).',
+      interaction_lipsync: 'Липсинк (губы при озвучке)',
+      interaction_lipsync_hint: 'NPC шевелит губами на время реплики + эмоция лица по настроению ответа.',
+      interaction_spatial_audio: 'Пространственная озвучка',
+      interaction_spatial_audio_hint: 'Голос NPC панорамируется и затухает по позиции; следует за камерой во время реплики (при включённом липсинке).',
+      light_llm_title: 'Вспомогательная LLM',
+      light_llm_hint: 'Разгружает основную: мысли NPC, встревания и оклики инициативы идут через эту модель. Пустые URL/ключ = как у основной.',
+      light_llm_url: 'API URL (пусто = основной)',
+      light_llm_key: 'API ключ (пусто = основной)',
+      interaction_npc_thoughts: 'Мысли NPC',
+      interaction_npc_thoughts_hint: 'NPC обдумывает каждый обмен репликами; мысли влияют на его отношение. Расходует токены LLM.',
+      interaction_npc_interjections: 'Инициатива реплик (встревание)',
+      interaction_npc_interjections_hint: 'Соседние NPC иногда вставляют слово в ваш разговор (голос с их позиции).',
+      interaction_interject_intensity: 'Интенсивность встревания',
+      interaction_npc_chatter: 'NPC общаются между собой',
+      interaction_npc_chatter_hint: 'Два соседних NPC изредка перекидываются парой реплик (голоса с их позиций, губы двигаются).',
+      interaction_vision: 'Зрение ИИ (скриншоты)',
+      interaction_vision_hint: 'Скажите NPC, используя слово «посмотри» — ИИ получит скриншот игры и увидит сцену. Нужна vision-модель. Например: провайдер Mistral, модель pixtral-12b-2409',
+      interaction_reengage: 'Оклик замолчавшего игрока',
+      interaction_reengage_hint: 'Если после разговора молчать 3 минуты рядом с недавним собеседником (помнит последних 5) — он сам обратится к вам.',
+      interaction_player_name: 'Имя игрока для NPC',
+      interaction_player_name_hint: 'Как NPC знают и называют вас. По умолчанию Henry (Индржих) — впишите своё имя, чтобы отыгрывать под ним.',
+      player_persona_title: 'Персона игрока',
+      interaction_player_desc: 'Характеристики (как его видят NPC)',
+      interaction_player_desc_hint: 'Имя и характеристика идут во все промпты: NPC будут знать вас под этим именем и видеть таким. Пусто — обычный Henry.',
+      interaction_npc_solo: 'Инициатива NPC (без обращения)',
+      interaction_npc_solo_hint: 'Свободный NPC сам окликает игрока или соседа, когда никто с ним не говорит.',
+      interaction_ambient_intensity: 'Интенсивность фоновой жизни (инициатива обращения NPC к игроку/другому NPC)',
+      interaction_spatial_falloff: 'Затухание озвучки с расстоянием',
       interaction_dress_up: '\u041e\u0434\u0435\u0432\u0430\u043d\u0438\u0435 \u0447\u0435\u0440\u0435\u0437 \u043e\u0431\u0449\u0435\u043d\u0438\u0435',
       interaction_dress_up_hint: '\u0424\u0440\u0430\u0437\u044b \u0432\u0440\u043e\u0434\u0435 \u00ab\u043e\u0434\u0435\u043d\u044c\u0441\u044f\u00bb \u0438 \u00ab\u043f\u0435\u0440\u0435\u043e\u0434\u0435\u043d\u044c\u0441\u044f\u00bb \u0437\u0430\u043f\u0443\u0441\u043a\u0430\u044e\u0442 dress_up.',
       interaction_dress_examples: '\u041f\u0440\u0438\u043c\u0435\u0440\u044b: \u00ab\u041e\u0434\u0435\u043d\u044c\u0441\u044f, \u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u0445\u043e\u043b\u043e\u0434\u043d\u043e\u00bb, \u00ab\u041f\u0435\u0440\u0435\u043e\u0434\u0435\u043d\u044c\u0441\u044f \u0432 \u0434\u0440\u0443\u0433\u0443\u044e \u043e\u0434\u0435\u0436\u0434\u0443\u00bb, \u00ab\u0421\u043c\u0435\u043d\u0438 \u043e\u0434\u0435\u0436\u0434\u0443, \u044d\u0442\u0430 \u0443\u0436\u0435 \u0433\u0440\u044f\u0437\u043d\u0430\u044f\u00bb.',
@@ -3209,7 +3748,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     },
     en: {
       title: 'KCD2 AI NPC — Settings',
-      sub: '127.0.0.1:4999 · server configuration · v0.2.0',
+      sub: '127.0.0.1:4999 · server configuration · v1.0',
       link_workshop: 'Workshop',
       link_guide: 'Guide',
       link_github: 'GitHub',
@@ -3241,7 +3780,25 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       prompt_preset_laconic: 'Tarantino-style',
       prompt_preset_absurd: 'Absurd',
       prompt_preset_uncensored: 'Uncensored',
+      prompt_preset_skyrimnet: 'Lively',
       prompt_preset_custom: 'Custom',
+      preset_col_title: 'Presets',
+      npc_col_title: 'Key NPCs',
+      npc_description: 'Description',
+      npc_location: 'Location',
+      npc_occupation: 'Occupation',
+      npc_personality: 'Personality',
+      npc_extra: 'Extra context',
+      npc_save: 'Save NPC',
+      npc_reset_hint: 'Edits are saved with the main Save button. Default key NPCs are safe to edit — the × resets them to factory values. A custom-added NPC is deleted permanently by ×.',
+      npc_back: 'Back to template',
+      npc_add: '+ Add NPC',
+      conv_summary_title: 'Conversation memory (summary)',
+      conv_refresh: 'Refresh',
+      conv_compress: 'Compress now',
+      conv_forget: 'Forget this NPC',
+      conv_save: 'Save summary',
+      conv_hint: 'Compressed memory of long conversations (auto-generated after ~14 messages). Editable — the NPC will remember it.',
       reset: 'Reset',
       test_conn: 'Test Server',
       test_llm: 'Test LLM',
@@ -3334,6 +3891,36 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       interaction_title: 'NPC interaction',
       interaction_inventory_access: 'AI inventory access',
       interaction_inventory_access_hint: 'Sends NPC inventory items to the LLM. The AI can show items from inventory. Disable to save tokens.',
+      interaction_beckon_initiative: 'NPC initiative (they call you)',
+      interaction_beckon_initiative_hint: 'Familiar NPCs occasionally beckon and call you over by voice. Rarely (10/45 min cooldowns).',
+      interaction_lipsync: 'Lipsync (mouth during voice)',
+      interaction_lipsync_hint: 'NPC moves lips for the reply duration + mood-based facial emotion.',
+      interaction_spatial_audio: 'Spatial audio',
+      interaction_spatial_audio_hint: 'NPC voice pans and attenuates by position; follows the camera during playback (when lipsync is on).',
+      light_llm_title: 'Auxiliary LLM',
+      light_llm_hint: 'Offloads the main model: NPC thoughts, interjections and initiative call-outs go through this model. Empty URL/key = same as main.',
+      light_llm_url: 'API URL (empty = main)',
+      light_llm_key: 'API key (empty = main)',
+      interaction_npc_thoughts: 'NPC thoughts',
+      interaction_npc_thoughts_hint: 'NPC thinks after each exchange; thoughts color its attitude. Uses extra LLM tokens.',
+      interaction_npc_interjections: 'Interjections (bystanders)',
+      interaction_npc_interjections_hint: 'Nearby NPCs occasionally cut into your conversation (voice from their position).',
+      interaction_interject_intensity: 'Interjection intensity',
+      interaction_npc_chatter: 'NPC-to-NPC chatter',
+      interaction_npc_chatter_hint: 'Two nearby NPCs occasionally exchange a few spoken lines (spatial voices, lipsync).',
+      interaction_vision: 'AI vision (screenshots)',
+      interaction_vision_hint: 'Speak to an NPC using the word \u201clook\u201d \u2014 the AI receives a game screenshot and sees the scene. Requires a vision-capable model, e.g. provider Mistral, model pixtral-12b-2409.',
+      interaction_reengage: 'Re-engage silent player',
+      interaction_reengage_hint: 'If you fall silent for 3 minutes near a recent conversation partner (remembers the last 5), they will address you first.',
+      interaction_player_name: 'Player name for NPCs',
+      interaction_player_name_hint: 'How NPCs know and address you. Default is Henry \u2014 enter your own name to roleplay under it.',
+      player_persona_title: 'Player persona',
+      interaction_player_desc: 'Player traits (as NPCs see him)',
+      interaction_player_desc_hint: 'Name and persona go into every prompt: NPCs will know you by this name and see you this way. Empty = plain Henry.',
+      interaction_npc_solo: 'NPC solo initiative',
+      interaction_npc_solo_hint: 'An idle NPC occasionally addresses the player or a neighbour unprompted.',
+      interaction_ambient_intensity: 'Ambient life intensity',
+      interaction_spatial_falloff: 'Distance falloff',
       interaction_dress_up: 'Dress up via chat',
       interaction_dress_up_hint: 'Phrases like “get dressed” and “change clothes” trigger dress_up.',
       interaction_dress_examples: 'Examples: “Please get dressed, it is cold”, “Change into different clothes”, “Change your clothes, those are dirty”.',
@@ -3388,7 +3975,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
 
   Object.assign(I18N, {
     cs: { ...I18N.en,
-      title: 'KCD2 AI NPC — Nastavení', sub: '127.0.0.1:4999 · konfigurace serveru · v0.2.0',
+      title: 'KCD2 AI NPC — Nastavení', sub: '127.0.0.1:4999 · konfigurace serveru · v1.0',
       link_workshop: 'Dílna', link_guide: 'Průvodce',
       llm_title: 'Nastavení LLM', provider: 'Poskytovatel', custom: 'Vlastní', api_key: 'API klíč', model: 'Model',
       max_tokens: 'Max. tokenů', max_tokens_sub: 'na odpověď', temperature: 'Teplota', temperature_sub: 'kreativita · 0–2',
@@ -3403,7 +3990,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       input_title: 'Vstup / klávesy', chat_key: 'Klávesa AI chatu', chat_key_english_note: 'Zadejte klávesu pouze v angličtině (latinka). Nepoužívejte ruské/kyrilické znaky.', end_key: 'Volitelná klávesa zavření', overlay_enabled: 'Zobrazit vstupní overlay', overlay_on: 'Zap', overlay_off: 'Vyp', overlay_style: 'Styl vstupního okna', overlay_style_kcd: 'KCD2 (pergamen + zlato)', overlay_style_plain: 'Jednoduchý (tmavý)'
     },
     de: { ...I18N.en,
-      title: 'KCD2 AI NPC — Einstellungen', sub: '127.0.0.1:4999 · Serverkonfiguration · v0.2.0',
+      title: 'KCD2 AI NPC — Einstellungen', sub: '127.0.0.1:4999 · Serverkonfiguration · v1.0',
       link_workshop: 'Workshop', link_guide: 'Anleitung',
       llm_title: 'LLM-Einstellungen', provider: 'Anbieter', custom: 'Eigene', api_key: 'API-Schlüssel', model: 'Modell',
       max_tokens: 'Max. Tokens', max_tokens_sub: 'pro Antwort', temperature: 'Temperatur', temperature_sub: 'Kreativität · 0–2',
@@ -3418,7 +4005,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       input_title: 'Eingabe / Tasten', chat_key: 'AI-Chat-Taste', chat_key_english_note: 'Taste nur auf Englisch (Latein) eingeben. Keine russischen/kyrillischen Zeichen verwenden.', end_key: 'Optionale Schließen-Taste', overlay_enabled: 'Eingabe-Overlay anzeigen', overlay_on: 'Ein', overlay_off: 'Aus', overlay_style: 'Stil des Eingabefensters', overlay_style_kcd: 'KCD2 (Pergament + Gold)', overlay_style_plain: 'Einfach (dunkel)'
     },
     fr: { ...I18N.en,
-      title: 'KCD2 AI NPC — Paramètres', sub: '127.0.0.1:4999 · configuration serveur · v0.2.0',
+      title: 'KCD2 AI NPC — Paramètres', sub: '127.0.0.1:4999 · configuration serveur · v1.0',
       link_workshop: 'Atelier', link_guide: 'Guide',
       llm_title: 'Paramètres LLM', provider: 'Fournisseur', custom: 'Personnalisé', api_key: 'Clé API', model: 'Modèle',
       max_tokens: 'Tokens max.', max_tokens_sub: 'par réponse', temperature: 'Température', temperature_sub: 'créativité · 0–2',
@@ -3433,7 +4020,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       input_title: 'Saisie / touches', chat_key: 'Touche chat IA', end_key: 'Touche de fermeture optionnelle', overlay_enabled: 'Afficher l’overlay de saisie', overlay_on: 'On', overlay_off: 'Off', overlay_style: 'Style de la fenêtre de saisie', overlay_style_kcd: 'KCD2 (parchemin + or)', overlay_style_plain: 'Simple (sombre)'
     },
     es: { ...I18N.en,
-      title: 'KCD2 AI NPC — Ajustes', sub: '127.0.0.1:4999 · configuración del servidor · v0.2.0',
+      title: 'KCD2 AI NPC — Ajustes', sub: '127.0.0.1:4999 · configuración del servidor · v1.0',
       link_workshop: 'Workshop', link_guide: 'Guía',
       llm_title: 'Ajustes LLM', provider: 'Proveedor', custom: 'Propio', api_key: 'Clave API', model: 'Modelo',
       max_tokens: 'Tokens máx.', max_tokens_sub: 'por respuesta', temperature: 'Temperatura', temperature_sub: 'creatividad · 0–2',
@@ -3448,7 +4035,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       input_title: 'Entrada / teclas', chat_key: 'Tecla de chat IA', end_key: 'Tecla opcional de cierre', overlay_enabled: 'Mostrar overlay de entrada', overlay_on: 'On', overlay_off: 'Off', overlay_style: 'Estilo de ventana de entrada', overlay_style_kcd: 'KCD2 (pergamino + oro)', overlay_style_plain: 'Simple (oscuro)'
     },
     pl: { ...I18N.en,
-      title: 'KCD2 AI NPC — Ustawienia', sub: '127.0.0.1:4999 · konfiguracja serwera · v0.2.0',
+      title: 'KCD2 AI NPC — Ustawienia', sub: '127.0.0.1:4999 · konfiguracja serwera · v1.0',
       link_workshop: 'Warsztat', link_guide: 'Poradnik',
       llm_title: 'Ustawienia LLM', provider: 'Dostawca', custom: 'Własny', api_key: 'Klucz API', model: 'Model',
       max_tokens: 'Maks. tokenów', max_tokens_sub: 'na odpowiedź', temperature: 'Temperatura', temperature_sub: 'kreatywność · 0–2',
@@ -3463,7 +4050,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       input_title: 'Wejście / klawisze', chat_key: 'Klawisz czatu AI', end_key: 'Opcjonalny klawisz zamknięcia', overlay_enabled: 'Pokaż overlay wejścia', overlay_on: 'Wł.', overlay_off: 'Wył.', overlay_style: 'Styl okna wejścia', overlay_style_kcd: 'KCD2 (pergamin + złoto)', overlay_style_plain: 'Prosty (ciemny)'
     },
     zh: { ...I18N.en,
-      title: 'KCD2 AI NPC — 设置', sub: '127.0.0.1:4999 · 服务器配置 · v0.2.0',
+      title: 'KCD2 AI NPC — 设置', sub: '127.0.0.1:4999 · 服务器配置 · v1.0',
       link_workshop: '创意工坊', link_guide: '指南',
       llm_title: 'LLM 设置', provider: '提供商', custom: '自定义', api_key: 'API 密钥', model: '模型',
       max_tokens: '最大 Token', max_tokens_sub: '每次回复', temperature: '温度', temperature_sub: '创造性 · 0–2',
@@ -3478,7 +4065,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       input_title: '输入 / 按键', chat_key: 'AI 聊天键', end_key: '可选关闭键', overlay_enabled: '显示输入覆盖层', overlay_on: '开', overlay_off: '关', overlay_style: '输入窗口样式', overlay_style_kcd: 'KCD2（羊皮纸 + 金色）', overlay_style_plain: '简洁（深色）'
     },
     ja: { ...I18N.en,
-      title: 'KCD2 AI NPC — 設定', sub: '127.0.0.1:4999 · サーバー設定 · v0.2.0',
+      title: 'KCD2 AI NPC — 設定', sub: '127.0.0.1:4999 · サーバー設定 · v1.0',
       link_workshop: 'ワークショップ', link_guide: 'ガイド',
       llm_title: 'LLM 設定', provider: 'プロバイダー', custom: 'カスタム', api_key: 'API キー', model: 'モデル',
       max_tokens: '最大トークン', max_tokens_sub: '応答ごと', temperature: '温度', temperature_sub: '創造性 · 0–2',
@@ -3593,7 +4180,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     github:     ['gpt-4o-mini','gpt-4o','meta-llama-3.1-70b-instruct','meta-llama-3.1-8b-instruct','mistral-large-2407'],
     cohere:     ['command-r','command-r-plus','command-a-03-2025','command-r-08-2024','command-r-plus-08-2024','command-r7b-12-2024'],
     cerebras:   ['llama-3.3-70b','llama3.1-8b'],
-    mistral:    ['mistral-large-latest','mistral-medium-latest','mistral-small-latest','open-mistral-7b'],
+    mistral:    ['mistral-large-latest','mistral-medium-latest','mistral-small-latest','open-mistral-7b','pixtral-12b-2409'],
     ollama:     ['llama3.1:8b','llama3.1:70b','mistral:7b','qwen2.5:7b','gemma2:9b','phi3:mini'],
     lmstudio:   ['local-model'],
     openrouter: ['meta-llama/llama-3.3-70b-instruct:free','meta-llama/llama-3.1-8b-instruct:free','mistralai/mixtral-8x7b-instruct','google/gemma-2-9b-it:free'],
@@ -3655,7 +4242,18 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
   };
 
   loadConfig();
-  document.getElementById('prompt-template')?.addEventListener('input', detectPromptPreset);
+  function autosizePromptTa() {
+    const ta = document.getElementById('prompt-template');
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = (ta.scrollHeight + 4) + 'px';
+  }
+  document.getElementById('prompt-template')?.addEventListener('input', function () { detectPromptPreset(); autosizePromptTa(); });
+  // Автоподгон при программной смене содержимого (пресеты, NPC, загрузка конфига).
+  setInterval(function () {
+    const ta = document.getElementById('prompt-template');
+    if (ta && Math.abs(ta.scrollHeight - ta.clientHeight) > 6) autosizePromptTa();
+  }, 600);
   checkStatus();
   setInterval(checkStatus, 15000);
 </script>

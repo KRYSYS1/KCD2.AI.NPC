@@ -1681,12 +1681,13 @@ local function scene_move_away_from_player(ent, distance)
         len = 1
     end
     local d = tonumber(distance) or 1.0
-    local new_pos = {
+    local target_pos = {
         x = (tonumber(npc_pos.x) or 0) + dx / len * d,
         y = (tonumber(npc_pos.y) or 0) + dy / len * d,
         z = tonumber(npc_pos.z) or 0,
     }
-    return scene_set_pos(ent, new_pos)
+    -- Walk away incrementally instead of teleporting
+    return scene_walk_to_pos(ent, target_pos, 0.3, 0.06, 20, 100)
 end
 
 local function scene_move_towards_player(ent, distance)
@@ -1698,13 +1699,18 @@ local function scene_move_towards_player(ent, distance)
     local dy = (tonumber(player_pos.y) or 0) - (tonumber(npc_pos.y) or 0)
     local len = math.sqrt(dx * dx + dy * dy)
     if len < 1.25 then return false end
-    local d = math.min(tonumber(distance) or 0.75, math.max(0, len - 1.15))
-    local new_pos = {
-        x = (tonumber(npc_pos.x) or 0) + dx / len * d,
-        y = (tonumber(npc_pos.y) or 0) + dy / len * d,
-        z = tonumber(npc_pos.z) or 0,
-    }
-    return scene_set_pos(ent, new_pos)
+    local sd = tonumber(distance) or 1.5
+    -- Try AI.Signal with player position (may trigger MBT pathfinding on some NPCs)
+    if AI and type(AI.Signal) == "function" and g_SignalData then
+        g_SignalData.point.x = tonumber(player_pos.x) or 0
+        g_SignalData.point.y = tonumber(player_pos.y) or 0
+        g_SignalData.point.z = tonumber(player_pos.z) or 0
+        g_SignalData.fValue = 0
+        local filter = rawget(_G, "SIGNALFILTER_SENDER") or 1
+        pcall(AI.Signal, filter, 1, "OnInterestingSoundHeard", ent.id or ent, g_SignalData)
+    end
+    -- Walk toward player incrementally instead of teleporting
+    return scene_walk_to_pos(ent, player_pos, sd, 0.06, 20, 200)
 end
 
 local function scene_send_ai_signal(ent, signal)
@@ -1712,6 +1718,107 @@ local function scene_send_ai_signal(ent, signal)
     local filter = rawget(_G, "SIGNALFILTER_SENDER") or 1
     local ok = pcall(AI.Signal, filter, 1, signal, ent.id or ent)
     return ok == true
+end
+
+-- Track active walks per NPC entity id to prevent overlapping movement loops
+ai_npc_walk_state = ai_npc_walk_state or {}
+
+-- Core incremental walk: moves NPC toward target_pos in small steps via SetWorldPos.
+-- Uses Script.SetTimer for smooth movement instead of teleporting the full distance.
+-- Global (not local) to avoid Lua 5.1 200-local-variable limit in main chunk.
+function scene_walk_to_pos(ent, target_pos, stop_dist, step_size, tick_ms, max_ticks)
+    if not ent or type(target_pos) ~= "table" then return false end
+    local eid = tostring(ent.id or "")
+    if eid == "" then return false end
+    ai_npc_walk_state[eid] = true
+    local sd = tonumber(stop_dist) or 1.5
+    local ss = tonumber(step_size) or 0.06
+    local tm = tonumber(tick_ms) or 20
+    local mt = tonumber(max_ticks) or 200
+    local tick = 0
+    local stuck_count = 0
+    local last_x = 0
+    local last_y = 0
+    -- Disable NPC behavior tree so it doesn't pull the NPC back to its anchor
+    local npc_id = ent.id
+    local bt_disabled = false
+    if AI and type(AI.AutoDisable) == "function" and npc_id then
+        local ok_dis = pcall(AI.AutoDisable, npc_id, 1)
+        bt_disabled = ok_dis
+        System.LogAlways("[AI NPC] WALK: AI.AutoDisable(1) ok=" .. tostring(ok_dis))
+    end
+    System.LogAlways("[AI NPC] WALK: start eid=" .. eid .. " target=(" .. string.format("%.1f", tonumber(target_pos.x) or 0) .. "," .. string.format("%.1f", tonumber(target_pos.y) or 0) .. ") stop_dist=" .. tostring(sd) .. " step=" .. tostring(ss) .. " tick_ms=" .. tostring(tm) .. " bt_disabled=" .. tostring(bt_disabled))
+    local function restore_bt()
+        if bt_disabled and AI and type(AI.AutoDisable) == "function" and npc_id then
+            pcall(AI.AutoDisable, npc_id, 0)
+            System.LogAlways("[AI NPC] WALK: AI.AutoDisable(0) restored BT")
+        end
+        bt_disabled = false
+    end
+    local function step()
+        if not ai_npc_walk_state[eid] then
+            restore_bt()
+            return
+        end
+        tick = tick + 1
+        if tick > mt then
+            ai_npc_walk_state[eid] = nil
+            restore_bt()
+            System.LogAlways("[AI NPC] WALK: max ticks reached (" .. mt .. ")")
+            return
+        end
+        local e = ent
+        if System and type(System.GetEntity) == "function" and ent.id then
+            local ok_ref, ref = pcall(System.GetEntity, ent.id)
+            if ok_ref and ref then e = ref end
+        end
+        local npc_pos = scene_get_pos(e)
+        if type(npc_pos) ~= "table" then
+            ai_npc_walk_state[eid] = nil
+            restore_bt()
+            return
+        end
+        local cur_x = tonumber(npc_pos.x) or 0
+        local cur_y = tonumber(npc_pos.y) or 0
+        local dx = (tonumber(target_pos.x) or 0) - cur_x
+        local dy = (tonumber(target_pos.y) or 0) - cur_y
+        local dist = math.sqrt(dx * dx + dy * dy)
+        if dist <= sd then
+            ai_npc_walk_state[eid] = nil
+            restore_bt()
+            System.LogAlways("[AI NPC] WALK: reached target dist=" .. string.format("%.2f", dist))
+            return
+        end
+        last_x = cur_x
+        last_y = cur_y
+        local nx = dx / dist
+        local ny = dy / dist
+        local new_pos = {
+            x = cur_x + nx * ss,
+            y = cur_y + ny * ss,
+            z = tonumber(npc_pos.z) or 0,
+        }
+        scene_set_pos(e, new_pos)
+        if tick <= 3 or tick % 30 == 0 then
+            System.LogAlways("[AI NPC] WALK: tick=" .. tick .. " dist=" .. string.format("%.2f", dist))
+        end
+        -- Face target direction every few ticks
+        if tick % 5 == 0 and e and type(e.actor) == "table" and type(e.actor.SetForcedLookDir) == "function" then
+            pcall(function() return e.actor:SetForcedLookDir({ x = nx, y = ny, z = 0 }) end)
+        end
+        if Script and type(Script.SetTimer) == "function" then
+            pcall(Script.SetTimer, tm, step)
+        else
+            ai_npc_walk_state[eid] = nil
+            restore_bt()
+        end
+    end
+    if Script and type(Script.SetTimer) == "function" then
+        pcall(Script.SetTimer, tm, step)
+    else
+        step()
+    end
+    return true
 end
 
 local function scene_look_at_player(ent)
@@ -2499,13 +2606,13 @@ local function scene_execute_game_action(scene, action, intent)
     end
     local ok = false
     if action == "step_back" then
-        ok = scene_move_away_from_player(ent, 0.65) or ok
+        ok = scene_move_away_from_player(ent, 1.0) or ok
         ok = scene_send_ai_signal(ent, "OnPlayerTooClose") or scene_send_ai_signal(ent, "OnThreateningSoundHeard") or ok
     elseif action == "walk_away" then
-        ok = scene_move_away_from_player(ent, 1.25) or ok
+        ok = scene_move_away_from_player(ent, 3.0) or ok
         ok = scene_send_ai_signal(ent, "OnPlayerTooClose") or scene_send_ai_signal(ent, "OnThreateningSoundHeard") or ok
     elseif action == "come_closer" then
-        ok = scene_move_towards_player(ent, 0.75) or scene_look_at_player(ent) or ok
+        ok = scene_move_towards_player(ent, 1.5) or scene_look_at_player(ent) or ok
     elseif action == "turn_to_player" or action == "look_at_player" then
         ok = scene_look_at_player(ent) or ok
     elseif action == "draw_weapon" then
@@ -5274,6 +5381,19 @@ end
 local RECENT_ACTIONS_WINDOW_SEC = 600  -- 10 minutes
 build_recent_player_actions = function(current_npc_id)
     local now = (System and System.GetCurrTime and System.GetCurrTime()) or os.clock()
+    -- Перезагрузка сейва отматывает System.GetCurrTime() назад: старые записи
+    -- получают ts > now, вечно висят как "0s ago" и не вымываются 10-мин окном
+    -- (NPC бесконечно "видят" давнее избиение). Чистим записи из будущего.
+    do
+        local i = #(state.player_action_log or {})
+        while i >= 1 do
+            local e2 = state.player_action_log[i]
+            if e2 and tonumber(e2.ts) and tonumber(e2.ts) > now + 1.0 then
+                table.remove(state.player_action_log, i)
+            end
+            i = i - 1
+        end
+    end
     local cutoff = now - RECENT_ACTIONS_WINDOW_SEC
     local out = {}
     for _, e in ipairs(state.player_action_log or {}) do

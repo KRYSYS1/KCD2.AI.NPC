@@ -44,6 +44,16 @@ class LLMConfig(BaseModel):
     temperature: float = Field(default=0.8, description="Sampling temperature.")
 
 
+class LightLLMConfig(BaseModel):
+    """Вспомогательная LLM для фоновых вызовов (мысли NPC, встревания, оклики
+    инициативы) — разгружает основную модель. Пустые api_url/api_key наследуются
+    от основной LLM."""
+    enabled: bool = Field(default=False, description="Route background calls (thoughts, interjections, initiative greetings) to this model.")
+    api_url: str = Field(default="", description="OpenAI-compatible API URL. Empty = same as main LLM.")
+    api_key: str = Field(default="", description="API key. Empty = same as main LLM.")
+    model: str = Field(default="llama-3.1-8b-instant", description="Light model name, e.g. llama-3.1-8b-instant (Groq has per-model daily limits).")
+
+
 class TTSConfig(BaseModel):
     enabled: bool = Field(default=True, description="Enable TTS.")
     engine: str = Field(
@@ -198,6 +208,21 @@ class InteractionConfig(BaseModel):
     enable_play_flute_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC play_flute scene action.")
     enable_scarecrow_pose_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC scarecrow_pose scene action.")
     enable_inventory_access: bool = Field(default=True, description="Send NPC inventory items to LLM and allow show_item/hide_item actions. Disable to save tokens.")
+    enable_beckon_initiative: bool = Field(default=True, description="NPC beckon initiative: familiar NPCs proactively call the player over (server-driven, cooldowns).")
+    enable_lipsync: bool = Field(default=True, description="Lipsync-lite: NPC talking face animation (layer 12) synced to TTS reply duration + mood emotion tail.")
+    enable_spatial_audio: bool = Field(default=True, description="Spatial TTS: pan/attenuation/low-pass by NPC position + real-time panning during playback.")
+    enable_npc_thoughts: bool = Field(default=True, description="NPC private internal thoughts: generated after each exchange, stored per NPC, injected into future prompts.")
+    enable_npc_interjections: bool = Field(default=True, description="Bystander interjections: a nearby NPC occasionally calls out a short line during the player's conversation (spatialized voice, cooldowns).")
+    spatial_falloff: int = Field(default=100, description="Distance falloff strength for spatial TTS, 0-100 (0 = same loudness at any distance).")
+    interject_intensity: int = Field(default=50, description="Bystander interjection intensity 0-100: scales chance and cooldowns.")
+    enable_npc_chatter: bool = Field(default=True, description="Idle NPC-to-NPC chatter: two nearby NPCs occasionally exchange 2-4 spoken lines (spatialized, lipsync).")
+    enable_npc_solo_initiative: bool = Field(default=True, description="Solo NPC initiative: an idle NPC occasionally addresses the player or shouts to another NPC unprompted.")
+    ambient_intensity: int = Field(default=50, description="Ambient life intensity 0-100: scales chance and cooldowns of NPC chatter and solo initiative.")
+    enable_vision_screenshots: bool = Field(default=False, description="AI vision: when the player's message contains a trigger word ('посмотри'), attach a game screenshot to the LLM request. Requires a vision-capable model.")
+    vision_trigger_words: str = Field(default="посмотри,взгляни,глянь,смотри,look at,look here,see this", description="Comma-separated trigger words (case-insensitive) that attach a screenshot to the player's message.")
+    enable_npc_reengage: bool = Field(default=True, description="Re-engage: a recent conversation partner addresses the player after 3 minutes of silence nearby (remembers last 5 partners).")
+    player_name: str = Field(default="Henry", description="How NPCs know and address the player. Change it to roleplay under your own name instead of Henry.")
+    player_description: str = Field(default="", description="Optional player persona: how locals see the player (appearance, reputation, quirks). Injected into all NPC prompts.")
     dress_up_terms: str = Field(
         default="оденься, одевайся, одень одежду, надень одежду, надень что-нибудь, прикройся, переоденься, смени одежду, переоденься в другую одежду, надень другую одежду, одеться, оделся, оделась, одень его, одень её, одень ее, dress up, get dressed, put clothes on, put your clothes on, wear clothes, change clothes, change your clothes, put on different clothes",
         description="Comma-separated player phrases that trigger dress_up.",
@@ -355,6 +380,7 @@ class ServerConfig(BaseModel):
         description="Response language: en, ru, cs, de, etc.",
     )
     llm: LLMConfig = Field(default_factory=LLMConfig)
+    llm_light: LightLLMConfig = Field(default_factory=LightLLMConfig)
     tts: TTSConfig = Field(default_factory=TTSConfig)
     stt: STTConfig = Field(default_factory=STTConfig)
     input: InputConfig = Field(default_factory=InputConfig)

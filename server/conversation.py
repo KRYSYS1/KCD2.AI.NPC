@@ -11,8 +11,24 @@ class Conversation:
     npc_name: str
     system_prompt: str
     messages: list[dict[str, str]] = field(default_factory=list)
+    summary: str = ""
     created_at: float = field(default_factory=time.time)
     last_active: float = field(default_factory=time.time)
+
+    # Сжатие истории: когда сообщений больше THRESHOLD, старые (кроме
+    # последних KEEP_TAIL) суммаризируются лёгкой LLM в conv.summary.
+    COMPRESS_THRESHOLD = 14
+    KEEP_TAIL = 6
+
+    def needs_compression(self) -> bool:
+        return len(self.messages) > self.COMPRESS_THRESHOLD
+
+    def head_for_compression(self) -> list[dict[str, str]]:
+        return self.messages[:-self.KEEP_TAIL]
+
+    def apply_compression(self, new_summary: str) -> None:
+        self.messages = self.messages[-self.KEEP_TAIL:]
+        self.summary = (new_summary or "").strip()
 
     def add_user_message(self, text: str) -> None:
         self.messages.append({"role": "user", "content": text})
@@ -23,8 +39,19 @@ class Conversation:
         self.last_active = time.time()
 
     def get_messages(self, max_history: int = 20) -> list[dict[str, str]]:
-        """Return the last N messages for context window management."""
-        return self.messages[-max_history:]
+        """Return the last N messages for context window management.
+
+        If older lines were compressed, the summary is prepended as a system
+        message so the model keeps long-range memory at a fraction of tokens.
+        """
+        tail = self.messages[-max_history:]
+        if self.summary:
+            return [{
+                "role": "system",
+                "content": "Summary of the earlier part of this conversation "
+                           "(older lines were condensed): " + self.summary,
+            }] + tail
+        return tail
 
     def is_expired(self, timeout: float = 600.0) -> bool:
         return (time.time() - self.last_active) > timeout
@@ -98,6 +125,7 @@ class ConversationManager:
                 npc_name=data.get("npc_name", npc_name),
                 system_prompt=system_prompt,
                 messages=messages[-self._max_history:],
+                summary=str(data.get("summary") or ""),
                 created_at=float(data.get("created_at", time.time())),
                 last_active=float(data.get("last_active", time.time())),
             )
@@ -112,5 +140,7 @@ class ConversationManager:
             "created_at": conv.created_at,
             "last_active": conv.last_active,
             "messages": conv.messages[-self._max_history:],
+            "summary": conv.summary,
         }
         path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+

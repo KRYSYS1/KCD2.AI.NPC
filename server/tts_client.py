@@ -57,68 +57,149 @@ def _init_pygame():
         logger.warning(f"pygame init failed: {e}")
 
 
-def _compute_spatial_volume(base_volume: float, npc_pos, player_pos, player_fwd):
-    """Return (left_volume, right_volume, distance, pan) for NPC-relative TTS.
+# Сглаживание пана между репликами (модульное состояние).
+_last_pan = 0.0
 
-    KCD2 uses CryEngine coords: X/Y horizontal, Z up. This is intentionally
-    stronger than natural HRTF because the sound is still played by our Python
-    process, not by KCD2's native positional audio emitter.
-    """
+
+def _distance_muffle(distance):
+    """0 вблизи, растёт с дистанцией (дальние голоса глуше). ~1 на 15+ м."""
+    if distance is None:
+        return 0.0
+    m = (distance - 2.0) / 13.0
+    return 0.0 if m < 0.0 else (1.0 if m > 1.0 else m)
+
+
+def _apply_lowpass(arr, amount):
+    """Однополюсный low-pass по mono numpy-массиву. amount 0..1 (глуше)."""
+    try:
+        import numpy as np
+        if amount <= 0.02 or arr is None or len(arr) == 0:
+            return arr
+        alpha = 1.0 - min(0.9, amount * 0.9)
+        src2 = arr.astype(np.float32)
+        out = np.empty_like(src2)
+        y = float(src2[0])
+        om = 1.0 - alpha
+        for k in range(len(src2)):
+            y = alpha * float(src2[k]) + om * y
+            out[k] = y
+        return out.astype(arr.dtype)
+    except Exception:
+        return arr
+
+
+def _compute_spatial_volume(base_volume: float, npc_pos, player_pos, player_fwd):
+    """Return (left, right, distance, pan, muffle) for NPC-relative TTS.
+    muffle 0..1 = сила low-pass (дистанция + «за спиной»)."""
     import math
+    global _last_pan
     try:
         nx = float(npc_pos.get("x", 0)) if hasattr(npc_pos, "get") else float(npc_pos[0])
         ny = float(npc_pos.get("y", 0)) if hasattr(npc_pos, "get") else float(npc_pos[1])
         px = float(player_pos.get("x", 0)) if hasattr(player_pos, "get") else float(player_pos[0])
         py = float(player_pos.get("y", 0)) if hasattr(player_pos, "get") else float(player_pos[1])
     except Exception:
-        return base_volume, base_volume, None, None
+        return base_volume, base_volume, None, None, 0.0
 
     dx = nx - px
     dy = ny - py
     distance = math.sqrt(dx * dx + dy * dy)
 
-    max_dist = 14.0
-    min_gain = 0.12
-    dist_atten = min_gain + (1.0 - min_gain) * max(0.0, min(1.0, 1.0 - distance / max_dist))
+    ref = 3.0
+    min_gain = 0.10
+    dist_atten = 1.0 / (1.0 + (distance / ref) ** 2)
+    if dist_atten < min_gain:
+        dist_atten = min_gain
 
-    if not player_fwd:
+    muffle = _distance_muffle(distance)
+
+    # Слайдер «затухание с расстоянием»: 0 → без затухания и приглушения.
+    dist_atten = (1.0 - _spatial_falloff) + _spatial_falloff * dist_atten
+    muffle = muffle * _spatial_falloff
+
+    if not player_fwd or distance < 0.001:
+        _last_pan = 0.0
         vol = base_volume * dist_atten
-        return vol, vol, distance, 0.0
+        return vol, vol, distance, 0.0, muffle
 
     try:
         fx = float(player_fwd.get("x", 0)) if hasattr(player_fwd, "get") else float(player_fwd[0])
         fy = float(player_fwd.get("y", 0)) if hasattr(player_fwd, "get") else float(player_fwd[1])
     except Exception:
         vol = base_volume * dist_atten
-        return vol, vol, distance, 0.0
+        return vol, vol, distance, 0.0, muffle
 
     fwd_len = math.sqrt(fx * fx + fy * fy)
     if fwd_len < 0.001:
         vol = base_volume * dist_atten
-        return vol, vol, distance, 0.0
-
-    dir_len = distance
-    if dir_len < 0.001:
-        vol = base_volume * dist_atten
-        return vol, vol, distance, 0.0
+        return vol, vol, distance, 0.0, muffle
 
     fx /= fwd_len
     fy /= fwd_len
-    dx /= dir_len
-    dy /= dir_len
-    # Right vector for the player's current view in the horizontal plane.
+    ndx = dx / distance
+    ndy = dy / distance
     rx = fy
     ry = -fx
-    pan = max(-1.0, min(1.0, dx * rx + dy * ry))
-    # Make the effect obvious on ordinary headphones/speakers.
-    pan = max(-1.0, min(1.0, pan * 1.65))
+    pan = max(-1.0, min(1.0, (ndx * rx + ndy * ry) * 1.5))
+    front = ndx * fx + ndy * fy
 
-    left = 1.0 - max(0.0, pan) * 0.92
-    right = 1.0 - max(0.0, -pan) * 0.92
-    return left * base_volume * dist_atten, right * base_volume * dist_atten, distance, pan
+    pan = 0.5 * _last_pan + 0.5 * pan
+    _last_pan = pan
+
+    left = 1.0 - max(0.0, pan) * 0.9
+    right = 1.0 - max(0.0, -pan) * 0.9
+
+    back_atten = 1.0
+    if front < 0.0:
+        back_atten = 1.0 + front * 0.4
+        if back_atten < 0.55:
+            back_atten = 0.55
+        muffle = min(1.0, muffle + (-front) * 0.35)
+
+    l = left * base_volume * dist_atten * back_atten
+    r = right * base_volume * dist_atten * back_atten
+    return l, r, distance, pan, muffle
 
 
-def _play_file(path: str, volume: float = 1.0, npc_pos=None, player_pos=None, player_fwd=None):
+_face_cb = None
+
+
+def set_face_callback(cb) -> None:
+    """Колбэк (npc_id, duration_ms): сервер дёргает Lua — 'говорящее лицо'
+    NPC на время реплики (липсинк-лайт, слой 12)."""
+    global _face_cb
+    _face_cb = cb
+
+
+_pos_provider = None
+_spatial_enabled = True
+_spatial_falloff = 1.0
+
+
+def set_spatial_falloff(percent) -> None:
+    """Сила затухания с расстоянием (слайдер панели, 0-100%).
+    0 = голос одинаково громкий на любой дистанции, 100 = полное затухание."""
+    global _spatial_falloff
+    try:
+        _spatial_falloff = max(0.0, min(100.0, float(percent))) / 100.0
+    except Exception:
+        _spatial_falloff = 1.0
+
+
+def set_spatial_enabled(value) -> None:
+    """Тумблер пространственной озвучки (веб-панель, interaction.enable_spatial_audio)."""
+    global _spatial_enabled
+    _spatial_enabled = bool(value)
+
+
+def set_position_provider(cb) -> None:
+    """Провайдер свежих позиций {npc_pos, player_pos, player_fwd, ts} —
+    для real-time обновления панорамы во время воспроизведения."""
+    global _pos_provider
+    _pos_provider = cb
+
+
+def _play_file(path: str, volume: float = 1.0, npc_pos=None, player_pos=None, player_fwd=None, npc_id=None):
     try:
         import pygame
         _init_pygame()
@@ -132,8 +213,9 @@ def _play_file(path: str, volume: float = 1.0, npc_pos=None, player_pos=None, pl
         right_vol = volume
         distance = None
         pan = None
-        if npc_pos and player_pos:
-            left_vol, right_vol, distance, pan = _compute_spatial_volume(volume, npc_pos, player_pos, player_fwd)
+        muffle = 0.0
+        if npc_pos and player_pos and _spatial_enabled:
+            left_vol, right_vol, distance, pan, muffle = _compute_spatial_volume(volume, npc_pos, player_pos, player_fwd)
 
         # TTS services output mono MP3. pygame Channel.set_volume(left,right)
         # is ignored for mono sources, so we bake the pan into a stereo Sound.
@@ -143,20 +225,22 @@ def _play_file(path: str, volume: float = 1.0, npc_pos=None, player_pos=None, pl
             import numpy as np
             arr = pygame.sndarray.array(sound)
             if arr.ndim == 1:
+                # Пан НЕ запекаем: панораму рулит channel.set_volume(l, r) на
+                # лету (real-time обновление по POS|-фиду во время реплики).
+                # Запекаем только low-pass — его на лету не поменять.
+                arr = _apply_lowpass(arr, muffle)
                 stereo = np.zeros((len(arr), 2), dtype=arr.dtype)
-                stereo[:, 0] = (arr * left_vol).astype(arr.dtype)
-                stereo[:, 1] = (arr * right_vol).astype(arr.dtype)
+                stereo[:, 0] = arr
+                stereo[:, 1] = arr
                 sound = pygame.sndarray.make_sound(stereo)
-                left_vol = 1.0
-                right_vol = 1.0
-            elif arr.ndim == 2:
-                arr[:, 0] = (arr[:, 0] * left_vol).astype(arr.dtype)
-                arr[:, 1] = (arr[:, 1] * right_vol).astype(arr.dtype)
-                sound = pygame.sndarray.make_sound(arr)
-                left_vol = 1.0
-                right_vol = 1.0
         except Exception:
-            pass  # fallback to channel.set_volume (works if source is already stereo)
+            pass  # источник останется как есть; set_volume всё равно применится
+
+        if _face_cb and npc_id:
+            try:
+                _face_cb(npc_id, int(sound.get_length() * 1000))
+            except Exception:
+                pass  # лицо — некритично, звук важнее
 
         channel.set_volume(left_vol, right_vol)
         channel.play(sound)
@@ -166,7 +250,20 @@ def _play_file(path: str, volume: float = 1.0, npc_pos=None, player_pos=None, pl
             f"pan={pan if pan is not None else 'n/a'} npc_pos={npc_pos} player_pos={player_pos} player_fwd={player_fwd})"
         )
         while channel.get_busy():
-            time.sleep(0.05)
+            time.sleep(0.1)
+            if _pos_provider is not None and npc_pos and player_pos and _spatial_enabled:
+                try:
+                    fresh = _pos_provider() or {}
+                    if fresh.get("ts", 0.0) >= time.time() - 2.0:
+                        l2, r2, _d, _p, _m = _compute_spatial_volume(
+                            volume,
+                            fresh.get("npc_pos") or npc_pos,
+                            fresh.get("player_pos") or player_pos,
+                            fresh.get("player_fwd") or player_fwd,
+                        )
+                        channel.set_volume(l2, r2)
+                except Exception:
+                    pass
     except Exception as e:
         logger.error(f"Audio playback failed: {e}")
     finally:
@@ -240,7 +337,7 @@ class TTSClient:
 
         if mode == "external" or mode == "both" or not engine_queued:
             thread = threading.Thread(
-                target=_play_file, args=(tmp_path, volume, npc_pos, player_pos, player_fwd), daemon=True
+                target=_play_file, args=(tmp_path, volume, npc_pos, player_pos, player_fwd, npc_id), daemon=True
             )
             thread.start()
             return
@@ -359,15 +456,25 @@ class TTSClient:
             if size < 512:
                 raise RuntimeError(f"Edge TTS returned empty audio ({size} bytes)")
 
-        try:
-            await save_edge_audio(synth_text)
-        except Exception as first_exc:
-            if _has_cyrillic(text) and voice_lang != "ru":
-                synth_text = _transliterate_cyrillic(text)
-                logger.warning(f"edge-tts failed for Cyrillic text with voice={voice}; retrying transliterated text: {first_exc}")
+        # edge-tts периодически флейкает ("No audio was received") — ретраим
+        # до 3 попыток с паузой; отдельно сохраняем транслит-фолбэк для кириллицы
+        # на не-русском голосе.
+        attempt_exc = None
+        for attempt in range(3):
+            try:
                 await save_edge_audio(synth_text)
-            else:
-                raise
+                attempt_exc = None
+                break
+            except Exception as exc:
+                attempt_exc = exc
+                if _has_cyrillic(text) and voice_lang != "ru":
+                    synth_text = _transliterate_cyrillic(text)
+                    logger.warning(f"edge-tts failed for Cyrillic text with voice={voice}; retrying transliterated text: {exc}")
+                else:
+                    logger.warning(f"edge-tts synth attempt {attempt + 1}/3 failed ({exc}); retrying")
+                    await asyncio.sleep(0.4 * (attempt + 1))
+        if attempt_exc is not None:
+            raise attempt_exc
         logger.info(f"edge-tts synth in {(time.perf_counter()-t0)*1000:.0f} ms, chars={len(text)}, synth_chars={len(synth_text)}, gender={gender}, voice={voice}")
         self._dispatch_playback(tmp.name, self.config.volume, npc_id, npc_name, npc_name_resolved, npc_pos, player_pos, player_fwd)
 
@@ -472,3 +579,6 @@ class TTSClient:
         # (missing API key, HTTP error, voice not installed, etc.).
         await self._synth_and_play(text)
         return "ok"
+
+
+

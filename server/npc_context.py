@@ -12,6 +12,17 @@ except Exception:  # pragma: no cover
 
 CHARACTERS_DIR = Path(__file__).parent / "characters"
 
+_PLAYER_NAME = "Henry"
+_PLAYER_DESC = ""
+
+
+def set_player_name(name, description="") -> None:
+    """Персона игрока для промптов: имя + как его видят местные."""
+    global _PLAYER_NAME, _PLAYER_DESC
+    _PLAYER_NAME = str(name or "").strip() or "Henry"
+    _PLAYER_DESC = str(description or "").strip()
+
+
 SYSTEM_PROMPT_TEMPLATE = """You are {name}, {description}.
 Your name: {name}.
 You live in {location} in the Kingdom of Bohemia, in the year 1403.
@@ -82,7 +93,7 @@ def load_character_db() -> dict[str, dict]:
     db = {}
     if not CHARACTERS_DIR.exists():
         return db
-    for f in CHARACTERS_DIR.glob("*.json"):
+    for f in sorted(CHARACTERS_DIR.glob("*.json")):  # overrides.json ('o') грузится после kcd2_npcs.json ('k') и перекрывает дефолты
         try:
             with open(f, "r", encoding="utf-8") as fh:
                 data = json.load(fh)
@@ -418,5 +429,15 @@ def build_system_prompt(
             occupation=occupation,
             extra_context=(animal_directive + (f"\nAdditional context: {extra_with_gender}" if extra_with_gender else "")),
             language_instruction=lang_instruction,
+        )
+    if _PLAYER_NAME != "Henry":
+        prompt += (
+            f"\nIMPORTANT: In this playthrough the player character is NOT Henry. "
+            f"The player's name is {_PLAYER_NAME}. You know him and address him as {_PLAYER_NAME}."
+        )
+    if _PLAYER_DESC:
+        prompt += (
+            f"\nHow locals see and know the player: {_PLAYER_DESC}. "
+            "Let this color how you perceive, judge and address him — always in character."
         )
     return prompt, name

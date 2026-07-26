@@ -21,3 +21,7 @@ numpy>=1.24.0
 # chat still works via the Lua console-toggle fallback.
 # pip install pynput
 pynput>=1.7.6
+
+
+# Vision ("зрение ИИ"): скриншот игры по кодовому слову для vision-моделей.
+Pillow>=10.0.0
