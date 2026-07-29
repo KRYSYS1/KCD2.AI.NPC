@@ -1453,6 +1453,18 @@ function AI_NPC_HandleWebCommand(message, command_id)
             toggle_chat_with_debounce("server-tap")
             return
         end
+        if message == "__AI_NPC_END__" then
+            -- Отправляется сервером в режиме tap_mode=lua_command_autoend сразу
+            -- после Enter в окне ввода: закрывает разговор (end_conversation ->
+            -- resume_game_input), чтобы игрок сразу вернул камеру/движение без
+            -- повторного нажатия V. Ответ NPC придёт позже и покажется тостом.
+            System.LogAlways("[AI NPC] Web cmd: __AI_NPC_END__ -> AI_NPC_End()")
+            pcall(process_resp_file)
+            if state and state.chat_open and AI_NPC_End then
+                pcall(AI_NPC_End)
+            end
+            return
+        end
         if message == "__AI_NPC_PUBLISH_TARGET__" then
             System.LogAlways("[AI NPC] Web cmd: __AI_NPC_PUBLISH_TARGET__")
             pcall(publish_current_target_once)

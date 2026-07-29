@@ -30,6 +30,8 @@ class InputOverlay:
         self._thread: Optional[threading.Thread] = None
         self._ready = threading.Event()
         self._visible = False
+        self._keep_open_after_submit = False
+        self._user_close_cb: Optional[Callable[[], None]] = None
         self._style = (style or "kcd").lower()
         if self._style not in ("kcd", "plain"):
             self._style = "kcd"
@@ -39,6 +41,16 @@ class InputOverlay:
     # ------------------------------------------------------------------
     def set_submit_callback(self, cb: Callable[[str], None]) -> None:
         self._submit_cb = cb
+
+    def set_keep_open(self, flag: bool) -> None:
+        """Не прятать окно после Enter (спящий механизм, сейчас не включается)."""
+        self._keep_open_after_submit = bool(flag)
+
+    def set_user_close_callback(self, cb: Callable[[], None]) -> None:
+        """Колбэк на закрытие окна ИГРОКОМ (Enter — с текстом или пустой,
+        Escape). Не дёргается на программные hide(). main.py вешает сюда
+        авто-END для tap_mode=lua_command_autoend."""
+        self._user_close_cb = cb
 
     def set_visibility_callback(self, cb: Callable[[bool], None]) -> None:
         """Register a callback fired every time the overlay shows/hides.
@@ -347,18 +359,39 @@ class InputOverlay:
             text = self._entry.get().strip()
         except Exception:
             text = ""
+        if self._keep_open_after_submit and text:
+            # Режим «окно остаётся»: очистить поле, отправить, не прятаться.
+            try:
+                self._entry.delete(0, "end")
+            except Exception:
+                pass
+            if self._submit_cb:
+                try:
+                    self._submit_cb(text)
+                except Exception as e:
+                    logger.error(f"Overlay submit callback failed: {e}")
+            return "break"
         self._hide_impl(return_focus=False)
         if text and self._submit_cb:
             try:
                 self._submit_cb(text)
             except Exception as e:
                 logger.error(f"Overlay submit callback failed: {e}")
+        self._fire_user_close()
         if self._root:
             self._root.after(180, self._return_focus_to_game)
         return "break"
 
+    def _fire_user_close(self) -> None:
+        if self._user_close_cb:
+            try:
+                self._user_close_cb()
+            except Exception as e:
+                logger.error(f"Overlay user-close callback failed: {e}")
+
     def _on_escape(self, _event) -> str:
         self._hide_impl(return_focus=False)
+        self._fire_user_close()
         if self._root:
             self._root.after(180, self._return_focus_to_game)
         return "break"

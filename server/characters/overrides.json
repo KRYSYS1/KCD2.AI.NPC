@@ -1,1 +1,10 @@
-[]
+[
+ {
+  "name": "Sir Divish",
+  "description": "an aging but noble knight, lord of Talmberg",
+  "location": "Talmberg",
+  "personality": "honorable, thoughtful, weary from years of conflict but steadfast in duty",
+  "occupation": "knight and lord",
+  "extra_context": "A vassal lord loyal to King Wenceslas. Married to Lady Stephanie."
+ }
+]
