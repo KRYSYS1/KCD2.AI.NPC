@@ -3288,6 +3288,34 @@ async def test_llm(req: LLMUpdateRequest):
         set_prompt_template(previous_template)
 
 
+@app.post("/llm/models")
+async def list_llm_models(req: LLMUpdateRequest):
+    """Получить актуальный список моделей с эндпоинта провайдера (GET /models).
+
+    Запрашивает список моделей по явно переданному (или текущему конфиг-)
+    api_url. Если URL пустой — сразу 400: не нужно молча подтягивать модели
+    другого (LLM) провайдера в контексте STT-поля.
+    """
+    api_url = (req.api_url or "").strip()
+    if not api_url:
+        raise HTTPException(status_code=400, detail="API URL is empty")
+    api_key = req.api_key if req.api_key is not None else config.llm.api_key
+    probe = LLMClient(LLMConfig(
+        api_url=api_url,
+        api_key=api_key or "",
+        model=req.model or config.llm.model,
+        max_tokens=1,
+        temperature=0.0,
+    ))
+    try:
+        resp = await probe.client.models.list()
+        ids = sorted({m.id for m in resp.data if getattr(m, "id", None)})
+        return {"status": "ok", "models": ids}
+    except Exception as e:
+        logger.warning(f"[llm/models] {api_url}: {e}")
+        raise HTTPException(status_code=502, detail=str(e))
+
+
 @app.get("/config")
 async def get_config():
     return config.model_dump()
