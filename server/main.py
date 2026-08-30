@@ -1487,6 +1487,8 @@ def _parse_scene_response(raw_text: str) -> dict[str, str]:
     }
     if not text:
         return scene
+    # Log the raw LLM output so the user can verify what the AI sent.
+    logger.info(f"[scene_raw] {text[:600]}")
     candidate = text
     fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, flags=re.IGNORECASE | re.DOTALL)
     if fenced:
@@ -1494,6 +1496,21 @@ def _parse_scene_response(raw_text: str) -> dict[str, str]:
     elif "{" in text and "}" in text:
         candidate = text[text.find("{"): text.rfind("}") + 1].strip()
     if not candidate.startswith("{"):
+        # LLM returned plain text (not JSON). Strip common prefixes and
+        # trailing metadata that the LLM sometimes adds and that would
+        # otherwise be spoken by TTS (e.g. "Speech: ... mood: submissive").
+        cleaned = text
+        # Remove leading "Speech:" / "speech:" / "Say:" / "say:".
+        cleaned = re.sub(r"^(Speech|speech|Say|say|Response|response)\s*:\s*", "", cleaned).strip()
+        # Remove trailing "mood: ...", "intent: ...", "suggested_action: ..."
+        # and bare "submission"/"submissive" metadata appended by the LLM.
+        cleaned = re.sub(
+            r"\s*(?:mood|intent|suggested_action|emotion|tone)\s*[=:]\s*[\w\s-]+$",
+            "", cleaned, flags=re.IGNORECASE
+        )
+        cleaned = re.sub(r"\s+(?:submission|submissive)$", "", cleaned, flags=re.IGNORECASE).strip()
+        if cleaned:
+            scene["speech"] = cleaned
         return scene
     try:
         data = json.loads(candidate)
@@ -3437,11 +3454,10 @@ async def update_config(req: ConfigUpdateRequest):
         if new_style_raw not in ("kcd", "plain"):
             new_style_raw = "kcd"
         data["input"]["overlay_style"] = new_style_raw
-        # Режим text input по tap V: прямой Python overlay или Lua bridge
-        # + авто-END после Enter/Escape. Старый lua_command (без авто-END)
-        # больше не в списке выбора — нормализуем в lua_command_autoend.
+        # Режим text input по tap V — только Lua bridge + авто-END.
+        # direct_overlay (Python Tkinter) скрыт из UI и нормализуется.
         tap_mode = (data["input"].get("tap_mode") or "lua_command_autoend").strip().lower()
-        if tap_mode not in ("direct_overlay", "lua_command_autoend"):
+        if tap_mode not in ("lua_command_autoend",):
             tap_mode = "lua_command_autoend"
         data["input"]["tap_mode"] = tap_mode
         config.input = InputConfig(**data["input"])
