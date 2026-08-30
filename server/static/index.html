@@ -1530,6 +1530,16 @@
         </div>
       </div>
       <div class="form-group">
+        <label data-i18n="interaction_reengage">Оклик замолчавшего игрока</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="interaction-reengage">
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_reengage_hint">Если после разговора молчать 3 минуты рядом с недавним собеседником (помнит последних 5) — он сам обратится к вам.</span>
+        </div>
+      </div>
+      <div class="form-group">
         <label data-i18n="interaction_beckon_initiative">Инициатива NPC (сами зовут)</label>
         <div style="display:flex; align-items:center; gap:10px;">
           <label class="toggle-switch">
@@ -1789,7 +1799,7 @@
         <div class="prompt-side" id="npc-col">
           <div class="prompt-side-title" data-i18n="npc_col_title" style="text-align:center;">&#1050;&#1083;&#1102;&#1095;&#1077;&#1074;&#1099;&#1077; NPC</div>
           <div id="npc-add-row" style="display:none; gap:4px;">
-            <input type="text" id="npc-add-name" data-i18n-placeholder="npc_add_name_ph" placeholder="&#1048;&#1084;&#1103; NPC" style="flex:1; min-width:0; font-size:11px; padding:4px 6px;"
+            <input type="text" id="npc-add-name" placeholder="&#1048;&#1084;&#1103; NPC" style="flex:1; min-width:0; font-size:11px; padding:4px 6px;"
               onkeydown="if(event.key==='Enter')confirmAddNpc(); if(event.key==='Escape')cancelAddNpc();"
               onblur="setTimeout(function(){ var i=document.getElementById('npc-add-name'); if(i && !i.value.trim()) cancelAddNpc(); }, 200);">
             <button class="preset-btn npc-del" onclick="confirmAddNpc()" title="&#1044;&#1086;&#1073;&#1072;&#1074;&#1080;&#1090;&#1100;">&#10003;</button>
@@ -1820,7 +1830,7 @@
           </div>
           <div style="flex:1; min-width:240px;">
             <label data-i18n="interaction_player_desc" style="font-size:12px;">Характеристики (как его видят NPC)</label>
-            <input type="text" id="interaction-player-desc" data-i18n-placeholder="interaction_player_desc_ph" placeholder="напр.: грузный бородатый мужик, вечно сонный" style="width:100%;">
+            <input type="text" id="interaction-player-desc" placeholder="напр.: грузный бородатый мужик, вечно сонный" style="width:100%;">
           </div>
         </div>
         <div class="form-hint"><span data-i18n="interaction_player_desc_hint">Имя и характеристика идут во все промпты: NPC будут знать вас под этим именем и видеть таким. Пусто — обычный Henry.</span></div>
@@ -3703,8 +3713,6 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       player_persona_title: 'Персона игрока',
       interaction_player_desc: 'Характеристики (как его видят NPC)',
       interaction_player_desc_hint: 'Имя и характеристика идут во все промпты: NPC будут знать вас под этим именем и видеть таким. Пусто — обычный Henry.',
-      interaction_player_desc_ph: 'напр.: грузный бородатый мужик, вечно сонный',
-      npc_add_name_ph: 'Имя NPC',
       interaction_npc_solo: 'Инициатива NPC (без обращения)',
       interaction_npc_solo_hint: 'Свободный NPC сам окликает игрока или соседа, когда никто с ним не говорит.',
       interaction_ambient_intensity: 'Интенсивность фоновой жизни (инициатива обращения NPC к игроку/другому NPC)',
@@ -3755,9 +3763,9 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       tap_overlay_enabled: 'Text overlay \u043f\u043e tap V',
       tap_overlay_hint: '\u0412\u044b\u043a\u043b\u044e\u0447\u0438\u0442\u0435, \u0447\u0442\u043e\u0431\u044b \u043a\u043e\u0440\u043e\u0442\u043a\u043e\u0435 \u043d\u0430\u0436\u0430\u0442\u0438\u0435 V \u043d\u0435 \u043e\u0442\u043a\u0440\u044b\u0432\u0430\u043b\u043e \u0442\u0435\u043a\u0441\u0442\u043e\u0432\u044b\u0439 \u0447\u0430\u0442. Hold V voice \u043e\u0441\u0442\u0430\u0451\u0442\u0441\u044f.',
       tap_mode: '\u0420\u0435\u0436\u0438\u043c text input \u043f\u043e tap V',
-      tap_mode_direct: '\u041f\u0440\u044f\u043c\u043e\u0439 Python overlay (\u0447\u0430\u0442 \u0441 \u043f\u043e\u0441\u043b\u0435\u0434\u043d\u0438\u043c NPC \u0431\u0435\u0437 \u043d\u0430\u0432\u0435\u0434\u0435\u043d\u0438\u044f)',
+      tap_mode_direct: '\u041f\u0440\u044f\u043c\u043e\u0439 Python overlay (\u043c\u043e\u0433\u0443\u0442 \u043f\u0440\u043e\u0436\u0430\u0442\u044c\u0441\u044f \u043e\u043a\u043d\u0430 \u0438\u0433\u0440\u044b)',
       tap_mode_lua: 'Lua command.lua bridge (\u043d\u0443\u0436\u043d\u043e \u043f\u043e\u0432\u0442\u043e\u0440\u043d\u043e \u043d\u0430\u0436\u0438\u043c\u0430\u0442\u044c V \u043f\u043e\u0441\u043b\u0435 Enter)',
-      tap_mode_lua_stay: 'Lua command.lua bridge (\u043c\u043e\u0433\u0443\u0442 \u043f\u0440\u043e\u0436\u0430\u0442\u044c\u0441\u044f \u043e\u043a\u043d\u0430 \u0438\u0433\u0440\u044b)',
+      tap_mode_lua_stay: 'Lua, \u0431\u0435\u0437 \u043f\u043e\u0432\u0442\u043e\u0440\u043d\u043e\u0433\u043e V \u043f\u043e\u0441\u043b\u0435 Enter (\u0442\u0435\u0441\u0442)',
       tap_mode_hint: '\u0420\u0435\u0436\u0438\u043c \u043e\u0442\u043a\u0440\u044b\u0442\u0438\u044f \u043e\u043a\u043d\u0430 \u0432\u0432\u043e\u0434\u0430 \u0442\u0435\u043a\u0441\u0442\u0430 \u043f\u0440\u0438 \u043a\u043e\u0440\u043e\u0442\u043a\u043e\u043c \u043d\u0430\u0436\u0430\u0442\u0438\u0438 V.',
     },
     en: {
@@ -3934,8 +3942,6 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       player_persona_title: 'Player persona',
       interaction_player_desc: 'Player traits (as NPCs see him)',
       interaction_player_desc_hint: 'Name and persona go into every prompt: NPCs will know you by this name and see you this way. Empty = plain Henry.',
-      interaction_player_desc_ph: 'e.g.: a burly bearded man, always sleepy',
-      npc_add_name_ph: 'NPC name',
       interaction_npc_solo: 'NPC solo initiative',
       interaction_npc_solo_hint: 'An idle NPC occasionally addresses the player or a neighbour unprompted.',
       interaction_ambient_intensity: 'Ambient life intensity',
@@ -3986,9 +3992,9 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       tap_overlay_enabled: 'Tap V text overlay',
       tap_overlay_hint: 'Turn off to disable text chat on short V press. Hold V voice stays enabled.',
       tap_mode: 'Tap V text input mode',
-      tap_mode_direct: 'Direct Python overlay (chat with last NPC without aiming)',
+      tap_mode_direct: 'Direct Python overlay (may unfocus game window)',
       tap_mode_lua: 'Lua command.lua bridge (press V again after Enter)',
-      tap_mode_lua_stay: 'Lua command.lua bridge (may unfocus game window)',
+      tap_mode_lua_stay: 'Lua, no second V press after Enter (experimental)',
       tap_mode_hint: 'How the text input window opens on a short V press.',
     },
   };
@@ -4118,9 +4124,6 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     });
     document.querySelectorAll('[data-i18n-title]').forEach(el => {
       if (t[el.dataset.i18nTitle] !== undefined) el.title = t[el.dataset.i18nTitle];
-    });
-    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-      if (t[el.dataset.i18nPlaceholder] !== undefined) el.placeholder = t[el.dataset.i18nPlaceholder];
     });
     const defaultMic = document.querySelector('#stt-input-device option[value="-1"]');
     if (defaultMic) defaultMic.textContent = t.stt_default_device || I18N.en.stt_default_device;
@@ -4523,6 +4526,15 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
   window.addEventListener('beforeunload', (e) => {
     if (_dirty) { e.preventDefault(); e.returnValue = ''; }
   });
+
+  /* changing the tap-V overlay mode requires a server restart — warn the user */
+  (function () {
+    const tapModeSel = document.getElementById('tap-mode');
+    if (!tapModeSel) return;
+    tapModeSel.addEventListener('change', () => {
+      showToast('info', S('tapModeRestartTitle'), S('tapModeRestartMsg'));
+    });
+  })();
 
   /* ════ 4. API-key field tools (show/hide + paste) ════ */
   ['api-key', 'tts-el-key', 'tts-oai-key', 'stt-api-key'].forEach(id => {

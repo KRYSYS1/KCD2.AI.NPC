@@ -142,7 +142,7 @@ class InputConfig(BaseModel):
     overlay_enabled: bool = Field(default=True, description="Show a borderless Tkinter input overlay when chat is active.")
     overlay_style: str = Field(default="kcd", description="Visual style for the input overlay: 'kcd' (parchment + gold border, KCD2-styled) or 'plain' (minimal dark with thin gold border).")
     tap_overlay_enabled: bool = Field(default=True, description="Enable tap chat-key text input overlay. When false, short taps are ignored while hold-to-talk remains available.")
-    tap_mode: str = Field(default="lua_command_autoend", description="Tap chat-key text input mode: 'direct_overlay' opens the Python Tkinter overlay directly; 'lua_command_autoend' opens the in-game Lua chat overlay via command.lua and auto-closes it after Enter/Escape so the player instantly regains camera/movement.")
+    tap_mode: str = Field(default="lua_command_autoend", description="Single supported mode (UI selector removed): Lua command.lua bridge with auto-end after Enter/Escape — the player instantly regains camera/movement.")
 
 
 class HUDConfig(BaseModel):
