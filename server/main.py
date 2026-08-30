@@ -147,11 +147,15 @@ def _world_context_line() -> str:
 
 def _face_talk_dispatch(npc_id, duration_ms):
     # Lipsync-lite: Lua loops a talking facial anim (layer 12) for the reply
-    # duration; mood picks talk clip + emotion tail on the Lua side.
+    # duration; mood picks talk clip + emotion tail on the Lua side. When the
+    # separate "face emotion" toggle is off, we send an empty mood so only the
+    # neutral talking mouth clip plays (no emotional tail).
     if not getattr(config.interaction, "enable_lipsync", True):
         return
     try:
         mood = _last_scene_mood.get(str(npc_id or ""), "")
+        if not getattr(config.interaction, "enable_face_emotion", True):
+            mood = ""
         write_command_lua("__AI_NPC_FACETALK__|%s|%d|%s" % (str(npc_id or ""), int(duration_ms), mood))
     except Exception as exc:
         logger.warning(f"facetalk dispatch failed: {exc}")
@@ -793,6 +797,9 @@ def _overlay_user_closed() -> None:
     и движение вернулись без повторного V. Ответ NPC (если был отправлен
     текст) придёт следом тостом + голосом. В Lua хендлер no-op, если чат
     уже закрыт."""
+    tap_mode = (getattr(config.input, "tap_mode", "lua_command_autoend") or "lua_command_autoend").strip().lower()
+    if tap_mode != "lua_command_autoend":
+        return
     try:
         cid = write_command_lua("__AI_NPC_END__")
         logger.info(f"[overlay] user closed input — auto-end queued (command_id={cid})")
@@ -934,6 +941,10 @@ def _merge_action_context(req: "ChatRequest") -> str:
     if not config.interaction.enable_inventory_access:
         base = re.sub(r"\n?NPC inventory items: [^\n]*", "", base)
         req.npc_inventory = None
+    if not config.interaction.enable_vanilla_context:
+        # Hide the vanilla activity/speech context lines from the LLM.
+        base = re.sub(r"\n?Current activity: [^\n]*", "", base)
+        base = re.sub(r"\n?Vanilla voice: [^\n]*", "", base)
     world = _world_context_line()
     if world:
         if base and not base.endswith("\n"):
@@ -1900,6 +1911,28 @@ def _apply_scene_context(req: "ChatRequest", scene: dict[str, str], apology_atte
         if speech_action != "none":
             action = speech_action
             logger.info(f"[scene_context] detected action '{action}' from NPC speech for {req.npc_name}")
+    # Suppress spontaneous movement during calm dialogue. The LLM often puts
+    # walk_away/step_back/come_closer into suggested_action even in a peaceful
+    # chat (or the speech fallback catches "goodbye"/"пойду"), which makes the
+    # NPC wander off mid-conversation. Movement only fires when the player
+    # explicitly asked for it or there is a real conflict/threat context.
+    if action in {"walk_away", "come_closer", "step_back"}:
+        explicit_player_move = player_come_closer_request or player_step_back_request
+        conflict_context_now = (
+            same_npc_hostile
+            or hostile_context
+            or (guard_context and nearby_crime)
+            or npc_violent_threat
+            or player_provocation
+            or npc_draw_weapon_implied
+            or refuses_context
+            or annoyance >= 4
+            or fear >= 4
+            or intent in {"warn", "refuse", "call_help"}
+        )
+        if not explicit_player_move and not conflict_context_now:
+            logger.info(f"[scene_context] suppressed spontaneous '{action}' in calm dialogue for {req.npc_name}")
+            action = "none"
     scene["mood"] = mood
     scene["intent"] = intent
     scene["suggested_action"] = action
@@ -2261,6 +2294,7 @@ def write_response_lua(npc_name: str, response_text: str, request_id: int, scene
         f"_G.__ai_npc_hud_narrator_center = {_lua_bool(hud.narrator_center)}\n"
         f"_G.__ai_npc_language = {lua_string_literal(config.language)}\n"
         f"_G.__ai_npc_inventory_access = {_lua_bool(config.interaction.enable_inventory_access)}\n"
+        f"_G.__ai_npc_vanilla_context = {_lua_bool(config.interaction.enable_vanilla_context)}\n"
     )
     content = (
         hud_prefix
@@ -2404,11 +2438,15 @@ def _on_v_tap() -> None:
         if getattr(config.input, "tap_overlay_enabled", True) is False:
             logger.info("[V-tap] ignored: tap text input disabled in config")
             return
-        # Единственный режим ввода текста: Lua command.lua bridge с авто-END
-        # после Enter/Escape (см. _overlay_user_closed). UI-селектор удалён.
-        cmd_id = write_command_lua("__AI_NPC_TAP__")
-        logger.info(f"[V-tap] queued __AI_NPC_TAP__ as command_id={cmd_id}")
-        return
+        tap_mode = (getattr(config.input, "tap_mode", "lua_command_autoend") or "lua_command_autoend").strip().lower()
+        if tap_mode.startswith("lua_command"):
+            # Lua command.lua bridge: open the in-game chat overlay (and, in
+            # the autoend variant, close it right after Enter — see
+            # _overlay_user_closed).
+            cmd_id = write_command_lua("__AI_NPC_TAP__")
+            logger.info(f"[V-tap] queued __AI_NPC_TAP__ as command_id={cmd_id}")
+            return
+        # Прямой Python overlay: Tkinter-окно поверх игры.
         npc = active_npc or target_npc
         if not npc:
             logger.warning("[V-tap] ignored: no active/target NPC")
@@ -3401,8 +3439,13 @@ async def update_config(req: ConfigUpdateRequest):
         if new_style_raw not in ("kcd", "plain"):
             new_style_raw = "kcd"
         data["input"]["overlay_style"] = new_style_raw
-        # Единственный поддерживаемый режим (UI-селектор удалён 29.07.2026).
-        data["input"]["tap_mode"] = "lua_command_autoend"
+        # Режим text input по tap V: прямой Python overlay или Lua bridge
+        # + авто-END после Enter/Escape. Старый lua_command (без авто-END)
+        # больше не в списке выбора — нормализуем в lua_command_autoend.
+        tap_mode = (data["input"].get("tap_mode") or "lua_command_autoend").strip().lower()
+        if tap_mode not in ("direct_overlay", "lua_command_autoend"):
+            tap_mode = "lua_command_autoend"
+        data["input"]["tap_mode"] = tap_mode
         config.input = InputConfig(**data["input"])
         write_action_map(config.input.chat_key, config.input.end_key)
         write_chat_action_lua(config.input.chat_key)

@@ -142,7 +142,7 @@ class InputConfig(BaseModel):
     overlay_enabled: bool = Field(default=True, description="Show a borderless Tkinter input overlay when chat is active.")
     overlay_style: str = Field(default="kcd", description="Visual style for the input overlay: 'kcd' (parchment + gold border, KCD2-styled) or 'plain' (minimal dark with thin gold border).")
     tap_overlay_enabled: bool = Field(default=True, description="Enable tap chat-key text input overlay. When false, short taps are ignored while hold-to-talk remains available.")
-    tap_mode: str = Field(default="lua_command_autoend", description="Single supported mode (UI selector removed): Lua command.lua bridge with auto-end after Enter/Escape — the player instantly regains camera/movement.")
+    tap_mode: str = Field(default="lua_command_autoend", description="Tap chat-key text input mode: 'direct_overlay' opens the Python Tkinter overlay directly; 'lua_command_autoend' opens the in-game Lua chat overlay via command.lua and auto-closes it after Enter/Escape so the player instantly regains camera/movement.")
 
 
 class HUDConfig(BaseModel):
@@ -208,8 +208,10 @@ class InteractionConfig(BaseModel):
     enable_play_flute_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC play_flute scene action.")
     enable_scarecrow_pose_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC scarecrow_pose scene action.")
     enable_inventory_access: bool = Field(default=True, description="Send NPC inventory items to LLM and allow show_item/hide_item actions. Disable to save tokens.")
+    enable_vanilla_context: bool = Field(default=True, description="Send the NPC's in-game vanilla context (current activity, speech/voice state, surroundings) to the LLM so the AI takes vanilla game chatter and remarks into account. Disable to hide this context.")
     enable_beckon_initiative: bool = Field(default=True, description="NPC beckon initiative: familiar NPCs proactively call the player over (server-driven, cooldowns).")
     enable_lipsync: bool = Field(default=True, description="Lipsync-lite: NPC talking face animation (layer 12) synced to TTS reply duration + mood emotion tail.")
+    enable_face_emotion: bool = Field(default=True, description="Emotional face animation after a reply (mood-based tail, e.g. smile for friendly, angry idle for angry). Requires lipsync; disable to keep only mouth movement.")
     enable_spatial_audio: bool = Field(default=True, description="Spatial TTS: pan/attenuation/low-pass by NPC position + real-time panning during playback.")
     enable_npc_thoughts: bool = Field(default=True, description="NPC private internal thoughts: generated after each exchange, stored per NPC, injected into future prompts.")
     enable_npc_interjections: bool = Field(default=True, description="Bystander interjections: a nearby NPC occasionally calls out a short line during the player's conversation (spatialized voice, cooldowns).")

@@ -685,6 +685,29 @@ local function build_npc_from_entity(ent)
         context_lines[#context_lines + 1] = "Current activity: " .. table.concat(activity_parts, ", ")
     end
 
+    -- Vanilla voice context: when the NPC is currently playing a scripted
+    -- (vanilla) voice line / dialogue, tell the LLM so the AI does not talk
+    -- over it and can factor the surrounding chatter into its reply.
+    if _G.__ai_npc_vanilla_context ~= false then
+        local vanilla_speaking = false
+        local vanilla_hint = nil
+        if is_in_dialog then
+            vanilla_speaking = true
+            vanilla_hint = "in a vanilla dialogue"
+        end
+        if anim_state then
+            local al = anim_state:lower()
+            if al:find("talk", 1, true) or al:find("speak", 1, true) or al:find("dialogue", 1, true)
+                or al:find("lip", 1, true) or al:find("chat", 1, true) or al:find("lipsync", 1, true) then
+                vanilla_speaking = true
+                vanilla_hint = (vanilla_hint and (vanilla_hint .. "; ") or "") .. "speaking animation: " .. anim_state
+            end
+        end
+        if vanilla_speaking then
+            context_lines[#context_lines + 1] = "Vanilla voice: NPC is currently " .. (vanilla_hint or "speaking a scripted line") .. " (may overlap with the AI reply)"
+        end
+    end
+
     local npc_pos = nil
     local pos = safe_method_call(ent, "GetWorldPos") or safe_method_call(ent, "GetPos")
     if pos then
