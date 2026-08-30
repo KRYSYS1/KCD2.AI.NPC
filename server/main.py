@@ -2446,12 +2446,10 @@ def _on_v_tap() -> None:
             cmd_id = write_command_lua("__AI_NPC_TAP__")
             logger.info(f"[V-tap] queued __AI_NPC_TAP__ as command_id={cmd_id}")
             return
-        # Прямой Python overlay: Tkinter-окно поверх игры.
+        # Прямой Python overlay: Tkinter-окно поверх игры (и даже без неё —
+        # KeyMonitor ловит V на уровне ОС, окно открывается всегда).
         npc = active_npc or target_npc
-        if not npc:
-            logger.warning("[V-tap] ignored: no active/target NPC")
-            return
-        npc_name = npc.get("npc_name_resolved") or npc.get("npc_name") or "NPC"
+        npc_name = (npc.get("npc_name_resolved") or npc.get("npc_name") or "NPC") if npc else "NPC"
         input_overlay.show(npc_name)
         logger.info(f"[V-tap] overlay opened for {npc_name}")
     except Exception:
