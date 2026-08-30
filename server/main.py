@@ -938,10 +938,6 @@ def _merge_action_context(req: "ChatRequest") -> str:
     if not config.interaction.enable_inventory_access:
         base = re.sub(r"\n?NPC inventory items: [^\n]*", "", base)
         req.npc_inventory = None
-    if not config.interaction.enable_vanilla_context:
-        # Hide the vanilla activity/speech context lines from the LLM.
-        base = re.sub(r"\n?Current activity: [^\n]*", "", base)
-        base = re.sub(r"\n?Vanilla voice: [^\n]*", "", base)
     world = _world_context_line()
     if world:
         if base and not base.endswith("\n"):
@@ -2308,7 +2304,6 @@ def write_response_lua(npc_name: str, response_text: str, request_id: int, scene
         f"_G.__ai_npc_hud_narrator_center = {_lua_bool(hud.narrator_center)}\n"
         f"_G.__ai_npc_language = {lua_string_literal(config.language)}\n"
         f"_G.__ai_npc_inventory_access = {_lua_bool(config.interaction.enable_inventory_access)}\n"
-        f"_G.__ai_npc_vanilla_context = {_lua_bool(config.interaction.enable_vanilla_context)}\n"
     )
     content = (
         hud_prefix

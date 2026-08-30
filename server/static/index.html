@@ -1530,16 +1530,6 @@
         </div>
       </div>
       <div class="form-group">
-        <label data-i18n="interaction_reengage">Оклик замолчавшего игрока</label>
-        <div style="display:flex; align-items:center; gap:10px;">
-          <label class="toggle-switch">
-            <input type="checkbox" id="interaction-reengage">
-            <span class="toggle-slider"></span>
-          </label>
-          <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_reengage_hint">Если после разговора молчать 3 минуты рядом с недавним собеседником (помнит последних 5) — он сам обратится к вам.</span>
-        </div>
-      </div>
-      <div class="form-group">
         <label data-i18n="interaction_beckon_initiative">Инициатива NPC (сами зовут)</label>
         <div style="display:flex; align-items:center; gap:10px;">
           <label class="toggle-switch">
@@ -1557,16 +1547,6 @@
             <span class="toggle-slider"></span>
           </label>
           <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_inventory_access_hint">Отправляет список предметов NPC в LLM. ИИ может показать предмет из инвентаря. Отключите для экономии токенов.</span>
-        </div>
-      </div>
-      <div class="form-group">
-        <label data-i18n="interaction_vanilla_context">Отправлять ИИ контекст окружения</label>
-        <div style="display:flex; align-items:center; gap:10px;">
-          <label class="toggle-switch">
-            <input type="checkbox" id="interaction-vanilla-context">
-            <span class="toggle-slider"></span>
-          </label>
-          <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_vanilla_context_hint">Отправляет LLM текущее состояние NPC (активность, анимация, ванильная речь) — чтобы ИИ не перебивал ванильные реплики и учитывал окружение. Отключите для экономии токенов.</span>
         </div>
       </div>
       <div class="form-group" style="margin-top:10px;">
@@ -2614,7 +2594,6 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       document.getElementById('hud-narrator-center').checked = hud.narrator_center === true;
       updateHudAiTextToggle();
       document.getElementById('interaction-inventory-access').checked = interaction.enable_inventory_access !== false;
-      document.getElementById('interaction-vanilla-context').checked = interaction.enable_vanilla_context !== false;
       document.getElementById('interaction-beckon-initiative').checked = interaction.enable_beckon_initiative !== false;
       document.getElementById('interaction-lipsync').checked = interaction.enable_lipsync !== false;
       document.getElementById('interaction-face-emotion').checked = interaction.enable_face_emotion !== false;
@@ -3410,7 +3389,6 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
           },
           interaction: {
             enable_inventory_access: document.getElementById('interaction-inventory-access').checked,
-            enable_vanilla_context: document.getElementById('interaction-vanilla-context').checked,
             enable_beckon_initiative: document.getElementById('interaction-beckon-initiative').checked,
             enable_lipsync: document.getElementById('interaction-lipsync').checked,
             enable_face_emotion: document.getElementById('interaction-face-emotion').checked,
@@ -3698,8 +3676,6 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       interaction_title: '\u0418\u043d\u0442\u0435\u0440\u0430\u043a\u0442\u0438\u0432 NPC',
       interaction_inventory_access: '\u0414\u043e\u0441\u0442\u0443\u043f \u0418\u0418 \u043a \u0438\u043d\u0432\u0435\u043d\u0442\u0430\u0440\u044e NPC',
       interaction_inventory_access_hint: '\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u0435\u0442 \u0441\u043f\u0438\u0441\u043e\u043a \u043f\u0440\u0435\u0434\u043c\u0435\u0442\u043e\u0432 NPC \u0432 LLM. \u0418\u0418 \u043c\u043e\u0436\u0435\u0442 \u043f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u043f\u0440\u0435\u0434\u043c\u0435\u0442 \u0438\u0437 \u0438\u043d\u0432\u0435\u043d\u0442\u0430\u0440\u044f. \u041e\u0442\u043a\u043b\u044e\u0447\u0438\u0442\u0435 \u0434\u043b\u044f \u044d\u043a\u043e\u043d\u043e\u043c\u0438\u0438 \u0442\u043e\u043a\u0435\u043d\u043e\u0432.',
-      interaction_vanilla_context: '\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u0442\u044c \u0418\u0418 \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442 \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u044f',
-      interaction_vanilla_context_hint: '\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u0435\u0442 LLM \u0442\u0435\u043a\u0443\u0449\u0435\u0435 \u0441\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0435 NPC (\u0430\u043a\u0442\u0438\u0432\u043d\u043e\u0441\u0442\u044c, \u0430\u043d\u0438\u043c\u0430\u0446\u0438\u044f, \u0432\u0430\u043d\u0438\u043b\u044c\u043d\u0430\u044f \u0440\u0435\u0447\u044c) \u2014 \u0447\u0442\u043e\u0431\u044b \u0418\u0418 \u043d\u0435 \u043f\u0435\u0440\u0435\u0431\u0438\u0432\u0430\u043b \u0432\u0430\u043d\u0438\u043b\u044c\u043d\u044b\u0435 \u0440\u0435\u043f\u043b\u0438\u043a\u0438 \u0438 \u0443\u0447\u0438\u0442\u044b\u0432\u0430\u043b \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u0435. \u041e\u0442\u043a\u043b\u044e\u0447\u0438\u0442\u0435 \u0434\u043b\u044f \u044d\u043a\u043e\u043d\u043e\u043c\u0438\u0438 \u0442\u043e\u043a\u0435\u043d\u043e\u0432.',
       interaction_beckon_initiative: 'Инициатива NPC (сами зовут)',
       interaction_beckon_initiative_hint: 'Знакомые NPC иногда сами подзывают вас жестом и голосом. Редко (кулдауны 10/45 мин).',
       interaction_lipsync: 'Липсинк (губы при озвучке)',
@@ -3931,8 +3907,6 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       interaction_title: 'NPC interaction',
       interaction_inventory_access: 'AI inventory access',
       interaction_inventory_access_hint: 'Sends NPC inventory items to the LLM. The AI can show items from inventory. Disable to save tokens.',
-      interaction_vanilla_context: 'Send AI the surroundings context',
-      interaction_vanilla_context_hint: 'Sends the LLM the NPC’s current vanilla state (activity, animation, vanilla speech) so the AI does not talk over vanilla voice lines and accounts for the surroundings. Disable to save tokens.',
       interaction_beckon_initiative: 'NPC initiative (they call you)',
       interaction_beckon_initiative_hint: 'Familiar NPCs occasionally beckon and call you over by voice. Rarely (10/45 min cooldowns).',
       interaction_lipsync: 'Lipsync (mouth during voice)',
