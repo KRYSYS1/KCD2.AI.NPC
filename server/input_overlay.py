@@ -33,6 +33,7 @@ class InputOverlay:
         self._keep_open_after_submit = False
         self._user_close_cb: Optional[Callable[[], None]] = None
         self._style = (style or "kcd").lower()
+        self._game_hwnd = None
         if self._style not in ("kcd", "plain"):
             self._style = "kcd"
 
@@ -291,6 +292,7 @@ class InputOverlay:
             self._entry.focus_force()
             self._steal_foreground()
             self._entry.focus_set()
+            self._block_game_input()
             was_visible = self._visible
             self._visible = True
             if not was_visible:
@@ -345,6 +347,7 @@ class InputOverlay:
             return
         try:
             was_visible = self._visible
+            self._unblock_game_input()
             self._root.withdraw()
             self._visible = False
             if return_focus:
@@ -397,8 +400,8 @@ class InputOverlay:
         return "break"
 
     @staticmethod
-    def _return_focus_to_game() -> None:
-        """Best-effort: bring KCD2 window back to foreground on Windows."""
+    def _find_game_hwnd():
+        """Find the KCD2 main window HWND (top-level, visible)."""
         try:
             import ctypes
             from ctypes import wintypes
@@ -406,14 +409,13 @@ class InputOverlay:
             EnumWindows = user32.EnumWindows
             GetWindowTextW = user32.GetWindowTextW
             IsWindowVisible = user32.IsWindowVisible
-            SetForegroundWindow = user32.SetForegroundWindow
 
             target_titles = (
                 "kingdomcomedeliverance2",
                 "kingdom come deliverance ii",
                 "kingdom come: deliverance ii",
             )
-
+            found = [0]
             EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
 
             def _cb(hwnd, _lparam):
@@ -423,10 +425,60 @@ class InputOverlay:
                 GetWindowTextW(hwnd, buf, 256)
                 title = buf.value.lower()
                 if any(t in title for t in target_titles):
-                    SetForegroundWindow(hwnd)
+                    found[0] = hwnd
                     return False
                 return True
 
             EnumWindows(EnumWindowsProc(_cb), 0)
+            return found[0] or None
+        except Exception:
+            return None
+
+    def _block_game_input(self) -> None:
+        """While the overlay is focused, disable the game window so its
+        keystrokes don't leak through (DirectInput/CryEngine read the physical
+        keyboard regardless of Tk focus). Re-enabled on hide."""
+        if self._game_hwnd is not None:
+            return
+        try:
+            import ctypes
+            from ctypes import wintypes
+            user32 = ctypes.windll.user32
+            hwnd = self._find_game_hwnd()
+            if not hwnd:
+                return
+            user32.EnableWindow.argtypes = [wintypes.HWND, wintypes.BOOL]
+            user32.EnableWindow(hwnd, False)
+            self._game_hwnd = hwnd
+            logger.info(f"Game window input blocked (hwnd={hwnd})")
+        except Exception as e:
+            logger.debug(f"Block game input failed: {e}")
+
+    def _unblock_game_input(self) -> None:
+        if not self._game_hwnd:
+            return
+        try:
+            import ctypes
+            from ctypes import wintypes
+            user32 = ctypes.windll.user32
+            user32.EnableWindow.argtypes = [wintypes.HWND, wintypes.BOOL]
+            user32.EnableWindow(self._game_hwnd, True)
+            logger.info(f"Game window input re-enabled (hwnd={self._game_hwnd})")
+        except Exception as e:
+            logger.debug(f"Unblock game input failed: {e}")
+        finally:
+            self._game_hwnd = None
+
+    @staticmethod
+    def _return_focus_to_game() -> None:
+        """Best-effort: bring KCD2 window back to foreground on Windows."""
+        try:
+            import ctypes
+            from ctypes import wintypes
+            user32 = ctypes.windll.user32
+            SetForegroundWindow = user32.SetForegroundWindow
+            hwnd = InputOverlay._find_game_hwnd()
+            if hwnd:
+                SetForegroundWindow(hwnd)
         except Exception as e:
             logger.debug(f"Return focus to game failed: {e}")
