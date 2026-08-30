@@ -797,9 +797,6 @@ def _overlay_user_closed() -> None:
     и движение вернулись без повторного V. Ответ NPC (если был отправлен
     текст) придёт следом тостом + голосом. В Lua хендлер no-op, если чат
     уже закрыт."""
-    tap_mode = (getattr(config.input, "tap_mode", "lua_command_autoend") or "lua_command_autoend").strip().lower()
-    if tap_mode != "lua_command_autoend":
-        return
     try:
         cid = write_command_lua("__AI_NPC_END__")
         logger.info(f"[overlay] user closed input — auto-end queued (command_id={cid})")
@@ -2455,18 +2452,16 @@ def _on_v_tap() -> None:
         if getattr(config.input, "tap_overlay_enabled", True) is False:
             logger.info("[V-tap] ignored: tap text input disabled in config")
             return
-        tap_mode = (getattr(config.input, "tap_mode", "lua_command_autoend") or "lua_command_autoend").strip().lower()
-        if tap_mode.startswith("lua_command"):
-            # Lua command.lua bridge: open the in-game chat overlay (and, in
-            # the autoend variant, close it right after Enter — see
-            # _overlay_user_closed).
-            cmd_id = write_command_lua("__AI_NPC_TAP__")
-            logger.info(f"[V-tap] queued __AI_NPC_TAP__ as command_id={cmd_id}")
-            return
-        # Прямой Python overlay: Tkinter-окно поверх игры (и даже без неё —
-        # KeyMonitor ловит V на уровне ОС, окно открывается всегда).
+        # Единственный режим ввода текста: Lua command.lua bridge с авто-END
+        # после Enter/Escape (см. _overlay_user_closed). UI-селектор удалён.
+        cmd_id = write_command_lua("__AI_NPC_TAP__")
+        logger.info(f"[V-tap] queued __AI_NPC_TAP__ as command_id={cmd_id}")
+        return
         npc = active_npc or target_npc
-        npc_name = (npc.get("npc_name_resolved") or npc.get("npc_name") or "NPC") if npc else "NPC"
+        if not npc:
+            logger.warning("[V-tap] ignored: no active/target NPC")
+            return
+        npc_name = npc.get("npc_name_resolved") or npc.get("npc_name") or "NPC"
         input_overlay.show(npc_name)
         logger.info(f"[V-tap] overlay opened for {npc_name}")
     except Exception:
@@ -3454,12 +3449,8 @@ async def update_config(req: ConfigUpdateRequest):
         if new_style_raw not in ("kcd", "plain"):
             new_style_raw = "kcd"
         data["input"]["overlay_style"] = new_style_raw
-        # Режим text input по tap V — только Lua bridge + авто-END.
-        # direct_overlay (Python Tkinter) скрыт из UI и нормализуется.
-        tap_mode = (data["input"].get("tap_mode") or "lua_command_autoend").strip().lower()
-        if tap_mode not in ("lua_command_autoend",):
-            tap_mode = "lua_command_autoend"
-        data["input"]["tap_mode"] = tap_mode
+        # Единственный поддерживаемый режим (UI-селектор удалён 29.07.2026).
+        data["input"]["tap_mode"] = "lua_command_autoend"
         config.input = InputConfig(**data["input"])
         write_action_map(config.input.chat_key, config.input.end_key)
         write_chat_action_lua(config.input.chat_key)

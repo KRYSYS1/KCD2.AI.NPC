@@ -1422,14 +1422,6 @@
         </select>
         <div class="form-hint"><span data-i18n="overlay_style_hint">Visual style for the chat input window. Applies live after Save.</span></div>
       </div>
-      <div class="form-group" style="margin-top:10px;">
-        <label for="tap-mode" data-i18n="tap_mode">Tap V text input mode</label>
-        <select id="tap-mode">
-          <option value="direct_overlay" data-i18n="tap_mode_direct">&#1055;&#1088;&#1103;&#1084;&#1086;&#1081; Python overlay (&#1095;&#1072;&#1090; &#1089; &#1087;&#1086;&#1089;&#1083;&#1077;&#1076;&#1085;&#1080;&#1084; NPC &#1073;&#1077;&#1079; &#1085;&#1072;&#1074;&#1077;&#1076;&#1077;&#1085;&#1080;&#1103;)</option>
-          <option value="lua_command_autoend" data-i18n="tap_mode_lua_stay">Lua command.lua bridge (&#1084;&#1086;&#1075;&#1091;&#1090; &#1087;&#1088;&#1086;&#1078;&#1072;&#1090;&#1100;&#1089;&#1103; &#1086;&#1082;&#1085;&#1072; &#1080;&#1075;&#1088;&#1099;)</option>
-        </select>
-        <div class="form-hint" data-i18n="tap_mode_hint">&#1056;&#1077;&#1078;&#1080;&#1084; &#1086;&#1090;&#1082;&#1088;&#1099;&#1090;&#1080;&#1103; &#1086;&#1082;&#1085;&#1072; &#1074;&#1074;&#1086;&#1076;&#1072; &#1090;&#1077;&#1082;&#1089;&#1090;&#1072; &#1087;&#1088;&#1080; &#1082;&#1086;&#1088;&#1086;&#1090;&#1082;&#1086;&#1084; &#1085;&#1072;&#1078;&#1072;&#1090;&#1080;&#1080; V.</div>
-      </div>
     </div>
   </div>
 
@@ -2699,7 +2691,6 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       document.getElementById('chat-key').value = input.chat_key || 'v';
       document.getElementById('overlay-style').value = (input.overlay_style === 'plain') ? 'plain' : 'kcd';
       document.getElementById('tap-overlay-enabled').checked = input.tap_overlay_enabled !== false;
-      document.getElementById('tap-mode').value = (input.tap_mode === 'direct_overlay') ? 'direct_overlay' : 'lua_command_autoend';
       const ttsEnabled = tts.enabled !== false;
       document.getElementById('tts-enabled').checked = ttsEnabled;
       document.getElementById('tts-engine').value = tts.engine || 'edge';
@@ -3407,7 +3398,6 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
             overlay_enabled: document.getElementById('tap-overlay-enabled').checked,
             overlay_style:   document.getElementById('overlay-style').value,
             tap_overlay_enabled: document.getElementById('tap-overlay-enabled').checked,
-            tap_mode:        document.getElementById('tap-mode').value,
           },
           hud: {
             show_left_top:  document.getElementById('hud-left-top').checked,
@@ -4559,15 +4549,6 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
   window.addEventListener('beforeunload', (e) => {
     if (_dirty) { e.preventDefault(); e.returnValue = ''; }
   });
-
-  /* changing the tap-V overlay mode requires a server restart — warn the user */
-  (function () {
-    const tapModeSel = document.getElementById('tap-mode');
-    if (!tapModeSel) return;
-    tapModeSel.addEventListener('change', () => {
-      showToast('info', S('tapModeRestartTitle'), S('tapModeRestartMsg'));
-    });
-  })();
 
   /* ════ 4. API-key field tools (show/hide + paste) ════ */
   ['api-key', 'tts-el-key', 'tts-oai-key', 'stt-api-key'].forEach(id => {
