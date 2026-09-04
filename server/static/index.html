@@ -1560,6 +1560,16 @@
         </div>
       </div>
       <div class="form-group" style="margin-top:10px;">
+        <label data-i18n="interaction_trade_requests">Торговля через общение</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <label class="toggle-switch">
+            <input type="checkbox" id="interaction-trade-requests">
+            <span class="toggle-slider"></span>
+          </label>
+          <span style="font-size:12px; color:var(--text-muted);" data-i18n="interaction_trade_requests_hint">NPC может дарить, забирать, покупать и продавать предметы за гроши прямо в диалоге. Требует доступа к инвентарю.</span>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:10px;">
         <label data-i18n="interaction_dress_up">Одевание через общение</label>
         <div style="display:flex; align-items:center; gap:10px;">
           <label class="toggle-switch">
@@ -2604,6 +2614,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       document.getElementById('hud-narrator-center').checked = hud.narrator_center === true;
       updateHudAiTextToggle();
       document.getElementById('interaction-inventory-access').checked = interaction.enable_inventory_access !== false;
+      document.getElementById('interaction-trade-requests').checked = interaction.enable_trade_requests !== false;
       document.getElementById('interaction-beckon-initiative').checked = interaction.enable_beckon_initiative !== false;
       document.getElementById('interaction-lipsync').checked = interaction.enable_lipsync !== false;
       document.getElementById('interaction-face-emotion').checked = interaction.enable_face_emotion !== false;
@@ -3399,6 +3410,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
           },
           interaction: {
             enable_inventory_access: document.getElementById('interaction-inventory-access').checked,
+            enable_trade_requests: document.getElementById('interaction-trade-requests').checked,
             enable_beckon_initiative: document.getElementById('interaction-beckon-initiative').checked,
             enable_lipsync: document.getElementById('interaction-lipsync').checked,
             enable_face_emotion: document.getElementById('interaction-face-emotion').checked,
@@ -3686,6 +3698,8 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       interaction_title: '\u0418\u043d\u0442\u0435\u0440\u0430\u043a\u0442\u0438\u0432 NPC',
       interaction_inventory_access: '\u0414\u043e\u0441\u0442\u0443\u043f \u0418\u0418 \u043a \u0438\u043d\u0432\u0435\u043d\u0442\u0430\u0440\u044e NPC',
       interaction_inventory_access_hint: '\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u0435\u0442 \u0441\u043f\u0438\u0441\u043e\u043a \u043f\u0440\u0435\u0434\u043c\u0435\u0442\u043e\u0432 NPC \u0432 LLM. \u0418\u0418 \u043c\u043e\u0436\u0435\u0442 \u043f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u043f\u0440\u0435\u0434\u043c\u0435\u0442 \u0438\u0437 \u0438\u043d\u0432\u0435\u043d\u0442\u0430\u0440\u044f. \u041e\u0442\u043a\u043b\u044e\u0447\u0438\u0442\u0435 \u0434\u043b\u044f \u044d\u043a\u043e\u043d\u043e\u043c\u0438\u0438 \u0442\u043e\u043a\u0435\u043d\u043e\u0432.',
+      interaction_trade_requests: '\u0422\u043e\u0440\u0433\u043e\u0432\u043b\u044f \u0447\u0435\u0440\u0435\u0437 \u043e\u0431\u0449\u0435\u043d\u0438\u0435',
+      interaction_trade_requests_hint: 'NPC \u043c\u043e\u0436\u0435\u0442 \u0434\u0430\u0440\u0438\u0442\u044c, \u0437\u0430\u0431\u0438\u0440\u0430\u0442\u044c, \u043f\u043e\u043a\u0443\u043f\u0430\u0442\u044c \u0438 \u043f\u0440\u043e\u0434\u0430\u0432\u0430\u0442\u044c \u043f\u0440\u0435\u0434\u043c\u0435\u0442\u044b \u0437\u0430 \u0433\u0440\u043e\u0448\u0438 \u043f\u0440\u044f\u043c\u043e \u0432 \u0434\u0438\u0430\u043b\u043e\u0433\u0435. \u0422\u0440\u0435\u0431\u0443\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u0430 \u043a \u0438\u043d\u0432\u0435\u043d\u0442\u0430\u0440\u044e.',
       interaction_beckon_initiative: 'Инициатива NPC (сами зовут)',
       interaction_beckon_initiative_hint: 'Знакомые NPC иногда сами подзывают вас жестом и голосом. Редко (кулдауны 10/45 мин).',
       interaction_lipsync: 'Липсинк (губы при озвучке)',
@@ -3915,6 +3929,8 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       interaction_title: 'NPC interaction',
       interaction_inventory_access: 'AI inventory access',
       interaction_inventory_access_hint: 'Sends NPC inventory items to the LLM. The AI can show items from inventory. Disable to save tokens.',
+      interaction_trade_requests: 'Trading through dialogue',
+      interaction_trade_requests_hint: 'NPCs can give, take, buy and sell items for groschen right in dialogue. Requires inventory access.',
       interaction_beckon_initiative: 'NPC initiative (they call you)',
       interaction_beckon_initiative_hint: 'Familiar NPCs occasionally beckon and call you over by voice. Rarely (10/45 min cooldowns).',
       interaction_lipsync: 'Lipsync (mouth during voice)',

@@ -705,6 +705,20 @@ local function build_npc_from_entity(ent)
             if #npc_inventory > 0 then
                 context_lines[#context_lines + 1] = "NPC inventory items: " .. table.concat(npc_inventory, ", ")
             end
+            if _G.__ai_npc_trade_access ~= false then
+                local ok_ng, npc_g = pcall(AI_NPC_TRADE.get_groschen, ent.inventory)
+                if ok_ng and npc_g ~= nil then
+                    context_lines[#context_lines + 1] = "NPC groschen: " .. tostring(npc_g)
+                end
+                local ok_pg, player_g = pcall(function()
+                    local pinv = AI_NPC_TRADE.player_inventory()
+                    if not pinv then return nil end
+                    return AI_NPC_TRADE.get_groschen(pinv)
+                end)
+                if ok_pg and player_g ~= nil then
+                    context_lines[#context_lines + 1] = "Player groschen: " .. tostring(player_g)
+                end
+            end
         end
     end
 
@@ -1637,6 +1651,16 @@ local function scene_action_feedback(npc_name, action, intent)
     elseif action == "play_lute" then
         return ru and (name .. " берёт лютню и играет.")
             or (name .. " takes a lute and plays.")
+    elseif action == "trade_give" or action == "trade_take" or action == "trade_sell" or action == "trade_buy" then
+        local msg_ru = tostring(state.last_trade_msg_ru or "")
+        local msg_en = tostring(state.last_trade_msg_en or "")
+        if msg_ru ~= "" or msg_en ~= "" then
+            if msg_en == "" then msg_en = msg_ru end
+            if msg_ru == "" then msg_ru = msg_en end
+            return ru and (name .. " " .. msg_ru) or (name .. " " .. msg_en)
+        end
+        return ru and (name .. " что-то передаёт вам.")
+            or (name .. " hands something over.")
     end
     return nil
 end
@@ -2346,6 +2370,278 @@ function AI_NPC_INV.show_item(ent, item_query)
     return ok
 end
 
+-- ============================================================================
+-- AI_NPC_TRADE: barter through dialogue (items + groschen, NPC <-> player).
+-- Money facts (proven by kcd2-cheat Cheat:changeMoney/getMoney):
+--   groschen = inventory item 5ef63059-322e-4e1b-abe8-926e100c770e,
+--   10 units = 1 groschen. Same inventory object API on player and NPC.
+-- Gated by _G.__ai_npc_trade_access (server sends it in resp.lua prefix,
+-- default on). Everything pcall-guarded: trade must never break the chat.
+-- ============================================================================
+AI_NPC_TRADE = AI_NPC_TRADE or {}
+AI_NPC_TRADE.GROSCHEN_ID = "5ef63059-322e-4e1b-abe8-926e100c770e"
+AI_NPC_TRADE.MONEY_PER_GROSCHEN = 10
+AI_NPC_TRADE.MAX_COUNT = 20
+
+function AI_NPC_TRADE.set_msg(ru, en)
+    state.last_trade_msg_ru = tostring(ru or "")
+    state.last_trade_msg_en = tostring(en or "")
+end
+
+function AI_NPC_TRADE.get_groschen(inv)
+    if not inv or type(inv.GetCountOfClass) ~= "function" then return nil end
+    local ok, count = pcall(function() return inv:GetCountOfClass(AI_NPC_TRADE.GROSCHEN_ID) end)
+    if not ok or count == nil then return nil end
+    local n = math.floor((tonumber(count) or 0) / AI_NPC_TRADE.MONEY_PER_GROSCHEN)
+    if n < 0 then n = 0 end
+    return n
+end
+
+function AI_NPC_TRADE.add_groschen(inv, groschen)
+    local n = math.floor(tonumber(groschen) or 0)
+    if not inv or n <= 0 or type(inv.CreateItem) ~= "function" then return false end
+    local ok, res = pcall(function()
+        return inv:CreateItem(AI_NPC_TRADE.GROSCHEN_ID, 1, n * AI_NPC_TRADE.MONEY_PER_GROSCHEN)
+    end)
+    return ok and res ~= nil and res ~= false
+end
+
+function AI_NPC_TRADE.remove_groschen(inv, groschen)
+    local n = math.floor(tonumber(groschen) or 0)
+    if not inv or n <= 0 or type(inv.DeleteItemOfClass) ~= "function" then return false end
+    local have = AI_NPC_TRADE.get_groschen(inv)
+    if have == nil or have < n then return false end
+    local units = n * AI_NPC_TRADE.MONEY_PER_GROSCHEN
+    local ok, removed = pcall(function()
+        return inv:DeleteItemOfClass(AI_NPC_TRADE.GROSCHEN_ID, units)
+    end)
+    return ok and (tonumber(removed) or 0) >= units
+end
+
+function AI_NPC_TRADE.player_inventory()
+    if type(get_player_entity) == "function" then
+        local ok, pent = pcall(get_player_entity)
+        if ok and pent and pent.inventory then return pent.inventory end
+    end
+    if player and player.inventory then return player.inventory end
+    return nil
+end
+
+-- Shared fuzzy matcher (same scoring as show_item: exact 100, contains 80, reverse 60).
+function AI_NPC_TRADE.match_item(items, item_query)
+    if type(items) ~= "table" or #items == 0 then return nil end
+    local q = tostring(item_query or ""):lower()
+    if q == "" then return nil end
+    local best_match = nil
+    local best_score = 0
+    for _, it in ipairs(items) do
+        local nm = tostring(it.name or ""):lower()
+        local score = 0
+        if nm == q then score = 100
+        elseif nm:find(q, 1, true) then score = 80
+        elseif q:find(nm, 1, true) and #nm > 2 then score = 60
+        end
+        if score > best_score then best_score = score; best_match = it end
+    end
+    if not best_match or best_score < 50 then return nil end
+    return best_match
+end
+
+function AI_NPC_TRADE.build_player_items()
+    local pinv = AI_NPC_TRADE.player_inventory()
+    if not pinv or type(pinv.GetInventoryTable) ~= "function" then return nil end
+    local ok_t, inv_t = pcall(function() return pinv:GetInventoryTable() end)
+    if not ok_t or type(inv_t) ~= "table" then return nil end
+    local items = {}
+    local seen = {}
+    for _, wuid in pairs(inv_t) do
+        local ok_it, item = pcall(function() return ItemManager.GetItem(wuid) end)
+        if ok_it and item and item.class then
+            local class_guid = tostring(item.class):lower()
+            if class_guid ~= AI_NPC_TRADE.GROSCHEN_ID and not seen[class_guid] then
+                seen[class_guid] = true
+                local ok_name, disp_name = pcall(function() return ItemManager.GetItemName(item.class) end)
+                items[#items + 1] = {
+                    name = tostring(disp_name or class_guid),
+                    guid = class_guid,
+                    amount = tonumber(item.amount) or 1,
+                    equipped = item.entity ~= 0 and item.entity ~= nil,
+                }
+            end
+        end
+    end
+    return items
+end
+
+-- Move up to `amount` units of guid from giver to receiver, one by one
+-- (stacks and singles both handled). Returns (moved_any, moved_count).
+function AI_NPC_TRADE.move_item(giver_inv, receiver_inv, guid, amount)
+    local n = math.floor(tonumber(amount) or 1)
+    if n < 1 then n = 1 end
+    if n > AI_NPC_TRADE.MAX_COUNT then n = AI_NPC_TRADE.MAX_COUNT end
+    if not giver_inv or not receiver_inv or not guid or guid == "" then return false, 0 end
+    if type(giver_inv.DeleteItemOfClass) ~= "function" then return false, 0 end
+    if type(receiver_inv.CreateItem) ~= "function" then return false, 0 end
+    local moved = 0
+    for _ = 1, n do
+        local ok_del, removed = pcall(function()
+            return giver_inv:DeleteItemOfClass(guid, 1)
+        end)
+        if not ok_del or (tonumber(removed) or 0) < 1 then break end
+        local ok_add = pcall(function()
+            return receiver_inv:CreateItem(guid, 1, 1)
+        end)
+        if ok_add then
+            moved = moved + 1
+        else
+            pcall(function() return giver_inv:CreateItem(guid, 1, 1) end)
+            break
+        end
+    end
+    return moved > 0, moved
+end
+
+function AI_NPC_TRADE.toast(guid, amount)
+    if Game and type(Game.ShowItemsTransfer) == "function" and guid and guid ~= "" then
+        pcall(Game.ShowItemsTransfer, guid, tonumber(amount) or 1)
+    end
+end
+
+-- action: trade_give | trade_take | trade_sell | trade_buy.
+-- scene fields: item_name, item_count, trade_price (groschen int).
+-- Details for the narrator go to state.last_trade_msg_ru/en (read by
+-- scene_action_feedback). Returns true on success.
+function AI_NPC_TRADE.do_trade(ent, scene)
+    AI_NPC_TRADE.set_msg("", "")
+    if _G.__ai_npc_trade_access == false then
+        AI_NPC_TRADE.set_msg("Торговля отключена в настройках мода.", "Trading is disabled in mod settings.")
+        return false
+    end
+    if not ent or not ent.inventory then
+        AI_NPC_TRADE.set_msg("Не удалось заглянуть в инвентарь.", "Could not access inventory.")
+        return false
+    end
+    local pinv = AI_NPC_TRADE.player_inventory()
+    if not pinv then
+        AI_NPC_TRADE.set_msg("Не удалось заглянуть в инвентарь игрока.", "Could not access player inventory.")
+        return false
+    end
+    local action = tostring(scene.suggested_action or "")
+    local item_q = tostring(scene.item_name or "")
+    if item_q == "" then
+        AI_NPC_TRADE.set_msg("Непонятно, о каком предмете идёт речь.", "Unclear which item is meant.")
+        return false
+    end
+    local count = math.floor(tonumber(scene.item_count) or 1)
+    if count < 1 then count = 1 end
+    if count > AI_NPC_TRADE.MAX_COUNT then count = AI_NPC_TRADE.MAX_COUNT end
+    local price = math.floor(tonumber(scene.trade_price) or 0)
+    if price < 0 then price = 0 end
+    if price > 1000000 then price = 1000000 end
+    -- Zero price on paid actions degrades to a gift (LLM sometimes forgets it).
+    if action == "trade_sell" and price <= 0 then action = "trade_give" end
+    if action == "trade_buy" and price <= 0 then action = "trade_take" end
+
+    if action == "trade_give" or action == "trade_sell" then
+        local ok_b, items = pcall(AI_NPC_INV.build_inventory, ent)
+        if not ok_b or not items or #items == 0 then
+            AI_NPC_TRADE.set_msg("У него ничего такого нет.", "They don't have anything like that.")
+            return false
+        end
+        local found = AI_NPC_TRADE.match_item(items, item_q)
+        if not found then
+            AI_NPC_TRADE.set_msg("У него нет \"" .. item_q .. "\".", "They don't have \"" .. item_q .. "\".")
+            return false
+        end
+        if found.equipped then
+            AI_NPC_TRADE.set_msg("Эта вещь на нём надета — так не отдать.", "That item is worn — can't hand it over like that.")
+            return false
+        end
+        if action == "trade_sell" then
+            local have = AI_NPC_TRADE.get_groschen(pinv)
+            if have == nil or have < price then
+                AI_NPC_TRADE.set_msg("У вас не хватает грошей (нужно " .. tostring(price) .. ").", "You don't have enough groschen (need " .. tostring(price) .. ").")
+                return false
+            end
+            if not AI_NPC_TRADE.remove_groschen(pinv, price) then
+                AI_NPC_TRADE.set_msg("Не получилось взять гроши.", "Could not take the groschen.")
+                return false
+            end
+            AI_NPC_TRADE.add_groschen(ent.inventory, price)
+        end
+        local moved_ok, moved = AI_NPC_TRADE.move_item(ent.inventory, pinv, found.guid, count)
+        if not moved_ok then
+            if action == "trade_sell" then
+                AI_NPC_TRADE.add_groschen(pinv, price)
+                AI_NPC_TRADE.remove_groschen(ent.inventory, price)
+            end
+            AI_NPC_TRADE.set_msg("Не получилось передать предмет.", "Could not hand the item over.")
+            return false
+        end
+        AI_NPC_TRADE.toast(found.guid, moved)
+        -- Предмет ушёл игроку: убрать показанный муляж из руки NPC.
+        if AI_NPC_INV and type(AI_NPC_INV.detach_props) == "function" then
+            pcall(AI_NPC_INV.detach_props, ent)
+        end
+        if action == "trade_sell" then
+            AI_NPC_TRADE.toast(AI_NPC_TRADE.GROSCHEN_ID, price)
+            AI_NPC_TRADE.set_msg("продаёт вам " .. found.name .. " x" .. tostring(moved) .. " за " .. tostring(price) .. " гр.", "sells you " .. found.name .. " x" .. tostring(moved) .. " for " .. tostring(price) .. " groschen.")
+        else
+            AI_NPC_TRADE.set_msg("передаёт вам: " .. found.name .. " x" .. tostring(moved) .. ".", "hands you: " .. found.name .. " x" .. tostring(moved) .. ".")
+        end
+        System.LogAlways("[AI NPC] TRADE " .. action .. " item='" .. found.name .. "' x" .. tostring(moved) .. " price=" .. tostring(price))
+        return true
+    elseif action == "trade_take" or action == "trade_buy" then
+        local items = AI_NPC_TRADE.build_player_items()
+        if not items or #items == 0 then
+            AI_NPC_TRADE.set_msg("У вас ничего такого нет.", "You don't have anything like that.")
+            return false
+        end
+        local found = AI_NPC_TRADE.match_item(items, item_q)
+        if not found then
+            AI_NPC_TRADE.set_msg("У вас нет \"" .. item_q .. "\".", "You don't have \"" .. item_q .. "\".")
+            return false
+        end
+        if found.equipped then
+            AI_NPC_TRADE.set_msg("Эта вещь на вас надета — сначала снимите.", "That item is equipped — take it off first.")
+            return false
+        end
+        if action == "trade_buy" then
+            local have = AI_NPC_TRADE.get_groschen(ent.inventory)
+            if have == nil or have < price then
+                AI_NPC_TRADE.set_msg("У него не хватает грошей (нужно " .. tostring(price) .. ").", "They don't have enough groschen (need " .. tostring(price) .. ").")
+                return false
+            end
+            if not AI_NPC_TRADE.remove_groschen(ent.inventory, price) then
+                AI_NPC_TRADE.set_msg("Не получилось взять у него гроши.", "Could not take their groschen.")
+                return false
+            end
+            AI_NPC_TRADE.add_groschen(pinv, price)
+        end
+        local moved_ok, moved = AI_NPC_TRADE.move_item(pinv, ent.inventory, found.guid, count)
+        if not moved_ok then
+            if action == "trade_buy" then
+                AI_NPC_TRADE.add_groschen(ent.inventory, price)
+                AI_NPC_TRADE.remove_groschen(pinv, price)
+            end
+            AI_NPC_TRADE.set_msg("Не получилось передать предмет.", "Could not hand the item over.")
+            return false
+        end
+        AI_NPC_TRADE.toast(found.guid, moved)
+        if action == "trade_buy" then
+            AI_NPC_TRADE.toast(AI_NPC_TRADE.GROSCHEN_ID, price)
+            AI_NPC_TRADE.set_msg("покупает у вас " .. found.name .. " x" .. tostring(moved) .. " за " .. tostring(price) .. " гр.", "buys " .. found.name .. " x" .. tostring(moved) .. " from you for " .. tostring(price) .. " groschen.")
+        else
+            AI_NPC_TRADE.set_msg("забирает у вас: " .. found.name .. " x" .. tostring(moved) .. ".", "takes " .. found.name .. " x" .. tostring(moved) .. " from you.")
+        end
+        System.LogAlways("[AI NPC] TRADE " .. action .. " item='" .. found.name .. "' x" .. tostring(moved) .. " price=" .. tostring(price))
+        return true
+    end
+    AI_NPC_TRADE.set_msg("Неизвестное действие торговли.", "Unknown trade action.")
+    return false
+end
+
+
 local function scene_play_flute(ent)
     local ok = false
     System.LogAlways("[AI NPC] DIAG flute ent=" .. tostring(ent) .. " human=" .. type(ent and ent.human) .. " AttachEntityToHand=" .. type(ent and ent.human and ent.human.AttachEntityToHand))
@@ -2752,6 +3048,10 @@ local function scene_execute_game_action(scene, action, intent)
     elseif action == "hide_item" then
         AI_NPC_INV.detach_props(ent)
         ok = true
+    elseif action == "trade_give" or action == "trade_take" or action == "trade_sell" or action == "trade_buy" then
+        local pok, trade_ok = pcall(AI_NPC_TRADE.do_trade, ent, scene)
+        if pok and trade_ok then ok = true end
+        System.LogAlways("[AI NPC] SCENE_ACTION " .. tostring(action) .. " query='" .. tostring(scene.item_name or "") .. "' ok=" .. tostring(pok and trade_ok))
     elseif action == "scarecrow_pose" then
         ok = scene_scarecrow_pose(ent) or ok
     elseif action == "play_anim" then
@@ -2774,7 +3074,10 @@ local function scene_execute_game_action(scene, action, intent)
 end
 
 local function handle_scene_action(scene, fallback_npc_name)
-    if type(scene) ~= "table" then return end
+    if type(scene) ~= "table" then
+        System.LogAlways("[AI NPC] SCENE_ACTION dropped: scene is " .. type(scene))
+        return
+    end
     local mood = tostring(scene.mood or "neutral")
     local intent = tostring(scene.intent or "continue")
     local action = tostring(scene.suggested_action or "none")
@@ -2869,6 +3172,44 @@ local function handle_scene_action(scene, fallback_npc_name)
     end
 end
 
+function AI_NPC_TestTradeMoney()
+    local ent = nil
+    if type(ai_npc_diag_target) == "function" then
+        local ok_t, tgt = pcall(ai_npc_diag_target)
+        if ok_t then ent = tgt end
+    end
+    local pinv = AI_NPC_TRADE.player_inventory()
+    local pg = pinv and AI_NPC_TRADE.get_groschen(pinv) or nil
+    System.LogAlways("[AI NPC] DIAG trade_money player_groschen=" .. tostring(pg))
+    if ent and ent.inventory then
+        local ng = AI_NPC_TRADE.get_groschen(ent.inventory)
+        System.LogAlways("[AI NPC] DIAG trade_money npc=" .. tostring(ent.id) .. " npc_groschen=" .. tostring(ng))
+        local ok_i, items = pcall(AI_NPC_INV.build_inventory, ent)
+        System.LogAlways("[AI NPC] DIAG trade_money npc_items=" .. tostring(ok_i and items and #items or -1))
+    else
+        System.LogAlways("[AI NPC] DIAG trade_money: no NPC target (aim at NPC first)")
+    end
+end
+
+function AI_NPC_TestTradeGive(line)
+    local ent = nil
+    if type(ai_npc_diag_target) == "function" then
+        local ok_t, tgt = pcall(ai_npc_diag_target)
+        if ok_t then ent = tgt end
+    end
+    if not ent then
+        System.LogAlways("[AI NPC] DIAG trade_give: no NPC target (aim at NPC first)")
+        return
+    end
+    local q = tostring(line or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if q == "" then
+        System.LogAlways("[AI NPC] DIAG trade_give: usage: ai_npc_test_trade_give <item name>")
+        return
+    end
+    local ok, res = pcall(AI_NPC_TRADE.do_trade, ent, { suggested_action = "trade_give", item_name = q, item_count = 1, trade_price = 0 })
+    System.LogAlways("[AI NPC] DIAG trade_give query='" .. q .. "' ok=" .. tostring(ok and res))
+end
+
 function AI_NPC_TestWorldText(text)
     text = tostring(text or "")
     if text == "" then
@@ -2902,9 +3243,20 @@ function AI_NPC_HandleResponse(npc_name, response_text, request_id, scene)
     if rid > 0 and _G.__ai_npc_lingering_ids[rid] then
         -- Stale resp.lua content from the previous game session, leaking via
         -- repeated dofile. Skip silently so it cannot poison last_handled.
+        _G.__ai_npc_lingering_logged = _G.__ai_npc_lingering_logged or {}
+        if not _G.__ai_npc_lingering_logged[rid] then
+            _G.__ai_npc_lingering_logged[rid] = true
+            System.LogAlways("[AI NPC] Response dropped as lingering, id=" .. tostring(rid))
+        end
         return
     end
     if pending_request_id > 0 and rid > 0 and rid < pending_request_id then
+        _G.__ai_npc_stale_logged = _G.__ai_npc_stale_logged or {}
+        local skey = tostring(rid) .. "<" .. tostring(pending_request_id)
+        if not _G.__ai_npc_stale_logged[skey] then
+            _G.__ai_npc_stale_logged[skey] = true
+            System.LogAlways("[AI NPC] Response dropped as stale, id=" .. tostring(rid) .. " pending=" .. tostring(pending_request_id))
+        end
         return
     end
     -- Idempotency guard: same response can be delivered through several
@@ -5261,6 +5613,12 @@ if System and System.AddCCommand then
     System.LogAlways("[AI NPC] Register ai_npc_test_clothing_cycle: " .. tostring(ok_diag_clothing_cycle))
     System.LogAlways("[AI NPC] Register ai_npc_test_cheat_clothes: " .. tostring(ok_diag_cheat_clothes))
     System.LogAlways("[AI NPC] Register ai_test_world_text: " .. tostring(ok_test_world_text))
+    do
+        pcall(System.AddCCommand, "ai_npc_test_trade_money", "AI_NPC_TestTradeMoney()", "Log player + targeted NPC groschen purses")
+        System.LogAlways("[AI NPC] Register ai_npc_test_trade_money")
+        pcall(System.AddCCommand, "ai_npc_test_trade_give", "AI_NPC_TestTradeGive(%line)", "NPC gives player item by name (free)")
+        System.LogAlways("[AI NPC] Register ai_npc_test_trade_give")
+    end
 end
 
 function AI_NPC_PollRespNow()

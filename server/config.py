@@ -208,6 +208,7 @@ class InteractionConfig(BaseModel):
     enable_play_flute_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC play_flute scene action.")
     enable_scarecrow_pose_requests: bool = Field(default=True, description="Enable chat phrases that trigger NPC scarecrow_pose scene action.")
     enable_inventory_access: bool = Field(default=True, description="Send NPC inventory items to LLM and allow show_item/hide_item actions. Disable to save tokens.")
+    enable_trade_requests: bool = Field(default=True, description="Allow item/groschen trade through dialogue (trade_give/take/sell/buy). Requires inventory access for NPC item lists and purses.")
     enable_beckon_initiative: bool = Field(default=True, description="NPC beckon initiative: familiar NPCs proactively call the player over (server-driven, cooldowns).")
     enable_lipsync: bool = Field(default=True, description="Lipsync-lite: NPC talking face animation (layer 12) synced to TTS reply duration + mood emotion tail.")
     enable_face_emotion: bool = Field(default=True, description="Emotional face animation after a reply (mood-based tail, e.g. smile for friendly, angry idle for angry). Requires lipsync; disable to keep only mouth movement.")

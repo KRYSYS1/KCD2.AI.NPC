@@ -969,7 +969,7 @@ SCENE_LAYER_PROMPT = """
 
 # AI NPC Scene Layer
 ALWAYS respond as a compact JSON object (no markdown, no code fences):
-{"speech":"what the NPC says aloud","mood":"neutral|friendly|suspicious|angry|afraid|respectful|annoyed","intent":"continue|end|refuse|warn|call_help","suggested_action":"none|look_at_player|turn_to_player|come_closer|step_back|walk_away|draw_weapon|holster_weapon|call_help|laugh|strip_outerwear|dress_up|strip_partial|strip_full|dress_partial|dress_full|collapse_spell|gesture_wave|gesture_bow|gesture_nod|gesture_point|gesture_cheer|gesture_come_here|gesture_look_around|emotion_nervous|emotion_sad|emotion_angry|emotion_drunk|sit_down|stand_up|pet_dog|knock_door|close_visor|open_visor|injured_idle|fear_stand|cooking|play_flute|play_lute|scarecrow_pose|play_anim|show_item|hide_item","item_name":"name of the item to show (only when suggested_action is show_item)"}
+{"speech":"what the NPC says aloud","mood":"neutral|friendly|suspicious|angry|afraid|respectful|annoyed","intent":"continue|end|refuse|warn|call_help","suggested_action":"none|look_at_player|turn_to_player|come_closer|step_back|walk_away|draw_weapon|holster_weapon|call_help|laugh|strip_outerwear|dress_up|strip_partial|strip_full|dress_partial|dress_full|collapse_spell|gesture_wave|gesture_bow|gesture_nod|gesture_point|gesture_cheer|gesture_come_here|gesture_look_around|emotion_nervous|emotion_sad|emotion_angry|emotion_drunk|sit_down|stand_up|pet_dog|knock_door|close_visor|open_visor|injured_idle|fear_stand|cooking|play_flute|play_lute|scarecrow_pose|play_anim|show_item|hide_item|trade_give|trade_take|trade_sell|trade_buy","item_name":"item name for show_item and all trade_* actions","item_count":"how many items (trade_*, default 1)","trade_price":"price in groschen, integer (trade_sell/trade_buy only, default 0 = gift)"}
 speech must still follow the length/language rules. Do not wrap JSON in markdown fences.
 If you absolutely cannot produce valid JSON, plain speech is accepted as a fallback, but scene actions will not execute without the JSON fields.
 Recognize player intent in ANY language, not only English/Russian. Map requests to actions:
@@ -986,6 +986,12 @@ Recognize player intent in ANY language, not only English/Russian. Map requests 
 - Musician/flute/pipe request → "play_flute". Lute/guitar/string instrument request → "play_lute".
 - Absurd scarecrow/dummy/cross-shaped pose request → "scarecrow_pose".
 - Show/take out an item from inventory → suggested_action="show_item" with "item_name" set to the exact item name from the NPC's inventory list (provided in context). The NPC holds it up visibly. Put it away → "hide_item". Only use items that are actually in the NPC's inventory.
+- TRADE (items + groschen; "NPC groschen" and "Player groschen" purses are in context):
+  - Player asks for an item as a gift / NPC offers one → "trade_give" (item moves NPC→player, free). Only items from the NPC's inventory list.
+  - Player gives an item to the NPC → "trade_take" (item moves player→NPC, free). Use the item name from the player's words.
+  - Player buys, NPC sells → "trade_sell" with "trade_price" in groschen (player must have at least that much "Player groschen"; NPC must have the item).
+  - Player sells, NPC buys → "trade_buy" with "trade_price" (NPC must have at least that much "NPC groschen"; player must have the item).
+  - Always set "item_name"; "item_count" defaults to 1 (max 20); "trade_price" defaults to 0 (= gift). Set a fair lore price yourself (food ~1-5, weapons/armor tens to hundreds). Never invent items: only trade what is in the respective inventory. Never trade equipped/worn or quest items.
 - When the NPC reacts to a threat or provocation, always set suggested_action to a physical reaction (step_back, draw_weapon, walk_away, call_help) — do not describe the action only in speech.
 """
 
@@ -1470,7 +1476,100 @@ def _update_relationship_memory(req: "ChatRequest", scene: dict[str, str]) -> No
         pass
 
 
+_SCENE_KEY_AFTER_RE = re.compile(
+    r'(?<!\\)"\s*,\s*"(mood|intent|suggested_action|item_name|item_count|trade_price|speech|say|response)"\s*:'
+)
+
+
+def _salvage_json_string_value(candidate: str, key: str) -> str:
+    """Вытянуть значение строкового ключа, когда json.loads не справился.
+
+    Терпит реальные переносы строк внутри значения и шальные неэкранированные
+    кавычки в речи (некоторые модели печатают JSON именно так).
+    """
+    m = re.search(r'"' + re.escape(key) + r'"\s*:\s*"', candidate)
+    if not m:
+        return ""
+    rest = candidate[m.end():]
+    end = _SCENE_KEY_AFTER_RE.search(rest)
+    if end is not None:
+        raw = rest[:end.start()]
+    else:
+        m2 = re.match(r"((?:[^\"\\]|\\.)*)\"", rest)
+        raw = m2.group(1) if m2 else ""
+    try:
+        return str(json.loads('"' + raw + '"', strict=False))
+    except Exception:
+        return (
+            raw.replace("\\\\", "\\")
+            .replace('\\"', '"')
+            .replace("\\n", "\n")
+            .replace("\\t", "\t")
+            .replace("\\r", "\r")
+        )
+
+
+def _salvage_json_number_value(candidate: str, key: str) -> int | None:
+    """Вытянуть числовой ключ (trade_price / item_count) без json.loads."""
+    m = re.search(r'"' + re.escape(key) + r'"\s*:\s*"?(-?\d+(?:\.\d+)?)"?', candidate)
+    if not m:
+        return None
+    try:
+        return int(float(m.group(1)))
+    except Exception:
+        return None
+
+
+def _salvage_scene_object(candidate: str) -> dict:
+    """Собрать scene-словарь регулярками, когда JSON не парсится вообще."""
+    out: dict = {}
+    speech = (
+        _salvage_json_string_value(candidate, "speech")
+        or _salvage_json_string_value(candidate, "say")
+        or _salvage_json_string_value(candidate, "response")
+    )
+    if speech:
+        out["speech"] = speech
+    for key in ("mood", "intent", "suggested_action", "item_name"):
+        value = _salvage_json_string_value(candidate, key)
+        if value:
+            out[key] = value
+    for key in ("trade_price", "item_count"):
+        value = _salvage_json_number_value(candidate, key)
+        if value is not None:
+            out[key] = str(value)
+    return out
+
+
+def _looks_like_json_blob(speech: str) -> bool:
+    """True, если в речь утёк сырой JSON (системные слова в начале/конце)."""
+    t = (speech or "").lstrip()
+    return t.startswith("{") and ('"speech"' in t[:200] or '"mood"' in t[:600])
+
+
+def _strip_json_wrapper(speech: str) -> str:
+    """Последний рубеж: срезать обёртку {"speech":" ... "} вручную."""
+    t = (speech or "").strip()
+    t = re.sub(r'^\{\s*"(?:speech|say|response)"\s*:\s*"', "", t, count=1)
+    t = re.sub(
+        r'",\s*"(?:mood|intent|suggested_action|item_name|item_count|trade_price)"\s*:.*?\}\s*$',
+        "",
+        t,
+        count=1,
+        flags=re.DOTALL,
+    )
+    t = re.sub(r'"\s*\}\s*$', "", t, count=1)
+    try:
+        return str(json.loads('"' + t + '"', strict=False))
+    except Exception:
+        return t.replace('\\"', '"').replace("\\n", "\n")
+
+
 def _parse_scene_response(raw_text: str) -> dict[str, str]:
+    # 2026-09-04: hardened — модели вроде Mistral печатают JSON с реальными
+    # переносами строк внутри значений и шальными кавычками; строгий
+    # json.loads на таком падает и сырой JSON утекал в речь/субтитры/TTS.
+    # Теперь: strict -> non-strict -> regex-salvage -> strip wrapper.
     text = (raw_text or "").strip()
     scene = {
         "speech": text,
@@ -1488,10 +1587,20 @@ def _parse_scene_response(raw_text: str) -> dict[str, str]:
         candidate = text[text.find("{"): text.rfind("}") + 1].strip()
     if not candidate.startswith("{"):
         return scene
+    data = None
     try:
         data = json.loads(candidate)
     except Exception:
-        return scene
+        data = None
+    if not isinstance(data, dict):
+        try:
+            data = json.loads(candidate, strict=False)
+        except Exception:
+            data = None
+    if not isinstance(data, dict):
+        data = _salvage_scene_object(candidate)
+        if data:
+            logger.info(f"[scene_parse] salvaged keys via regex: {sorted(data.keys())}")
     if not isinstance(data, dict):
         return scene
     speech = str(data.get("speech") or data.get("say") or data.get("response") or "").strip()
@@ -1504,8 +1613,24 @@ def _parse_scene_response(raw_text: str) -> dict[str, str]:
     item_name = str(data.get("item_name") or "").strip()
     if item_name:
         scene["item_name"] = item_name[:200]
+    try:
+        item_count = int(float(str(data.get("item_count") or 1)))
+    except Exception:
+        item_count = 1
+    scene["item_count"] = str(max(1, min(20, item_count)))
+    try:
+        trade_price = int(float(str(data.get("trade_price") or 0)))
+    except Exception:
+        trade_price = 0
+    scene["trade_price"] = str(max(0, min(1000000, trade_price)))
+    if _looks_like_json_blob(scene["speech"]):
+        fixed = _salvage_json_string_value(candidate, "speech") or _strip_json_wrapper(scene["speech"])
+        if not fixed or _looks_like_json_blob(fixed):
+            fixed = _strip_json_wrapper(scene["speech"])
+        if fixed:
+            logger.info("[scene_parse] stripped leaked JSON wrapper from speech")
+            scene["speech"] = fixed
     return scene
-
 
 def _contains_any_term(text: str, terms: set[str]) -> bool:
     r"""Return True if any term matches the text.
@@ -2208,6 +2333,10 @@ SCENE_ACTIONS = {
     "play_anim",
     "show_item",
     "hide_item",
+    "trade_give",
+    "trade_take",
+    "trade_sell",
+    "trade_buy",
 }
 
 
@@ -2244,6 +2373,10 @@ def normalize_scene_for_lua(scene: dict[str, str] | None) -> dict[str, str]:
     action = _clamp_scene_value(scene.get("suggested_action"), SCENE_ACTIONS, "none")
     if action in ("show_item", "hide_item") and not config.interaction.enable_inventory_access:
         action = "none"
+    if action in ("trade_give", "trade_take", "trade_sell", "trade_buy") and not getattr(config.interaction, "enable_trade_requests", True):
+        action = "none"
+    if action in ("trade_give", "trade_sell") and not config.interaction.enable_inventory_access:
+        action = "none"
     return {
         "mood": _clamp_scene_value(scene.get("mood"), SCENE_MOODS, "neutral"),
         "intent": _clamp_scene_value(scene.get("intent"), SCENE_INTENTS, "continue"),
@@ -2252,7 +2385,9 @@ def normalize_scene_for_lua(scene: dict[str, str] | None) -> dict[str, str]:
         "npc_name": str(scene.get("npc_name") or ""),
         "apology_attempt": "true" if str(scene.get("apology_attempt") or "false").strip().lower() == "true" else "false",
         "animation_name": str(scene.get("animation_name") or ""),
-        "item_name": str(scene.get("item_name") or "") if action == "show_item" else "",
+        "item_name": str(scene.get("item_name") or "") if action in ("show_item", "trade_give", "trade_take", "trade_sell", "trade_buy") else "",
+        "item_count": str(scene.get("item_count") or "") if action in ("trade_give", "trade_take", "trade_sell", "trade_buy") else "",
+        "trade_price": str(scene.get("trade_price") or "") if action in ("trade_sell", "trade_buy") else "",
     }
 
 
@@ -2268,6 +2403,10 @@ def lua_scene_literal(scene: dict[str, str] | None) -> str:
         f"apology_attempt={lua_string_literal(safe['apology_attempt'])},"
         f"animation_name={lua_string_literal(safe['animation_name'])},"
         f"item_name={lua_string_literal(safe['item_name'])}"
+        ","
+        f"item_count={lua_string_literal(safe['item_count'])}"
+        ","
+        f"trade_price={lua_string_literal(safe['trade_price'])}"
         "}"
     )
 
@@ -2275,6 +2414,7 @@ def lua_scene_literal(scene: dict[str, str] | None) -> str:
 def write_response_lua(npc_name: str, response_text: str, request_id: int, scene: dict[str, str] | None = None) -> None:
     hud = config.hud
     scene_lua = lua_scene_literal(scene)
+    trade_access_flag = getattr(config.interaction, "enable_trade_requests", True)
     hud_prefix = (
         f"_G.__ai_npc_hud_left = {_lua_bool(hud.show_left_top)}\n"
         f"_G.__ai_npc_hud_right = {_lua_bool(hud.show_right_top)}\n"
@@ -2287,6 +2427,7 @@ def write_response_lua(npc_name: str, response_text: str, request_id: int, scene
         f"_G.__ai_npc_hud_narrator_center = {_lua_bool(hud.narrator_center)}\n"
         f"_G.__ai_npc_language = {lua_string_literal(config.language)}\n"
         f"_G.__ai_npc_inventory_access = {_lua_bool(config.interaction.enable_inventory_access)}\n"
+        f"_G.__ai_npc_trade_access = {_lua_bool(trade_access_flag)}\n"
     )
     content = (
         hud_prefix
