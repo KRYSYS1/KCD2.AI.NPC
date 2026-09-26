@@ -52,14 +52,100 @@ logger = logging.getLogger(__name__)
 
 CONFIG_PATH = Path(__file__).parent.parent / "config.json"
 EXAMPLE_CONFIG_PATH = Path(__file__).parent.parent / "config.example.json"
+KEYS_PATH = Path(__file__).parent.parent / "keys.json"
 STATIC_DIR = Path(__file__).parent / "static"
 RELATIONSHIPS_PATH = Path(__file__).parent.parent / "memory" / "npc_relationships.json"
+
+# Секреты (api_key) хранятся только в keys.json (в .gitignore), config.json
+# остаётся чистым — его можно коммитить и шарить.
+KEY_FIELDS = {
+    "llm": ("api_key",),
+    "llm_light": ("api_key",),
+    "tts": ("elevenlabs_api_key", "openai_api_key", "fish_api_key", "custom_api_key"),
+    "stt": ("api_key",),
+}
+
+
+def load_keys() -> dict:
+    if not KEYS_PATH.exists():
+        return {}
+    try:
+        with open(KEYS_PATH, "r", encoding="utf-8-sig") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception as exc:
+        logger.warning(f"keys.json unreadable ({exc}); ignoring stored keys")
+        return {}
+
+
+def save_keys(section_updates: dict) -> None:
+    """Дописать {section: {field: value}} в keys.json (merge, без перезаписи остальных)."""
+    if not section_updates:
+        return
+    data = load_keys()
+    for section, fields in section_updates.items():
+        data.setdefault(section, {}).update(fields)
+    try:
+        KEYS_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception as exc:
+        logger.error(f"Failed to write keys.json: {exc}")
+
+
+def _pop_keys(data: dict) -> dict:
+    """Вырезать секретные поля из config-дикта; вернуть извлечённые непустые
+    {section: {field: value}} (для переезда в keys.json)."""
+    extracted: dict = {}
+    for section, fields in KEY_FIELDS.items():
+        sec = data.get(section)
+        if not isinstance(sec, dict):
+            continue
+        for field in fields:
+            value = sec.pop(field, None)
+            if isinstance(value, str) and value.strip():
+                extracted.setdefault(section, {})[field] = value.strip()
+    return extracted
+
+
+def _merge_keys(data: dict) -> dict:
+    """Наложить ключи из keys.json поверх config-дикта (runtime-представление)."""
+    stored = load_keys()
+    for section, fields in KEY_FIELDS.items():
+        sec = data.get(section)
+        if not isinstance(sec, dict):
+            continue
+        for field in fields:
+            value = stored.get(section, {}).get(field)
+            if value:
+                sec[field] = value
+    return data
+
+
+def _split_key_patch(section: str, patch: dict) -> tuple[dict, dict]:
+    """Отделить ключи от патча секции. Непустые ключи уходят в keys.json,
+    пустая строка = «не менять сохранённый ключ» (в патч не попадает)."""
+    fields = KEY_FIELDS.get(section, ())
+    plain: dict = {}
+    keys: dict = {}
+    for name, value in patch.items():
+        if name in fields:
+            if isinstance(value, str) and value.strip():
+                keys[name] = value.strip()
+        else:
+            plain[name] = value
+    return plain, keys
 
 
 def load_config() -> ServerConfig:
     if CONFIG_PATH.exists():
         with open(CONFIG_PATH, "r", encoding="utf-8-sig") as f:
             data = json.load(f)
+        # Миграция: ключи, найденные в config.json, переезжают в keys.json.
+        extracted = _pop_keys(data)
+        if extracted:
+            save_keys(extracted)
+            CONFIG_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+            logger.info("API keys moved from config.json to keys.json (gitignored)")
+        data = _merge_keys(data)
         return ServerConfig(**data)
     if EXAMPLE_CONFIG_PATH.exists():
         CONFIG_PATH.write_text(EXAMPLE_CONFIG_PATH.read_text(encoding="utf-8"), encoding="utf-8")
@@ -2169,6 +2255,10 @@ async def lifespan(app: FastAPI):
         tts_voice_info = f"male={config.tts.elevenlabs_voice}, female={config.tts.elevenlabs_voice_female}"
     elif config.tts.engine == "openai":
         tts_voice_info = f"male={config.tts.openai_voice}, female={config.tts.openai_voice_female}"
+    elif config.tts.engine == "fish":
+        tts_voice_info = f"male={config.tts.fish_voice or 'default'}, female={config.tts.fish_voice_female or 'default'}"
+    elif config.tts.engine == "custom":
+        tts_voice_info = f"male={config.tts.custom_voice}, female={config.tts.custom_voice_female} @ {config.tts.custom_api_url}"
     else:
         tts_voice_info = f"male={config.tts.voice}, female={config.tts.voice_female}"
     logger.info(f"TTS: {'enabled' if config.tts.enabled else 'disabled'} ({config.tts.engine} / {tts_voice_info})")
@@ -2759,6 +2849,14 @@ class TTSUpdateRequest(BaseModel):
     openai_voice: str | None = None
     openai_voice_female: str | None = None
     openai_api_key: str | None = None
+    fish_api_key: str | None = None
+    fish_voice: str | None = None
+    fish_voice_female: str | None = None
+    custom_api_url: str | None = None
+    custom_api_key: str | None = None
+    custom_model: str | None = None
+    custom_voice: str | None = None
+    custom_voice_female: str | None = None
     volume: float | None = None
     npc_voices: dict[str, dict[str, str]] | None = None
 
@@ -3485,7 +3583,14 @@ async def list_llm_models(req: LLMUpdateRequest):
 
 @app.get("/config")
 async def get_config():
-    return config.model_dump()
+    data = config.model_dump()
+    # Ключи не отдаём в браузер: пустое поле в панели = «использовать сохранённый».
+    for section, fields in KEY_FIELDS.items():
+        sec = data.get(section)
+        if isinstance(sec, dict):
+            for field in fields:
+                sec[field] = ""
+    return data
 
 
 @app.post("/config/update")
@@ -3501,7 +3606,8 @@ async def update_config(req: ConfigUpdateRequest):
         config.language = req.language
 
     if req.llm is not None:
-        llm_patch = req.llm.model_dump(exclude_none=True)
+        llm_patch, llm_keys = _split_key_patch("llm", req.llm.model_dump(exclude_none=True))
+        save_keys({"llm": llm_keys} if llm_keys else {})
         data.setdefault("llm", {})
         data["llm"].update(llm_patch)
         config.llm = LLMConfig(**data["llm"])
@@ -3509,7 +3615,8 @@ async def update_config(req: ConfigUpdateRequest):
         logger.info(f"LLM reloaded: {config.llm.model} @ {config.llm.api_url}")
 
     if req.llm_light is not None:
-        light_patch = req.llm_light.model_dump(exclude_none=True)
+        light_patch, light_keys = _split_key_patch("llm_light", req.llm_light.model_dump(exclude_none=True))
+        save_keys({"llm_light": light_keys} if light_keys else {})
         data.setdefault("llm_light", {})
         data["llm_light"].update(light_patch)
         config.llm_light = LightLLMConfig(**data["llm_light"])
@@ -3517,7 +3624,8 @@ async def update_config(req: ConfigUpdateRequest):
 
     if req.tts is not None:
         global tts_client
-        tts_patch = req.tts.model_dump(exclude_none=True)
+        tts_patch, tts_keys = _split_key_patch("tts", req.tts.model_dump(exclude_none=True))
+        save_keys({"tts": tts_keys} if tts_keys else {})
         data.setdefault("tts", {})
         data["tts"].update(tts_patch)
         config.tts = TTSConfig(**data["tts"])
@@ -3526,7 +3634,8 @@ async def update_config(req: ConfigUpdateRequest):
 
     if req.stt is not None:
         global stt_client
-        stt_patch = req.stt.model_dump(exclude_none=True)
+        stt_patch, stt_keys = _split_key_patch("stt", req.stt.model_dump(exclude_none=True))
+        save_keys({"stt": stt_keys} if stt_keys else {})
         data.setdefault("stt", {})
         data["stt"].update(stt_patch)
         config.stt = STTConfig(**data["stt"])
@@ -3632,6 +3741,7 @@ async def update_config(req: ConfigUpdateRequest):
         config.prompt_template = req.prompt_template
         set_prompt_template(req.prompt_template)
 
+    _pop_keys(data)  # ключи не попадают в config.json — только в keys.json
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 

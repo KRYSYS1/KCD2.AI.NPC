@@ -1109,6 +1109,8 @@
           <button class="preset-btn" data-engine="edge"        onclick="setTtsEngine('edge')">Edge TTS</button>
           <button class="preset-btn" data-engine="elevenlabs"  onclick="setTtsEngine('elevenlabs')">ElevenLabs</button>
           <button class="preset-btn" data-engine="openai"      onclick="setTtsEngine('openai')">OpenAI TTS</button>
+          <button class="preset-btn" data-engine="fish"        onclick="setTtsEngine('fish')">Fish Audio</button>
+          <button class="preset-btn" data-engine="custom"      onclick="setTtsEngine('custom')">&#1057;&#1074;&#1086;&#1081;</button>
         </div>
         <input type="hidden" id="tts-engine" value="edge">
       </div>
@@ -1181,6 +1183,56 @@
           </div>
           <input type="hidden" id="tts-oai-voice-female" value="nova">
         </div>
+      </div>
+
+      <!-- Fish Audio fields -->
+      <div id="tts-fields-fish" style="display:none;">
+        <div class="form-group">
+          <div class="label-row">
+            <label for="tts-fish-key">Fish Audio API Key</label>
+            <a class="key-link" href="https://fish.audio/go/subscriber/" target="_blank" rel="noopener noreferrer"><span data-i18n="get_key">Получить ключ</span><span class="key-link-arrow">&#8599;</span></a>
+          </div>
+          <input type="password" id="tts-fish-key" placeholder="Bearer token">
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <div class="label-row">
+            <label for="tts-fish-voice" data-i18n="tts_voice_id_male">Voice ID (male)</label>
+            <a class="key-link" href="https://fish.audio/discovery/" target="_blank" rel="noopener noreferrer"><span data-i18n="get_voice_ids">Получить ID голосов</span><span class="key-link-arrow">&#8599;</span></a>
+          </div>
+          <input type="text" id="tts-fish-voice" placeholder="(default voice)">
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label for="tts-fish-voice-female" data-i18n="tts_voice_id_female">Voice ID (female)</label>
+          <input type="text" id="tts-fish-voice-female" placeholder="(default voice)">
+        </div>
+        <div class="form-hint"><span data-i18n="tts_voices_hint">Голоса:</span> API key → fish.audio (Account Settings → API). Voice ID (reference_id) можно взять из ссылки на голос на fish.audio/discovery — пусто = дефолтный голос Fish. Ключи хранятся в keys.json: пустое поле = использовать уже сохранённый ключ.</div>
+      </div>
+
+      <!-- Custom TTS fields -->
+      <div id="tts-fields-custom" style="display:none;">
+        <div class="form-group">
+          <label for="tts-custom-url">API URL</label>
+          <input type="text" id="tts-custom-url" placeholder="https://api.openai.com/v1">
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label for="tts-custom-key" data-i18n="api_key">API Ключ</label>
+          <input type="password" id="tts-custom-key" placeholder="API key">
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label for="tts-custom-model" data-i18n="model">Модель</label>
+          <input type="text" id="tts-custom-model" placeholder="tts-1">
+        </div>
+        <div class="form-row" style="margin-top:10px;">
+          <div class="form-group">
+            <label for="tts-custom-voice" data-i18n="tts_voice_id_male">Voice ID (male)</label>
+            <input type="text" id="tts-custom-voice" placeholder="onyx">
+          </div>
+          <div class="form-group">
+            <label for="tts-custom-voice-female" data-i18n="tts_voice_id_female">Voice ID (female)</label>
+            <input type="text" id="tts-custom-voice-female" placeholder="nova">
+          </div>
+        </div>
+        <div class="form-hint">Заполни под свой сервис: любой OpenAI-совместимый TTS, запрос POST <code>{base}/audio/speech</code>. Примеры URL: <code>https://api.openai.com/v1</code>, <code>https://api.fish.audio/openai/v1</code>, локальный <code>http://localhost:8000/v1</code>. Пустой ключ = без Authorization (локальные эндпоинты). Не заполнено — возьмётся дефолт из config.py (OpenAI / tts-1 / onyx / nova). Пустое поле ключа = использовать уже сохранённый.</div>
       </div>
 
       <div class="form-group" style="margin-top:8px;">
@@ -2709,6 +2761,14 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       document.getElementById('tts-oai-key').value   = tts.openai_api_key || '';
       setOaiVoice(tts.openai_voice || 'onyx');
       setOaiVoiceFemale(tts.openai_voice_female || 'nova');
+      document.getElementById('tts-fish-key').value = tts.fish_api_key || '';
+      document.getElementById('tts-fish-voice').value = tts.fish_voice || '';
+      document.getElementById('tts-fish-voice-female').value = tts.fish_voice_female || '';
+      document.getElementById('tts-custom-url').value = tts.custom_api_url || '';
+      document.getElementById('tts-custom-key').value = tts.custom_api_key || '';
+      document.getElementById('tts-custom-model').value = tts.custom_model || '';
+      document.getElementById('tts-custom-voice').value = tts.custom_voice || '';
+      document.getElementById('tts-custom-voice-female').value = tts.custom_voice_female || '';
       loadNpcVoices(tts.npc_voices);
       document.getElementById('prompt-template').value = d.prompt_template || PROMPT_PRESETS.original;
       if (typeof autosizePromptTa === 'function') autosizePromptTa();
@@ -2776,6 +2836,8 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     document.getElementById('tts-fields-edge').style.display       = engine === 'edge'        ? '' : 'none';
     document.getElementById('tts-fields-elevenlabs').style.display = engine === 'elevenlabs'  ? '' : 'none';
     document.getElementById('tts-fields-openai').style.display     = engine === 'openai'      ? '' : 'none';
+    document.getElementById('tts-fields-fish').style.display       = engine === 'fish'        ? '' : 'none';
+    document.getElementById('tts-fields-custom').style.display     = engine === 'custom'      ? '' : 'none';
   }
 
   const NPC_NAME_TO_ID = {
@@ -2930,6 +2992,8 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
         <option value="edge" ${provider==='edge'?'selected':''}>Edge</option>
         <option value="elevenlabs" ${provider==='elevenlabs'?'selected':''}>ElevenLabs</option>
         <option value="openai" ${provider==='openai'?'selected':''}>OpenAI</option>
+        <option value="fish" ${provider==='fish'?'selected':''}>Fish</option>
+        <option value="custom" ${provider==='custom'?'selected':''}>&#1057;&#1074;&#1086;&#1081;</option>
       </select>
       <div class="npc-voice-wrap" style="flex:1 1 140px; min-width:100px;">
         ${buildVoiceInput(provider, voice)}
@@ -3388,6 +3452,14 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
               openai_voice:       document.getElementById('tts-oai-voice').value,
               openai_voice_female: document.getElementById('tts-oai-voice-female').value,
               openai_api_key:     document.getElementById('tts-oai-key').value.trim(),
+              fish_api_key:       document.getElementById('tts-fish-key').value.trim(),
+              fish_voice:         document.getElementById('tts-fish-voice').value.trim(),
+              fish_voice_female:  document.getElementById('tts-fish-voice-female').value.trim(),
+              custom_api_url:     document.getElementById('tts-custom-url').value.trim(),
+              custom_api_key:     document.getElementById('tts-custom-key').value.trim(),
+              custom_model:       document.getElementById('tts-custom-model').value.trim(),
+              custom_voice:       document.getElementById('tts-custom-voice').value.trim(),
+              custom_voice_female: document.getElementById('tts-custom-voice-female').value.trim(),
               volume:             parseFloat(document.getElementById('tts-volume').value),
               npc_voices:         collectNpcVoices(),
             };

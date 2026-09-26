@@ -388,7 +388,7 @@ class TTSClient:
         if vm.get(default):
             return default
         # Otherwise pick the first configured engine this NPC has a voice for.
-        for eng in ("elevenlabs", "openai", "edge"):
+        for eng in ("elevenlabs", "openai", "fish", "custom", "edge"):
             if eng == default:
                 continue
             if not vm.get(eng):
@@ -397,6 +397,9 @@ class TTSClient:
                 continue
             if eng == "openai" and not self.config.openai_api_key:
                 continue
+            if eng == "fish" and not self.config.fish_api_key:
+                continue
+            # custom допускает пустой ключ (локальные эндпоинты)
             return eng
         return default
 
@@ -420,6 +423,10 @@ class TTSClient:
             await self._speak_elevenlabs(text, gender, npc_id, npc_name, npc_name_resolved, npc_pos, player_pos, player_fwd)
         elif engine == "openai":
             await self._speak_openai(text, gender, npc_id, npc_name, npc_name_resolved, npc_pos, player_pos, player_fwd)
+        elif engine == "fish":
+            await self._speak_fish(text, gender, npc_id, npc_name, npc_name_resolved, npc_pos, player_pos, player_fwd)
+        elif engine == "custom":
+            await self._speak_custom(text, gender, npc_id, npc_name, npc_name_resolved, npc_pos, player_pos, player_fwd)
         else:
             raise RuntimeError(f"Unknown TTS engine: {engine}")
 
@@ -552,6 +559,74 @@ class TTSClient:
                     raise RuntimeError(f"OpenAI TTS HTTP {resp.status}: {body[:200]}")
                 audio_bytes = await resp.read()
         logger.info(f"openai-tts synth in {(time.perf_counter()-t0)*1000:.0f} ms, chars={len(text)}, gender={gender}, voice={voice}")
+        tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+        tmp.write(audio_bytes)
+        tmp.close()
+        self._dispatch_playback(tmp.name, self.config.volume, npc_id, npc_name, npc_name_resolved, npc_pos, player_pos, player_fwd)
+
+    async def _speak_fish(self, text: str, gender: int | None = None, npc_id: str | None = None, npc_name: str | None = None, npc_name_resolved: str | None = None, npc_pos=None, player_pos=None, player_fwd=None) -> None:
+        api_key = self.config.fish_api_key
+        if not api_key:
+            raise RuntimeError("Fish Audio API key not set")
+        reference_id = self._resolve_voice("fish", npc_id, npc_name, gender, npc_name_resolved)
+        if not reference_id:
+            reference_id = self.config.fish_voice_female if self._is_female(gender) and self.config.fish_voice_female else self.config.fish_voice
+        payload = {
+            "text": text,
+            "format": "mp3",
+            "normalize": True,
+            "latency": "balanced",
+        }
+        if reference_id:
+            payload["reference_id"] = reference_id
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        import aiohttp
+        t0 = time.perf_counter()
+        async with aiohttp.ClientSession() as session:
+            async with session.post("https://api.fish.audio/v1/tts", json=payload, headers=headers) as resp:
+                if resp.status != 200:
+                    body = await resp.text()
+                    raise RuntimeError(f"Fish Audio HTTP {resp.status}: {body[:200]}")
+                audio_bytes = await resp.read()
+        if len(audio_bytes) < 512:
+            raise RuntimeError(f"Fish Audio returned empty audio ({len(audio_bytes)} bytes)")
+        logger.info(f"fish-tts synth in {(time.perf_counter()-t0)*1000:.0f} ms, chars={len(text)}, gender={gender}, ref={reference_id or 'default'}")
+        tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+        tmp.write(audio_bytes)
+        tmp.close()
+        self._dispatch_playback(tmp.name, self.config.volume, npc_id, npc_name, npc_name_resolved, npc_pos, player_pos, player_fwd)
+
+    async def _speak_custom(self, text: str, gender: int | None = None, npc_id: str | None = None, npc_name: str | None = None, npc_name_resolved: str | None = None, npc_pos=None, player_pos=None, player_fwd=None) -> None:
+        base_url = (self.config.custom_api_url or "https://api.openai.com/v1").strip().rstrip("/")
+        voice = self._resolve_voice("custom", npc_id, npc_name, gender, npc_name_resolved)
+        if not voice:
+            voice = self.config.custom_voice_female if self._is_female(gender) and self.config.custom_voice_female else self.config.custom_voice
+        if not (voice or "").strip():
+            raise RuntimeError("Custom TTS voice is empty")
+        payload = {
+            "model": self.config.custom_model or "tts-1",
+            "input": text,
+            "voice": voice,
+            "response_format": "mp3",
+        }
+        headers = {"Content-Type": "application/json"}
+        api_key = self.config.custom_api_key
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        import aiohttp
+        t0 = time.perf_counter()
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f"{base_url}/audio/speech", json=payload, headers=headers) as resp:
+                if resp.status != 200:
+                    body = await resp.text()
+                    raise RuntimeError(f"Custom TTS HTTP {resp.status}: {body[:200]}")
+                audio_bytes = await resp.read()
+        if len(audio_bytes) < 512:
+            raise RuntimeError(f"Custom TTS returned empty audio ({len(audio_bytes)} bytes)")
+        logger.info(f"custom-tts synth in {(time.perf_counter()-t0)*1000:.0f} ms, chars={len(text)}, gender={gender}, voice={voice}, model={payload['model']} @ {base_url}")
         tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
         tmp.write(audio_bytes)
         tmp.close()

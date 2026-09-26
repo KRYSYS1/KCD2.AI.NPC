@@ -58,7 +58,7 @@ class TTSConfig(BaseModel):
     enabled: bool = Field(default=True, description="Enable TTS.")
     engine: str = Field(
         default="edge",
-        description="TTS engine: edge, openai",
+        description="TTS engine: edge, openai, elevenlabs, fish, custom",
     )
     voice: str = Field(
         default="en-GB-RyanNeural",
@@ -80,6 +80,23 @@ class TTSConfig(BaseModel):
     openai_voice: str = Field(default="onyx", description="OpenAI TTS voice (male): alloy, echo, fable, onyx, nova, shimmer.")
     openai_voice_female: str = Field(default="nova", description="OpenAI TTS voice for female NPCs: alloy, echo, fable, onyx, nova, shimmer.")
     openai_api_key: str = Field(default="", description="OpenAI API key for TTS.")
+    fish_api_key: str = Field(default="", description="Fish Audio API key (https://fish.audio).")
+    fish_voice: str = Field(
+        default="",
+        description="Fish Audio reference voice ID (male). Empty = default Fish voice. Get IDs at https://fish.audio/voice/",
+    )
+    fish_voice_female: str = Field(
+        default="",
+        description="Fish Audio reference voice ID for female NPCs. Empty = default Fish voice.",
+    )
+    custom_api_url: str = Field(
+        default="https://api.openai.com/v1",
+        description="Custom TTS engine: OpenAI-compatible base URL (POST {base}/audio/speech). Examples: https://api.openai.com/v1, https://api.fish.audio/openai/v1, http://localhost:8000/v1",
+    )
+    custom_api_key: str = Field(default="", description="Custom TTS engine API key. Empty = no Authorization header (local endpoints).")
+    custom_model: str = Field(default="tts-1", description="Custom TTS engine model name.")
+    custom_voice: str = Field(default="onyx", description="Custom TTS engine voice (male).")
+    custom_voice_female: str = Field(default="nova", description="Custom TTS engine voice for female NPCs.")
     volume: float = Field(default=1.0, description="Playback volume 0.0-1.0.")
     output_dir: str = Field(
         default="./audio_cache",

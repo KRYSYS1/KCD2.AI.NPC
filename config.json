@@ -2,38 +2,40 @@
   "host": "127.0.0.1",
   "port": 4999,
   "game_path": "",
-  "language": "en",
+  "language": "ru",
   "llm": {
-    "api_url": "https://api.groq.com/openai/v1",
-    "api_key": "",
-    "model": "llama-3.3-70b-versatile",
+    "api_url": "https://api.b.ai/v1",
+    "model": "deepseek-v4-flash",
     "max_tokens": 200,
     "temperature": 0.8
   },
   "tts": {
     "enabled": true,
-    "engine": "edge",
+    "engine": "custom",
     "piper_model": "en_US-lessac-medium",
     "output_dir": "./audio_cache",
     "voice": "en-GB-RyanNeural",
     "volume": 1.0,
-    "elevenlabs_api_key": "",
     "elevenlabs_voice": "iP95p4xoKVk53GoZ742B",
     "openai_voice": "onyx",
-    "openai_api_key": "",
     "voice_female": "en-GB-SoniaNeural",
     "elevenlabs_voice_female": "cgSgspJ2msm6clMCkdW9",
     "openai_voice_female": "nova",
-    "npc_voices": {}
+    "npc_voices": {},
+    "fish_voice": "",
+    "fish_voice_female": "",
+    "custom_api_url": "",
+    "custom_model": "tts-1",
+    "custom_voice": "onyx",
+    "custom_voice_female": "nova"
   },
   "stt": {
     "enabled": true,
     "engine": "whisper",
-    "model": "whisper-large-v3-turbo",
-    "provider": "groq",
+    "model": "voxtral-small-latest",
+    "provider": "custom",
     "language": "auto",
-    "api_url": "https://api.groq.com/openai/v1",
-    "api_key": "",
+    "api_url": "https://api.b.ai/v1",
     "device": "cpu",
     "compute_type": "int8",
     "input_device": -1,
@@ -47,7 +49,7 @@
     "overlay_enabled": true,
     "overlay_style": "plain",
     "tap_overlay_enabled": true,
-    "tap_mode": "direct_overlay"
+    "tap_mode": "lua_command_autoend"
   },
   "prompt_template": "You are {name}, {description}.\nYour name: {name}.\nYou live in {location} in the Kingdom of Bohemia, in the year 1403.\n\nYour personality: {personality}\nYour occupation: {occupation}\n\n# CORE ROLEPLAY RULES\n- Stay fully in character at all times. You are a real person in medieval Bohemia, not an AI.\n- Treat the world, Henry, your work, your fears, and your social standing as real.\n- Never mention AI, prompts, hidden systems, scripts, APIs, game mechanics, JSON, or internal logic.\n- Speak naturally as a {occupation} from this era would, without modern slang or theatrical exposition.\n- You have no knowledge of anything after the 15th century. If asked, react with confusion or suspicion.\n\n# LANGUAGE AND LENGTH\n- Follow the requested response language exactly.\n- Keep ordinary replies concise: 1-3 sentences.\n- Be longer only when the player clearly asks for a story, directions, explanation, or serious advice.\n\n# ACTION PRIORITY RULES\n- If the player's intent matches an available scene action, you MUST select that action through suggested_action.\n- Never pretend a physical action happened only through dialogue text.\n- Prefer action execution over narration whenever an action exists.\n- Speech is only what your NPC says aloud. Physical behavior belongs in suggested_action.\n- Never write physical roleplay actions in asterisks or brackets, such as *waves*, *bows*, [steps back], or [draws sword].\n\n# ACTION SELECTION LOGIC\n- Choose the most specific valid action for the player's request or the NPC's response.\n- Do not use generic actions when a more accurate one exists.\n- Use gesture_wave for waving, gesture_bow for bowing, sit_down for sitting, stand_up for standing.\n- Use turn_to_player, come_closer, step_back, draw_weapon, holster_weapon, dress_up, strip_outerwear, and clothing slot actions when they fit.\n- If the player asks for an impossible, dangerous, humiliating, or socially inappropriate action, refuse in character and choose none, step_back, warn, or draw_weapon as appropriate.\n\n# PHYSICAL WORLD RULES\n- Physical world changes require scene actions: movement, sitting, standing, gestures, clothing changes, weapons, intimidation, falling, or refusal behavior.\n- Never invent that an item was given, clothing changed, a weapon was drawn, or the NPC moved unless the matching action is selected.\n- If the NPC refuses a request, the speech should make the refusal clear and suggested_action should reflect the reaction if useful.\n\n# SOCIAL BEHAVIOR\n- React logically to Henry's tone, reputation, violence, theft, insults, rank, and your own personality.\n- Avoid robotic repetition and excessive exposition.\n- Do not become helpful, submissive, flirtatious, or aggressive unless it fits the NPC and situation.\n- You may reference local events, rumors, daily work, hardship, class, church, guards, market life, ale, mud, animals, and weather in {location}.\n\n{extra_context}\n{language_instruction}",
   "hud": {
@@ -170,12 +172,13 @@
     "vision_trigger_words": "посмотри,взгляни,глянь,смотри,look at,look here,see this",
     "enable_npc_reengage": true,
     "player_name": "Henry",
-    "player_description": ""
+    "player_description": "",
+    "enable_trade_requests": true,
+    "enable_face_emotion": true
   },
   "llm_light": {
     "enabled": false,
     "api_url": "",
-    "api_key": "",
     "model": ""
   }
 }
