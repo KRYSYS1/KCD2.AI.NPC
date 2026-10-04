@@ -3606,6 +3606,10 @@ async def update_config(req: ConfigUpdateRequest):
     if CONFIG_PATH.exists():
         with open(CONFIG_PATH, "r", encoding="utf-8-sig") as f:
             data = json.load(f)
+    # config.json хранится без ключей — накладываем keys.json, иначе любая
+    # правка из панели собирала бы секции без api_key и рантайм терял ключ
+    # до следующего рестарта.
+    data = _merge_keys(data)
 
     if req.language is not None:
         data["language"] = req.language
