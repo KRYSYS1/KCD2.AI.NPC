@@ -132,6 +132,38 @@ def _load_xinput():
         return None
 
 
+# ---------------------------------------------------------------------------
+# pygame / SDL2 game-controller fallback
+# ---------------------------------------------------------------------------
+# XInput only sees Xbox-style devices. DualShock 4 / DualSense connected
+# without Steam Input (or DS4Windows) are invisible to it. SDL2 (already a
+# dependency via pygame) talks to Sony pads natively through its hidapi
+# driver and exposes them through the standard game-controller layout, so
+# the button mapping below is layout-independent.
+
+# SDL_GameControllerButton enum values (stable across SDL2): cross→0, circle→1,
+# square→2, triangle→3, etc. pygame._sdl2.controller exposes no named constants.
+_PAD_GC_BUTTONS: dict[str, int] = {
+    "a": 0, "b": 1, "x": 2, "y": 3,
+    "back": 4, "start": 6,
+    "lstick": 7, "rstick": 8,
+    "lb": 9, "rb": 10,
+    "dpad_up": 11, "dpad_down": 12, "dpad_left": 13, "dpad_right": 14,
+}
+
+
+def _load_pygame_controller():
+    """Return the pygame._sdl2.controller module (initialized) or None."""
+    try:
+        import pygame
+        from pygame._sdl2 import controller as sdl_controller
+        sdl_controller.init()
+        return sdl_controller
+    except Exception as exc:
+        logger.info(f"KeyMonitor: pygame game-controller API unavailable ({exc})")
+        return None
+
+
 def _pynput_key_matches(key_obj, chat_key: str) -> bool:
     """Check whether a pynput KeyCode / Key object matches the configured key.
 
@@ -215,6 +247,8 @@ class KeyMonitor:
         self._vk: Optional[int] = None
         self._xinput = None  # XInputGetState callable (None = gamepad disabled/unavailable)
         self._xinput_state = None  # reusable XINPUT_STATE buffer
+        self._sdl_ctrl = None  # pygame._sdl2.controller module (Sony pads fallback)
+        self._ctrl = None  # cached sdl_controller.Controller(0)
         self._listener = None  # pynput listener (Linux/X11 fallback)
         self._hold_timer: Optional[threading.Timer] = None
         self._backend = ""  # "win32", "pynput", or ""
@@ -283,7 +317,13 @@ class KeyMonitor:
                     f"KeyMonitor: pad_button={self._pad_button!r} configured but XInput "
                     f"is unavailable — gamepad input disabled, keyboard-only mode"
                 )
-        if self._vk is None and (not self._pad_button or self._xinput is None):
+            self._sdl_ctrl = _load_pygame_controller()
+            if self._sdl_ctrl is None and self._xinput is None:
+                logger.warning(
+                    f"KeyMonitor: pad_button={self._pad_button!r} configured but neither "
+                    f"XInput nor pygame/SDL2 gamepads are available — gamepad disabled"
+                )
+        if self._vk is None and (not self._pad_button or (self._xinput is None and self._sdl_ctrl is None)):
             logger.warning(
                 f"KeyMonitor: unsupported chat_key={self._chat_key!r} and no working "
                 f"gamepad button — key monitor will stay idle (add to _VK_MAP if needed)"
@@ -297,7 +337,16 @@ class KeyMonitor:
         )
         self._thread.start()
         vk_part = f"key={self._chat_key!r} (VK=0x{self._vk:02X})" if self._vk is not None else "no keyboard key"
-        pad_part = f"pad={self._pad_button!r}" if (self._pad_button and self._xinput is not None) else "pad=off"
+        pad_part = "pad=off"
+        if self._pad_button:
+            if self._xinput is not None and self._sdl_ctrl is not None:
+                pad_part = f"pad={self._pad_button!r} (xinput+sdl)"
+            elif self._xinput is not None:
+                pad_part = f"pad={self._pad_button!r} (xinput)"
+            elif self._sdl_ctrl is not None:
+                pad_part = f"pad={self._pad_button!r} (sdl)"
+            else:
+                pad_part = f"pad={self._pad_button!r} (unavailable)"
         logger.info(
             f"KeyMonitor started (win32): {vk_part} {pad_part} "
             f"threshold={self._threshold_ms}ms poll={self._poll_interval_ms}ms"
@@ -514,24 +563,47 @@ class KeyMonitor:
     # Worker (Win32 polling backend)
     # ------------------------------------------------------------------
     def _is_pad_pressed(self) -> bool:
-        """XInput poll of the configured gamepad button across controllers 0-3."""
-        if self._xinput is None or not self._pad_button:
-            return False
-        mask = XINPUT_BUTTONS[self._pad_button]
-        import ctypes
-        for idx in range(4):
-            state = self._xinput_state
-            if state is None:
-                self._xinput_state = state = _XINPUT_STATE()
-            try:
-                if self._xinput(idx, state) != 0:  # 0 = ERROR_SUCCESS
-                    continue  # controller not connected
+        """Poll the configured gamepad button. XInput (controllers 0-3) first;
+        if no XInput device is connected, fall back to pygame/SDL2, which sees
+        DualShock 4 / DualSense natively."""
+        mask = XINPUT_BUTTONS.get(self._pad_button)
+        if self._xinput is not None and mask is not None:
+            any_connected = False
+            for idx in range(4):
+                state = self._xinput_state
+                if state is None:
+                    self._xinput_state = state = _XINPUT_STATE()
+                try:
+                    if self._xinput(idx, state) != 0:  # 0 = ERROR_SUCCESS
+                        continue  # controller not connected
+                except Exception as exc:
+                    logger.debug(f"XInputGetState failed: {exc}")
+                    return False
+                any_connected = True
                 if state.Gamepad.wButtons & mask:
                     return True
-            except Exception as exc:
-                logger.debug(f"XInputGetState failed: {exc}")
+            if any_connected:
                 return False
-        return False
+        return self._is_pad_pressed_sdl()
+
+    def _is_pad_pressed_sdl(self) -> bool:
+        if self._sdl_ctrl is None or not self._pad_button:
+            return False
+        try:
+            if self._sdl_ctrl.get_count() == 0:
+                self._ctrl = None
+                return False
+            if self._ctrl is None:
+                self._ctrl = self._sdl_ctrl.Controller(0)
+            btn_id = _PAD_GC_BUTTONS.get(self._pad_button)
+            if btn_id is None:
+                return False
+            return bool(self._ctrl.get_button(btn_id))
+        except Exception as exc:
+            # Pad likely disconnected mid-poll — drop the cached handle.
+            self._ctrl = None
+            logger.debug(f"SDL controller poll failed: {exc}")
+            return False
 
     def _is_pressed(self) -> bool:
         # Keyboard: GetAsyncKeyState returns a SHORT where the high bit
