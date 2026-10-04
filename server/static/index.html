@@ -1467,26 +1467,6 @@
         <div class="form-hint" style="color:var(--accent-gold);margin-top:4px;" data-i18n="chat_key_english_note">Enter the key in English (Latin) letters only. Do not use Russian/Cyrillic characters.</div>
       </div>
       <div class="form-group" style="margin-top:10px;">
-        <label for="pad-button">Gamepad button (chat / push-to-talk)</label>
-        <div class="preset-row" id="pad-button-row">
-          <button class="preset-btn" data-pad=""            onclick="setPadButton('')">Off</button>
-          <button class="preset-btn" data-pad="back"        onclick="setPadButton('back')">Back</button>
-          <button class="preset-btn" data-pad="start"       onclick="setPadButton('start')">Start</button>
-          <button class="preset-btn" data-pad="y"           onclick="setPadButton('y')">Y</button>
-          <button class="preset-btn" data-pad="b"           onclick="setPadButton('b')">B</button>
-          <button class="preset-btn" data-pad="x"           onclick="setPadButton('x')">X</button>
-          <button class="preset-btn" data-pad="a"           onclick="setPadButton('a')">A</button>
-          <button class="preset-btn" data-pad="lb"          onclick="setPadButton('lb')">LB</button>
-          <button class="preset-btn" data-pad="rb"          onclick="setPadButton('rb')">RB</button>
-          <button class="preset-btn" data-pad="dpad_up"     onclick="setPadButton('dpad_up')">D-Up</button>
-          <button class="preset-btn" data-pad="dpad_down"   onclick="setPadButton('dpad_down')">D-Down</button>
-          <button class="preset-btn" data-pad="dpad_left"   onclick="setPadButton('dpad_left')">D-Left</button>
-          <button class="preset-btn" data-pad="dpad_right"  onclick="setPadButton('dpad_right')">D-Right</button>
-        </div>
-        <input type="hidden" id="pad-button" value="">
-        <div class="form-hint">Tap opens text chat, hold talks (same smart-V logic as the keyboard key). The game still receives the button press — pick one that is free in-game. Works alongside the keyboard key.</div>
-      </div>
-      <div class="form-group" style="margin-top:10px;">
         <label for="overlay-style" data-i18n="overlay_style">Input overlay style</label>
         <select id="overlay-style">
           <option value="kcd" data-i18n="overlay_style_kcd">KCD2 (parchment + gold)</option>
@@ -2761,7 +2741,6 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
         if (el) el.value = interaction[pair[0]] || pair[1];
       });
       document.getElementById('chat-key').value = input.chat_key || 'v';
-      setPadButton(input.pad_button || '');
       document.getElementById('overlay-style').value = (input.overlay_style === 'plain') ? 'plain' : 'kcd';
       document.getElementById('tap-overlay-enabled').checked = input.tap_overlay_enabled !== false;
       const ttsEnabled = tts.enabled !== false;
@@ -2835,11 +2814,6 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     document.querySelectorAll('#lang-row .preset-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
     applyUiLang(lang);
     onTtsToggle(document.getElementById('tts-enabled').checked);
-  }
-
-  function setPadButton(btn) {
-    document.getElementById('pad-button').value = btn || '';
-    document.querySelectorAll('#pad-button-row .preset-btn').forEach(b => b.classList.toggle('active', (b.dataset.pad || '') === (btn || '')));
   }
 
   function setTtsEngine(engine) {
@@ -3493,7 +3467,6 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
           stt: _collectSttForm(),
           input: {
             chat_key: document.getElementById('chat-key').value.trim().toLowerCase(),
-            pad_button: document.getElementById('pad-button').value,
             overlay_enabled: document.getElementById('tap-overlay-enabled').checked,
             overlay_style:   document.getElementById('overlay-style').value,
             tap_overlay_enabled: document.getElementById('tap-overlay-enabled').checked,

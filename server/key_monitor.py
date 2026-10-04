@@ -63,75 +63,6 @@ def _resolve_vk(key: str) -> Optional[int]:
     return _VK_MAP.get(key.strip().lower())
 
 
-# ---------------------------------------------------------------------------
-# XInput (gamepad) support
-# ---------------------------------------------------------------------------
-# Gamepad chat button, polled server-side through XInput and OR-ed into the
-# same tap/hold state machine as the keyboard key. The game still sees the
-# raw button press — players should pick a button they don't use in combat.
-
-XINPUT_BUTTONS: dict[str, int] = {
-    "a": 0x1000, "b": 0x2000, "x": 0x4000, "y": 0x8000,
-    "lb": 0x0100, "rb": 0x0200,
-    "back": 0x0020, "start": 0x0010,
-    "lstick": 0x0040, "rstick": 0x0080,
-    "dpad_up": 0x0001, "dpad_down": 0x0002, "dpad_left": 0x0004, "dpad_right": 0x0008,
-}
-
-
-def normalize_pad_button(value: str, allow_empty: bool = True) -> str:
-    """Validate a gamepad button name from the web panel. Empty = disabled."""
-    name = (value or "").strip().lower()
-    if not name:
-        return "" if allow_empty else ""
-    return name if name in XINPUT_BUTTONS else ""
-
-
-_XINPUT_STATE = None  # ctypes Structure class, lazily built
-
-
-def _load_xinput():
-    """Return (XInputGetState callable, state type) or None. Windows only."""
-    global _XINPUT_STATE
-    if not sys.platform.startswith("win"):
-        return None
-    try:
-        import ctypes
-        last_exc = None
-        for dll_name in ("xinput1_4", "xinput1_3", "xinput9_1_0"):
-            try:
-                xinput = ctypes.WinDLL(dll_name)
-                break
-            except OSError as exc:
-                last_exc = exc
-        else:
-            logger.warning(f"KeyMonitor: no xinput dll found ({last_exc})")
-            return None
-        if _XINPUT_STATE is None:
-            class _Gamepad(ctypes.Structure):
-                _fields_ = [
-                    ("wButtons", ctypes.c_ushort),
-                    ("bLeftTrigger", ctypes.c_ubyte),
-                    ("bRightTrigger", ctypes.c_ubyte),
-                    ("sThumbLX", ctypes.c_short),
-                    ("sThumbLY", ctypes.c_short),
-                    ("sThumbRX", ctypes.c_short),
-                    ("sThumbRY", ctypes.c_short),
-                ]
-
-            class _State(ctypes.Structure):
-                _fields_ = [("dwPacketNumber", ctypes.c_ulong), ("Gamepad", _Gamepad)]
-
-            _XINPUT_STATE = _State
-        get_state = xinput.XInputGetState
-        get_state.restype = ctypes.c_ulong  # ERROR_SUCCESS / ERROR_DEVICE_NOT_CONNECTED
-        get_state.argtypes = [ctypes.c_ulong, ctypes.POINTER(_XINPUT_STATE)]
-        return get_state
-    except Exception as exc:
-        logger.warning(f"KeyMonitor: xinput load failed: {exc}")
-        return None
-
-
 def _pynput_key_matches(key_obj, chat_key: str) -> bool:
     """Check whether a pynput KeyCode / Key object matches the configured key.
 
@@ -196,13 +127,11 @@ class KeyMonitor:
         chat_key: str = "v",
         threshold_ms: int = 200,
         poll_interval_ms: int = 25,
-        pad_button: str = "",
         on_tap: Optional[Callable[[], None]] = None,
         on_hold_start: Optional[Callable[[], None]] = None,
         on_hold_end: Optional[Callable[[float], None]] = None,
     ) -> None:
         self._chat_key = chat_key
-        self._pad_button = normalize_pad_button(pad_button)
         self._threshold_ms = max(50, int(threshold_ms))
         self._poll_interval_ms = max(5, int(poll_interval_ms))
         self.on_tap = on_tap
@@ -213,8 +142,6 @@ class KeyMonitor:
         self._thread: Optional[threading.Thread] = None
         self._user32 = None
         self._vk: Optional[int] = None
-        self._xinput = None  # XInputGetState callable (None = gamepad disabled/unavailable)
-        self._xinput_state = None  # reusable XINPUT_STATE buffer
         self._listener = None  # pynput listener (Linux/X11 fallback)
         self._hold_timer: Optional[threading.Timer] = None
         self._backend = ""  # "win32", "pynput", or ""
@@ -262,11 +189,7 @@ class KeyMonitor:
         return False
 
     def _try_start_win32(self) -> bool:
-        """Attempt to start the Win32 polling backend. Returns True on success.
-
-        Starts when at least one input source resolves: the keyboard chat key
-        (virtual-key code) and/or the configured gamepad button (XInput).
-        """
+        """Attempt to start the Win32 polling backend. Returns True on success."""
         if not sys.platform.startswith("win"):
             return False
         try:
@@ -276,17 +199,10 @@ class KeyMonitor:
             logger.error(f"KeyMonitor: failed to load user32: {exc}")
             return False
         self._vk = _resolve_vk(self._chat_key)
-        if self._pad_button:
-            self._xinput = _load_xinput()
-            if self._xinput is None:
-                logger.warning(
-                    f"KeyMonitor: pad_button={self._pad_button!r} configured but XInput "
-                    f"is unavailable — gamepad input disabled, keyboard-only mode"
-                )
-        if self._vk is None and (not self._pad_button or self._xinput is None):
+        if self._vk is None:
             logger.warning(
-                f"KeyMonitor: unsupported chat_key={self._chat_key!r} and no working "
-                f"gamepad button — key monitor will stay idle (add to _VK_MAP if needed)"
+                f"KeyMonitor: unsupported chat_key={self._chat_key!r} — "
+                f"key monitor will stay idle (add to _VK_MAP if needed)"
             )
             self._user32 = None
             return False
@@ -296,10 +212,8 @@ class KeyMonitor:
             target=self._run_poll, daemon=True, name="key-monitor-win32"
         )
         self._thread.start()
-        vk_part = f"key={self._chat_key!r} (VK=0x{self._vk:02X})" if self._vk is not None else "no keyboard key"
-        pad_part = f"pad={self._pad_button!r}" if (self._pad_button and self._xinput is not None) else "pad=off"
         logger.info(
-            f"KeyMonitor started (win32): {vk_part} {pad_part} "
+            f"KeyMonitor started (win32): key={self._chat_key!r} (VK=0x{self._vk:02X}) "
             f"threshold={self._threshold_ms}ms poll={self._poll_interval_ms}ms"
         )
         return True
@@ -407,21 +321,15 @@ class KeyMonitor:
         self,
         chat_key: Optional[str] = None,
         threshold_ms: Optional[int] = None,
-        pad_button: Optional[str] = None,
     ) -> None:
-        """Hot-restart the monitor when the user changes chat_key / pad_button
-        / threshold in the web UI. Cheaper than recreating the whole object —
-        same callbacks stay wired up.
+        """Hot-restart the monitor when the user changes chat_key / threshold
+        in the web UI. Cheaper than recreating the whole object — same
+        callbacks stay wired up.
         """
         restart = False
         if chat_key is not None and chat_key != self._chat_key:
             self._chat_key = chat_key
             restart = True
-        if pad_button is not None:
-            pad_button = normalize_pad_button(pad_button)
-            if pad_button != self._pad_button:
-                self._pad_button = pad_button
-                restart = True
         if threshold_ms is not None and int(threshold_ms) != self._threshold_ms:
             self._threshold_ms = max(50, int(threshold_ms))
             # Threshold change doesn't require an OS-level restart, but a
@@ -430,7 +338,7 @@ class KeyMonitor:
         if restart:
             logger.info(
                 f"KeyMonitor: reconfiguring "
-                f"key={self._chat_key} pad={self._pad_button or 'off'} threshold={self._threshold_ms}ms"
+                f"key={self._chat_key} threshold={self._threshold_ms}ms"
             )
             self.stop()
             self.start()
@@ -513,41 +421,16 @@ class KeyMonitor:
     # ------------------------------------------------------------------
     # Worker (Win32 polling backend)
     # ------------------------------------------------------------------
-    def _is_pad_pressed(self) -> bool:
-        """XInput poll of the configured gamepad button across controllers 0-3."""
-        if self._xinput is None or not self._pad_button:
-            return False
-        mask = XINPUT_BUTTONS[self._pad_button]
-        import ctypes
-        for idx in range(4):
-            state = self._xinput_state
-            if state is None:
-                self._xinput_state = state = _XINPUT_STATE()
-            try:
-                if self._xinput(idx, state) != 0:  # 0 = ERROR_SUCCESS
-                    continue  # controller not connected
-                if state.Gamepad.wButtons & mask:
-                    return True
-            except Exception as exc:
-                logger.debug(f"XInputGetState failed: {exc}")
-                return False
-        return False
-
     def _is_pressed(self) -> bool:
-        # Keyboard: GetAsyncKeyState returns a SHORT where the high bit
-        # (0x8000) is set when the key is currently down. Gamepad: XInput
-        # wButtons bitmask. Either source feeds the same tap/hold machine —
-        # we don't care about the "since last call" low bit — we maintain our
-        # own edge tracking.
-        if self._vk is not None:
-            try:
-                v = self._user32.GetAsyncKeyState(self._vk)  # type: ignore[union-attr]
-            except Exception as exc:
-                logger.debug(f"GetAsyncKeyState failed: {exc}")
-                v = 0
-            if v & 0x8000:
-                return True
-        return self._is_pad_pressed()
+        # GetAsyncKeyState returns a SHORT where the high bit (0x8000) is set
+        # when the key is currently down. We don't care about the "since last
+        # call" low bit — we maintain our own edge tracking.
+        try:
+            v = self._user32.GetAsyncKeyState(self._vk)  # type: ignore[union-attr]
+        except Exception as exc:
+            logger.debug(f"GetAsyncKeyState failed: {exc}")
+            return False
+        return bool(v & 0x8000)
 
     def _run_poll(self) -> None:
         """Win32 polling loop — samples GetAsyncKeyState at poll_interval_ms."""
