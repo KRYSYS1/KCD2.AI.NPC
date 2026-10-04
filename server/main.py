@@ -38,7 +38,7 @@ from server import initiative as npc_initiative
 from server import ambient as npc_ambient
 from server.stt_client import STTClient
 from server.input_overlay import InputOverlay
-from server.key_monitor import KeyMonitor
+from server.key_monitor import KeyMonitor, normalize_pad_button
 
 logging.basicConfig(
     level=logging.INFO,
@@ -274,6 +274,7 @@ def _split_terms(value: str) -> set[str]:
 key_monitor = KeyMonitor(
     chat_key=(config.input.chat_key or "v"),
     threshold_ms=int(config.stt.hold_threshold_ms or 200),
+    pad_button=getattr(config.input, "pad_button", "") or "",
 )
 _main_loop: asyncio.AbstractEventLoop | None = None
 _overlay_request_counter = 0
@@ -2263,6 +2264,10 @@ async def lifespan(app: FastAPI):
         tts_voice_info = f"male={config.tts.voice}, female={config.tts.voice_female}"
     logger.info(f"TTS: {'enabled' if config.tts.enabled else 'disabled'} ({config.tts.engine} / {tts_voice_info})")
     logger.info(
+        f"Input: chat_key={config.input.chat_key!r} "
+        f"pad_button={getattr(config.input, 'pad_button', '') or 'off'}"
+    )
+    logger.info(
         f"STT: {'enabled' if config.stt.enabled else 'disabled'} "
         f"({config.stt.provider} / {config.stt.model} / lang={config.stt.language})"
     )
@@ -2864,6 +2869,7 @@ class TTSUpdateRequest(BaseModel):
 class InputUpdateRequest(BaseModel):
     chat_key: str | None = None
     end_key: str | None = None
+    pad_button: str | None = None
     overlay_enabled: bool | None = None
     overlay_style: str | None = None
     tap_overlay_enabled: bool | None = None
@@ -3673,6 +3679,7 @@ async def update_config(req: ConfigUpdateRequest):
         data["input"].update(input_patch)
         data["input"]["chat_key"] = normalize_key(data["input"].get("chat_key"), "v")
         data["input"]["end_key"] = normalize_key(data["input"].get("end_key"), "", allow_empty=True)
+        data["input"]["pad_button"] = normalize_pad_button(data["input"].get("pad_button", ""))
         new_style_raw = (data["input"].get("overlay_style") or "kcd").lower()
         if new_style_raw not in ("kcd", "plain"):
             new_style_raw = "kcd"
@@ -3690,7 +3697,7 @@ async def update_config(req: ConfigUpdateRequest):
                 logger.warning(f"Overlay live restyle failed: {e}")
         # If the chat key changed, retarget the KeyMonitor at the new VK.
         try:
-            key_monitor.update_config(chat_key=config.input.chat_key)
+            key_monitor.update_config(chat_key=config.input.chat_key, pad_button=config.input.pad_button)
             # update_config calls stop()+start() internally when the key
             # changes; if the new key is not in _VK_MAP (or the platform is
             # non-Windows), start() returns False and we must tell Lua to

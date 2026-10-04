@@ -156,6 +156,10 @@ class STTConfig(BaseModel):
 class InputConfig(BaseModel):
     chat_key: str = Field(default="v", description="Keyboard key for toggling AI NPC chat.")
     end_key: str = Field(default="", description="Optional separate keyboard key for ending AI NPC chat.")
+    pad_button: str = Field(
+        default="",
+        description="Gamepad button that opens AI NPC chat / push-to-talk (XInput): a, b, x, y, lb, rb, back, start, lstick, rstick, dpad_up, dpad_down, dpad_left, dpad_right. Empty = disabled. The game still receives the button press — pick one that is free in-game. Tap opens text chat, hold talks (same smart-V logic as the keyboard key).",
+    )
     overlay_enabled: bool = Field(default=True, description="Show a borderless Tkinter input overlay when chat is active.")
     overlay_style: str = Field(default="kcd", description="Visual style for the input overlay: 'kcd' (parchment + gold border, KCD2-styled) or 'plain' (minimal dark with thin gold border).")
     tap_overlay_enabled: bool = Field(default=True, description="Enable tap chat-key text input overlay. When false, short taps are ignored while hold-to-talk remains available.")
