@@ -640,6 +640,8 @@ class KeyMonitor:
 
             # ---------- rising edge ----------
             if now_down and not self._sm_was_down:
+                source = "pad" if self._is_pad_pressed() else "keyboard"
+                logger.info(f"[input] press detected (source={source}, key={self._chat_key!r}, pad={self._pad_button!r})")
                 self._handle_press()
 
             # ---------- still pressed: maybe promote to hold ----------
