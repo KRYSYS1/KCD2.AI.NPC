@@ -1467,7 +1467,7 @@
         <div class="form-hint" style="color:var(--accent-gold);margin-top:4px;" data-i18n="chat_key_english_note">Enter the key in English (Latin) letters only. Do not use Russian/Cyrillic characters.</div>
       </div>
       <div class="form-group" style="margin-top:10px;">
-        <label for="pad-button" data-i18n="pad_button">Gamepad button (chat / push-to-talk)</label>
+        <label for="pad-button">Gamepad button (chat / push-to-talk)</label>
         <div class="preset-row" id="pad-button-row">
           <button class="preset-btn" data-pad=""            onclick="setPadButton('')">Off</button>
           <button class="preset-btn" data-pad="back"        onclick="setPadButton('back')">Back</button>
@@ -1484,7 +1484,7 @@
           <button class="preset-btn" data-pad="dpad_right"  onclick="setPadButton('dpad_right')">D-Right</button>
         </div>
         <input type="hidden" id="pad-button" value="">
-        <div class="form-hint" data-i18n="pad_button_hint">Tap opens text chat, hold talks (same smart-V logic as the keyboard key). The game still receives the button press — pick one that is free in-game. Works alongside the keyboard key.</div>
+        <div class="form-hint">Tap opens text chat, hold talks (same smart-V logic as the keyboard key). The game still receives the button press — pick one that is free in-game. Works alongside the keyboard key.</div>
       </div>
       <div class="form-group" style="margin-top:10px;">
         <label for="overlay-style" data-i18n="overlay_style">Input overlay style</label>
@@ -3865,8 +3865,6 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       chat_key_hint: '\u041f\u043e \u0443\u043c\u043e\u043b\u0447\u0430\u043d\u0438\u044e: v. \u042d\u0442\u0430 \u043a\u043b\u0430\u0432\u0438\u0448\u0430 \u043e\u0442\u043a\u0440\u044b\u0432\u0430\u0435\u0442 \u0438 \u0437\u0430\u043a\u0440\u044b\u0432\u0430\u0435\u0442 AI-\u0447\u0430\u0442. \u041f\u0440\u0438\u043c\u0435\u0440\u044b:',
       chat_key_hint_2: '\u0421\u043e\u0445\u0440\u0430\u043d\u044f\u0435\u0442\u0441\u044f \u0432 Data\\Libs\\Config\\ai_npc_actions.xml. \u041f\u043e\u0441\u043b\u0435 \u0441\u043c\u0435\u043d\u044b \u043d\u0443\u0436\u0435\u043d \u0440\u0435\u0441\u0442\u0430\u0440\u0442/\u043f\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0430 \u0438\u0433\u0440\u043e\u0432\u044b\u0445 \u0441\u043a\u0440\u0438\u043f\u0442\u043e\u0432.',
       chat_key_english_note: '\u0412\u0432\u043e\u0434\u0438\u0442\u0435 \u043a\u043b\u0430\u0432\u0438\u0448\u0443 \u0442\u043e\u043b\u044c\u043a\u043e \u043d\u0430 \u0430\u043d\u0433\u043b\u0438\u0439\u0441\u043a\u043e\u043c (\u043b\u0430\u0442\u0438\u043d\u0438\u0446\u0435\u0439). \u041d\u0435 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439\u0442\u0435 \u0440\u0443\u0441\u0441\u043a\u0438\u0435 / \u043a\u0438\u0440\u0438\u043b\u043b\u0438\u0447\u0435\u0441\u043a\u0438\u0435 \u0441\u0438\u043c\u0432\u043e\u043b\u044b.',
-      pad_button: 'Кнопка геймпада (чат / голос)',
-      pad_button_hint: 'Короткое нажатие — текстовый чат, удержание — голосовой ввод (та же логика smart-V, что и у клавиши V). Кнопку «видит» и игра — выбирайте свободную. Работает вместе с клавиатурной клавишей.',
       end_key: '\u041e\u0442\u0434\u0435\u043b\u044c\u043d\u0430\u044f \u043a\u043b\u0430\u0432\u0438\u0448\u0430 \u0437\u0430\u043a\u0440\u044b\u0442\u0438\u044f',
       overlay_enabled: '\u041f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0442\u044c \u043e\u043a\u043d\u043e \u0432\u0432\u043e\u0434\u0430',
       overlay_on: '\u0412\u043a\u043b',
@@ -4098,8 +4096,6 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       chat_key_hint: 'Default: v. This key toggles AI chat open/closed. Examples:',
       chat_key_hint_2: 'Saved to Data\\Libs\\Config\\ai_npc_actions.xml. Restart/reload game scripts after changing.',
       chat_key_english_note: 'Enter the key in English (Latin) letters only. Do not use Russian/Cyrillic characters.',
-      pad_button: 'Gamepad button (chat / push-to-talk)',
-      pad_button_hint: 'Tap opens text chat, hold talks (same smart-V logic as the keyboard key). The game still receives the button press — pick one that is free in-game. Works alongside the keyboard key.',
       end_key: 'Optional separate end key',
       overlay_enabled: 'Show input overlay',
       overlay_on: 'On',
@@ -4132,7 +4128,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       testing: 'Testuji...', saving: 'Uloženo', save_ok_msg: 'Nastavení použito — restart není potřeba', save_err: 'Chyba ukládání', online: 'Online', offline: 'Offline', error: 'Chyba', offline_msg: 'Server neodpovídá', model_label: 'Model:', tts_ok_msg: 'Audio se přehrává', llm_ok_msg: 'Odpověď přijata', llm_err: 'Chyba LLM', tts_err: 'Chyba TTS',
       tts_title: 'Nastavení TTS', tts_enabled: 'Hlas NPC', tts_engine: 'Engine', tts_voice: 'Mužský hlas', tts_voice_female: 'Ženský hlas', tts_volume: 'Hlasitost', tts_voices_hint: 'Hlasy:', tts_test: 'Test TTS', tts_on: 'zapnuto', tts_off: 'vypnuto',
       hud_title: 'Zobrazení HUD', hud_left_top: 'Vlevo nahoře (štítek)', hud_right_top: 'Vpravo nahoře (oznámení)', hud_center: 'Uprostřed (titulek)',
-      input_title: 'Vstup / klávesy', chat_key: 'Klávesa AI chatu', chat_key_english_note: 'Zadejte klávesu pouze v angličtině (latinka). Nepoužívejte ruské/kyrilické znaky.', pad_button: 'Tlačítko gamepadu (chat / hlas)', pad_button_hint: 'Krátké stisknutí — textový chat, držení — hlasový vstup (stejná logika smart-V jako klávesa V). Hra tlačítko také vidí — zvolte volné. Funguje spolu s klávesnicí.', end_key: 'Volitelná klávesa zavření', overlay_enabled: 'Zobrazit vstupní overlay', overlay_on: 'Zap', overlay_off: 'Vyp', overlay_style: 'Styl vstupního okna', overlay_style_kcd: 'KCD2 (pergamen + zlato)', overlay_style_plain: 'Jednoduchý (tmavý)'
+      input_title: 'Vstup / klávesy', chat_key: 'Klávesa AI chatu', chat_key_english_note: 'Zadejte klávesu pouze v angličtině (latinka). Nepoužívejte ruské/kyrilické znaky.', end_key: 'Volitelná klávesa zavření', overlay_enabled: 'Zobrazit vstupní overlay', overlay_on: 'Zap', overlay_off: 'Vyp', overlay_style: 'Styl vstupního okna', overlay_style_kcd: 'KCD2 (pergamen + zlato)', overlay_style_plain: 'Jednoduchý (tmavý)'
     },
     de: { ...I18N.en,
       title: 'KCD2 AI NPC — Einstellungen', sub: '127.0.0.1:4999 · Serverkonfiguration · v1.0',
@@ -4147,7 +4143,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       testing: 'Teste...', saving: 'Gespeichert', save_ok_msg: 'Einstellungen angewendet — kein Neustart nötig', save_err: 'Speicherfehler', online: 'Online', offline: 'Offline', error: 'Fehler', offline_msg: 'Server antwortet nicht', model_label: 'Modell:', tts_ok_msg: 'Audio wird abgespielt', llm_ok_msg: 'Antwort erhalten', llm_err: 'LLM-Fehler', tts_err: 'TTS-Fehler',
       tts_title: 'TTS-Einstellungen', tts_enabled: 'NPC-Stimme', tts_engine: 'Engine', tts_voice: 'Männliche Stimme', tts_voice_female: 'Weibliche Stimme', tts_volume: 'Lautstärke', tts_voices_hint: 'Stimmen:', tts_test: 'TTS testen', tts_on: 'aktiviert', tts_off: 'deaktiviert',
       hud_title: 'HUD-Anzeige', hud_left_top: 'Oben links (Tafel)', hud_right_top: 'Oben rechts (Benachrichtigung)', hud_center: 'Mitte (Untertitel)',
-      input_title: 'Eingabe / Tasten', chat_key: 'AI-Chat-Taste', chat_key_english_note: 'Taste nur auf Englisch (Latein) eingeben. Keine russischen/kyrillischen Zeichen verwenden.', pad_button: 'Gamepad-Taste (Chat / Stimme)', pad_button_hint: 'Kurzes Drücken — Textchat, Gedrückthalten — Spracheingabe (gleiche Smart-V-Logik wie die Tastaturtaste). Das Spiel sieht die Taste ebenfalls — eine freie wählen. Funktioniert zusätzlich zur Tastatur.', end_key: 'Optionale Schließen-Taste', overlay_enabled: 'Eingabe-Overlay anzeigen', overlay_on: 'Ein', overlay_off: 'Aus', overlay_style: 'Stil des Eingabefensters', overlay_style_kcd: 'KCD2 (Pergament + Gold)', overlay_style_plain: 'Einfach (dunkel)'
+      input_title: 'Eingabe / Tasten', chat_key: 'AI-Chat-Taste', chat_key_english_note: 'Taste nur auf Englisch (Latein) eingeben. Keine russischen/kyrillischen Zeichen verwenden.', end_key: 'Optionale Schließen-Taste', overlay_enabled: 'Eingabe-Overlay anzeigen', overlay_on: 'Ein', overlay_off: 'Aus', overlay_style: 'Stil des Eingabefensters', overlay_style_kcd: 'KCD2 (Pergament + Gold)', overlay_style_plain: 'Einfach (dunkel)'
     },
     fr: { ...I18N.en,
       title: 'KCD2 AI NPC — Paramètres', sub: '127.0.0.1:4999 · configuration serveur · v1.0',
@@ -4162,7 +4158,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       testing: 'Test...', saving: 'Enregistré', save_ok_msg: 'Paramètres appliqués — redémarrage inutile', save_err: 'Erreur d’enregistrement', online: 'En ligne', offline: 'Hors ligne', error: 'Erreur', offline_msg: 'Le serveur ne répond pas', model_label: 'Modèle :', tts_ok_msg: 'Audio en lecture', llm_ok_msg: 'Réponse reçue', llm_err: 'Erreur LLM', tts_err: 'Erreur TTS',
       tts_title: 'Paramètres TTS', tts_enabled: 'Voix NPC', tts_engine: 'Moteur', tts_voice: 'Voix masculine', tts_voice_female: 'Voix féminine', tts_volume: 'Volume', tts_voices_hint: 'Voix :', tts_test: 'Tester TTS', tts_on: 'activé', tts_off: 'désactivé',
       hud_title: 'Affichage HUD', hud_left_top: 'Haut gauche (plaque)', hud_right_top: 'Haut droite (notification)', hud_center: 'Centre (sous-titre)',
-      input_title: 'Saisie / touches', chat_key: 'Touche chat IA', pad_button: 'Bouton manette (chat / voix)', pad_button_hint: 'Appui court — chat texte, appui long — entrée vocale (même logique smart-V que la touche clavier). Le jeu reçoit aussi l’appui — choisissez un bouton libre. Fonctionne en plus du clavier.', end_key: 'Touche de fermeture optionnelle', overlay_enabled: 'Afficher l’overlay de saisie', overlay_on: 'On', overlay_off: 'Off', overlay_style: 'Style de la fenêtre de saisie', overlay_style_kcd: 'KCD2 (parchemin + or)', overlay_style_plain: 'Simple (sombre)'
+      input_title: 'Saisie / touches', chat_key: 'Touche chat IA', end_key: 'Touche de fermeture optionnelle', overlay_enabled: 'Afficher l’overlay de saisie', overlay_on: 'On', overlay_off: 'Off', overlay_style: 'Style de la fenêtre de saisie', overlay_style_kcd: 'KCD2 (parchemin + or)', overlay_style_plain: 'Simple (sombre)'
     },
     es: { ...I18N.en,
       title: 'KCD2 AI NPC — Ajustes', sub: '127.0.0.1:4999 · configuración del servidor · v1.0',
@@ -4177,7 +4173,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       testing: 'Probando...', saving: 'Guardado', save_ok_msg: 'Ajustes aplicados — no hace falta reiniciar', save_err: 'Error al guardar', online: 'En línea', offline: 'Sin conexión', error: 'Error', offline_msg: 'El servidor no responde', model_label: 'Modelo:', tts_ok_msg: 'Audio reproduciéndose', llm_ok_msg: 'Respuesta recibida', llm_err: 'Error LLM', tts_err: 'Error TTS',
       tts_title: 'Ajustes TTS', tts_enabled: 'Voz NPC', tts_engine: 'Motor', tts_voice: 'Voz masculina', tts_voice_female: 'Voz femenina', tts_volume: 'Volumen', tts_voices_hint: 'Voces:', tts_test: 'Probar TTS', tts_on: 'activado', tts_off: 'desactivado',
       hud_title: 'Visualización HUD', hud_left_top: 'Arriba izquierda (placa)', hud_right_top: 'Arriba derecha (notificación)', hud_center: 'Centro (subtítulo)',
-      input_title: 'Entrada / teclas', chat_key: 'Tecla de chat IA', pad_button: 'Botón de mando (chat / voz)', pad_button_hint: 'Pulsación corta — chat de texto, mantener — voz (misma lógica smart-V que la tecla del teclado). El juego también recibe la pulsación: elige un botón libre. Funciona junto al teclado.', end_key: 'Tecla opcional de cierre', overlay_enabled: 'Mostrar overlay de entrada', overlay_on: 'On', overlay_off: 'Off', overlay_style: 'Estilo de ventana de entrada', overlay_style_kcd: 'KCD2 (pergamino + oro)', overlay_style_plain: 'Simple (oscuro)'
+      input_title: 'Entrada / teclas', chat_key: 'Tecla de chat IA', end_key: 'Tecla opcional de cierre', overlay_enabled: 'Mostrar overlay de entrada', overlay_on: 'On', overlay_off: 'Off', overlay_style: 'Estilo de ventana de entrada', overlay_style_kcd: 'KCD2 (pergamino + oro)', overlay_style_plain: 'Simple (oscuro)'
     },
     pl: { ...I18N.en,
       title: 'KCD2 AI NPC — Ustawienia', sub: '127.0.0.1:4999 · konfiguracja serwera · v1.0',
@@ -4192,7 +4188,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       testing: 'Testowanie...', saving: 'Zapisano', save_ok_msg: 'Ustawienia zastosowane — restart niepotrzebny', save_err: 'Błąd zapisu', online: 'Online', offline: 'Offline', error: 'Błąd', offline_msg: 'Serwer nie odpowiada', model_label: 'Model:', tts_ok_msg: 'Audio jest odtwarzane', llm_ok_msg: 'Odpowiedź otrzymana', llm_err: 'Błąd LLM', tts_err: 'Błąd TTS',
       tts_title: 'Ustawienia TTS', tts_enabled: 'Głos NPC', tts_engine: 'Silnik', tts_voice: 'Głos męski', tts_voice_female: 'Głos żeński', tts_volume: 'Głośność', tts_voices_hint: 'Głosy:', tts_test: 'Test TTS', tts_on: 'włączone', tts_off: 'wyłączone',
       hud_title: 'Wyświetlanie HUD', hud_left_top: 'Lewy górny róg (tabliczka)', hud_right_top: 'Prawy górny róg (powiadomienie)', hud_center: 'Środek (napisy)',
-      input_title: 'Wejście / klawisze', chat_key: 'Klawisz czatu AI', pad_button: 'Przycisk pada (czat / głos)', pad_button_hint: 'Krótkie naciśnięcie — czat tekstowy, przytrzymanie — głos (ta sama logika smart-V co klawisz V). Gra też widzi przycisk — wybierz wolny. Działa obok klawiatury.', end_key: 'Opcjonalny klawisz zamknięcia', overlay_enabled: 'Pokaż overlay wejścia', overlay_on: 'Wł.', overlay_off: 'Wył.', overlay_style: 'Styl okna wejścia', overlay_style_kcd: 'KCD2 (pergamin + złoto)', overlay_style_plain: 'Prosty (ciemny)'
+      input_title: 'Wejście / klawisze', chat_key: 'Klawisz czatu AI', end_key: 'Opcjonalny klawisz zamknięcia', overlay_enabled: 'Pokaż overlay wejścia', overlay_on: 'Wł.', overlay_off: 'Wył.', overlay_style: 'Styl okna wejścia', overlay_style_kcd: 'KCD2 (pergamin + złoto)', overlay_style_plain: 'Prosty (ciemny)'
     },
     zh: { ...I18N.en,
       title: 'KCD2 AI NPC — 设置', sub: '127.0.0.1:4999 · 服务器配置 · v1.0',
@@ -4207,7 +4203,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       testing: '测试中...', saving: '已保存', save_ok_msg: '设置已应用 — 无需重启', save_err: '保存错误', online: '在线', offline: '离线', error: '错误', offline_msg: '服务器无响应', model_label: '模型：', tts_ok_msg: '音频正在播放', llm_ok_msg: '已收到回复', llm_err: 'LLM 错误', tts_err: 'TTS 错误',
       tts_title: 'TTS 设置', tts_enabled: 'NPC 语音', tts_engine: '引擎', tts_voice: '男性声音', tts_voice_female: '女性声音', tts_volume: '音量', tts_voices_hint: '声音：', tts_test: '测试 TTS', tts_on: '已启用', tts_off: '已禁用',
       hud_title: 'HUD 显示', hud_left_top: '左上（牌匾）', hud_right_top: '右上（通知）', hud_center: '中间（字幕）',
-      input_title: '输入 / 按键', chat_key: 'AI 聊天键', pad_button: '手柄按键（聊天 / 语音）', pad_button_hint: '轻按打开文字聊天，长按开始说话（与键盘按键相同的 smart-V 逻辑）。游戏也会收到该按键——请选择游戏中空闲的按键。可与键盘按键同时使用。', end_key: '可选关闭键', overlay_enabled: '显示输入覆盖层', overlay_on: '开', overlay_off: '关', overlay_style: '输入窗口样式', overlay_style_kcd: 'KCD2（羊皮纸 + 金色）', overlay_style_plain: '简洁（深色）'
+      input_title: '输入 / 按键', chat_key: 'AI 聊天键', end_key: '可选关闭键', overlay_enabled: '显示输入覆盖层', overlay_on: '开', overlay_off: '关', overlay_style: '输入窗口样式', overlay_style_kcd: 'KCD2（羊皮纸 + 金色）', overlay_style_plain: '简洁（深色）'
     },
     ja: { ...I18N.en,
       title: 'KCD2 AI NPC — 設定', sub: '127.0.0.1:4999 · サーバー設定 · v1.0',
@@ -4222,7 +4218,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       testing: 'テスト中...', saving: '保存済み', save_ok_msg: '設定を適用しました — 再起動不要', save_err: '保存エラー', online: 'オンライン', offline: 'オフライン', error: 'エラー', offline_msg: 'サーバーが応答しません', model_label: 'モデル:', tts_ok_msg: '音声を再生中', llm_ok_msg: '応答を受信しました', llm_err: 'LLM エラー', tts_err: 'TTS エラー',
       tts_title: 'TTS 設定', tts_enabled: 'NPC 音声', tts_engine: 'エンジン', tts_voice: '男性音声', tts_voice_female: '女性音声', tts_volume: '音量', tts_voices_hint: '音声:', tts_test: 'TTS テスト', tts_on: '有効', tts_off: '無効',
       hud_title: 'HUD 表示', hud_left_top: '左上（プレート）', hud_right_top: '右上（通知）', hud_center: '中央（字幕）',
-      input_title: '入力 / キー', chat_key: 'AI チャットキー', pad_button: 'ゲームパッドボタン（チャット / 音声）', pad_button_hint: '短押しでテキストチャット、長押しで音声入力（キーボードキーと同じ smart-V ロジック）。ゲーム側にもボタン入力が渡るため、空いているボタンを選んでください。キーボードキーと併用できます。', end_key: '任意の終了キー', overlay_enabled: '入力オーバーレイを表示', overlay_on: 'オン', overlay_off: 'オフ', overlay_style: '入力ウィンドウのスタイル', overlay_style_kcd: 'KCD2（羊皮紙 + 金）', overlay_style_plain: 'シンプル（暗色）'
+      input_title: '入力 / キー', chat_key: 'AI チャットキー', end_key: '任意の終了キー', overlay_enabled: '入力オーバーレイを表示', overlay_on: 'オン', overlay_off: 'オフ', overlay_style: '入力ウィンドウのスタイル', overlay_style_kcd: 'KCD2（羊皮紙 + 金）', overlay_style_plain: 'シンプル（暗色）'
     },
   });
 
