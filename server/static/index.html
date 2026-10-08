@@ -3277,29 +3277,22 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
 function detectSttProvider() {
     const url = document.getElementById('stt-api-url').value.trim();
 
-    // kaneclev PR: empty URL cannot tell local whisper from Custom.
+    // an empty URL is ambiguous; could be custom or could be local. 
     if (!url) {
         markSttProvider(activeSttProvider);
         return;
     }
-
+    // find out if the url they are using is one that 
+    // we already define as a provider
     const inferred = mapsToExistingSttProvider(url) || 'custom';
-
+    // if it turns out there is a predefined provider
+    // and they are linking to it in custom...
     if (inferred !== activeSttProvider) {
         snapshotCurrentSttProfile();
-
-        const saved = sttProviderProfiles[inferred] || {};
-
-        if (!document.getElementById('stt-api-key').value.trim() && saved.key) {
-            document.getElementById('stt-api-key').value = saved.key;
-        }
-
-        if (!document.getElementById('stt-model').value.trim() && saved.model) {
-            document.getElementById('stt-model').value = saved.model;
-        }
+        markSttProvider(inferred);
+    } else {
+        markSttProvider(activeSttProvider);
     }
-
-    markSttProvider(inferred);
 }
 
 
