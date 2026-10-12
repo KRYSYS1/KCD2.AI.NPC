@@ -2778,7 +2778,8 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
       const stt = d.stt || {};
       const sttEnabled = stt.enabled !== false;
       document.getElementById('stt-enabled').checked = sttEnabled;
-      const sttProv = stt.provider || detectSttProviderFromUrl(stt.api_url || '') || 'groq';
+      
+      const sttProv = stt.provider || mapsToExistingSttProvider(stt.api_url || '') || 'groq';
       document.getElementById('stt-api-url').value        = stt.api_url || STT_DEFAULTS[sttProv]?.url || '';
       document.getElementById('stt-model').value          = stt.model || STT_DEFAULTS[sttProv]?.model || 'base';
       document.getElementById('stt-api-key').value        = stt.api_key || '';
@@ -3211,13 +3212,7 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     };
     saveSttProviderProfiles();
   }
-  function detectSttProviderFromUrl(url) {
-    const u = (url || '').trim().toLowerCase();
-    for (const [provider, needles] of STT_PROVIDER_ALIASES) {
-      if (needles.some(n => u.includes(n))) return provider;
-    }
-    return 'custom';
-  }
+
   function markSttProvider(provider) {
     if (!STT_DEFAULTS[provider]) provider = 'faster-whisper';
     document.getElementById('stt-provider').value = provider;
@@ -3241,28 +3236,66 @@ REMINDER: vulgar, obscene, unrestrained. Max 40 words. Swear like a medieval pea
     }
     updateKeyLink('stt-api-key-link', STT_KEY_URLS[provider]);
     activeSttProvider = provider;
+
+    return activeSttProvider;
+
   }
+
   function setSttProvider(provider) {
     if (!STT_DEFAULTS[provider]) provider = 'faster-whisper';
+
     snapshotCurrentSttProfile();
     const saved = sttProviderProfiles[provider] || {};
     const isCustom = provider === 'custom';
     document.getElementById('stt-api-url').value = isCustom ? (saved.url ?? '') : (STT_DEFAULTS[provider].url || '');
     document.getElementById('stt-model').value = (saved.model && saved.model.length) ? saved.model : (STT_DEFAULTS[provider].model || '');
+
     document.getElementById('stt-api-key').value = saved.key ?? '';
     markSttProvider(provider);
+
   }
-  function detectSttProvider() {
-    const inferred = detectSttProviderFromUrl(document.getElementById('stt-api-url').value);
-    if (inferred !== activeSttProvider) {
-      snapshotCurrentSttProfile();
-      activeSttProvider = inferred;
-      const saved = sttProviderProfiles[inferred] || {};
-      if (!document.getElementById('stt-api-key').value.trim() && saved.key) document.getElementById('stt-api-key').value = saved.key;
-      if (!document.getElementById('stt-model').value.trim() && saved.model) document.getElementById('stt-model').value = saved.model;
+
+  /** kaneclev PR
+   * Function to detect existing pre-defined providers within a given url.
+   * 
+   * url : string URL which might include known aliases.
+   * return : null if no such alias is found; returns the provider if 
+   *    a known alias of the provider is found as a substring of url.
+  **/ 
+  function mapsToExistingSttProvider(url) {
+      const cleanedUrl = (url || '').trim().toLowerCase();
+      const match = STT_PROVIDER_ALIASES.find(
+          ([provider, aliases]) =>
+              aliases.some(alias => cleanedUrl.includes(alias.toLowerCase()))
+      );
+
+      return match?.[0] ?? null;
+  }
+
+
+  
+function detectSttProvider() {
+    const url = document.getElementById('stt-api-url').value.trim();
+
+    // an empty URL is ambiguous; could be custom or could be local. 
+    if (!url) {
+        markSttProvider(activeSttProvider);
+        return;
     }
-    markSttProvider(inferred);
-  }
+    // find out if the url they are using is one that 
+    // we already define as a provider
+    const inferred = mapsToExistingSttProvider(url) || 'custom';
+    // if it turns out there is a predefined provider
+    // and they are linking to it in custom...
+    if (inferred !== activeSttProvider) {
+        snapshotCurrentSttProfile();
+        markSttProvider(inferred);
+    } else {
+        markSttProvider(activeSttProvider);
+    }
+}
+
+
   loadSttProviderProfiles();
 
   function onSttToggle(enabled) {
