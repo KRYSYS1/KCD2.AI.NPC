@@ -3289,6 +3289,9 @@ function detectSttProvider() {
     // and they are linking to it in custom...
     if (inferred !== activeSttProvider) {
         snapshotCurrentSttProfile();
+        const saved = sttProviderProfiles[inferred] || {};
+        if (!document.getElementById('stt-api-key').value.trim() && saved.key) document.getElementById('stt-api-key').value = saved.key;
+        if (!document.getElementById('stt-model').value.trim() && saved.model) document.getElementById('stt-model').value = saved.model;
         markSttProvider(inferred);
     } else {
         markSttProvider(activeSttProvider);
